@@ -1,0 +1,11 @@
+/__pycache__/
+*.py[cod]
+.venv/
+.ipynb_checkpoints/
+
+# Input and generated datasets
+data/
+
+# Generated training artifacts
+catboost_info/
+model_ML/saved_models/
