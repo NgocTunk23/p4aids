@@ -1,0 +1,15 @@
+step,train_rows_before,train_rows_after,train_rows_added,train_rows_removed,train_rows_affected,train_values_changed,test_rows_before,test_rows_after,test_rows_added,test_rows_removed,test_rows_affected,test_values_changed,columns_added
+Nạp CSV bằng pandas,1749494,1749494,0,0,0,0,1800567,1800567,0,0,0,0,0
+EDA ban đầu (không biến đổi dữ liệu),1749494,1749494,0,0,0,0,1800567,1800567,0,0,0,0,0
+Tách nhãn và row_id,1749494,1749494,0,0,0,0,1800567,1800567,0,0,0,0,0
+Chuẩn hóa timestamp (giữ để feature engineering),1749494,1749494,0,0,1749494,1749494,1800567,1800567,0,0,1800567,1800567,0
+Đồng bộ cột train/test,1749494,1749494,0,0,0,0,1800567,1800567,0,0,0,0,0
+Loại bỏ feature thừa & thêm cờ missing,1749494,1749494,0,0,1749494,1749494,1800567,1800567,0,0,1800567,1800567,-18
+Tạo đặc trưng chu kỳ (sin/cos) cho thời gian,1749494,1749494,0,0,1749494,10496964,1800567,1800567,0,0,1800567,10803402,3
+Điền thiếu numeric bằng nội suy theo building/timestamp,1749494,1749494,0,0,107653,107653,1800567,1800567,0,0,94864,94864,0
+Lọc ngoại lai (Outlier) bằng Median,1749494,1749494,0,0,759868,759868,1800567,1800567,0,0,765652,765652,0
+Chuẩn hóa dữ liệu (Z-score Normalization),1749494,1749494,0,0,1749494,33240386,1800567,1800567,0,0,1800567,34210773,0
+Mã hóa One-Hot & Frequency Encoding,1749494,1749494,0,0,1749494,0,1800567,1800567,0,0,1800567,0,12
+Kiểm tra cuối (không biến đổi dữ liệu),1749494,1749494,0,0,0,0,1800567,1800567,0,0,0,0,0
+EDA sau tiền xử lý (không biến đổi dữ liệu),1749494,1749494,0,0,0,0,1800567,1800567,0,0,0,0,0
+Xuất Parquet (giảm dung lượng),1749494,1749494,0,0,0,0,1800567,1800567,0,0,0,0,0
