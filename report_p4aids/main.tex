@@ -1,0 +1,257 @@
+\documentclass[12pt,a4paper]{article}
+\usepackage[utf8]{inputenc}
+\usepackage[vietnamese]{babel}
+\usepackage{amsmath}
+\usepackage{amsfonts}
+\usepackage{amssymb}
+\usepackage{graphicx}
+\usepackage{geometry}
+\usepackage{float}
+\usepackage{booktabs}
+\usepackage{array}
+\usepackage{multirow}
+\usepackage{hyperref}
+\usepackage{listings}
+\usepackage{xcolor}
+\usepackage{caption}
+\usepackage{subcaption}
+\usepackage{enumitem}
+\usepackage{longtable} 
+\usepackage{indentfirst}
+\geometry{margin=2.5cm}
+% Code listing style
+\lstset{
+    language=Python,
+    basicstyle=\ttfamily\footnotesize,
+    commentstyle=\color{gray},
+    keywordstyle=\color{blue},
+    numberstyle=\tiny\color{gray},
+    stringstyle=\color{red},
+    breaklines=true,
+    frame=single,
+    showstringspaces=false
+}
+% Định nghĩa màu sắc
+\definecolor{codegreen}{rgb}{0,0.6,0}
+\definecolor{codegray}{rgb}{0.5,0.5,0.5}
+\definecolor{codepurple}{rgb}{0.58,0,0.82}
+\definecolor{backcolour}{rgb}{0.95,0.95,0.92}
+
+% Thiết lập style cho Python
+\lstdefinestyle{mystyle}{
+    backgroundcolor=\color{backcolour},   
+    commentstyle=\color{codegreen},
+    keywordstyle=\color{magenta},
+    numberstyle=\tiny\color{codegray},
+    stringstyle=\color{codepurple},
+    basicstyle=\ttfamily\footnotesize,
+    breakatwhitespace=false,         
+    breaklines=true,                 
+    captionpos=b,                    
+    keepspaces=true,                 
+    numbers=left,                    
+    numbersep=5pt,                  
+    showspaces=false,                
+    showstringspaces=false,
+    showtabs=false,                  
+    tabsize=2,
+    language=Python
+}
+
+% \usetikzlibrary{arrows,snakes,backgrounds}
+% \usepackage{hyperref}
+% \hypersetup{urlcolor=blue,linkcolor=black,citecolor=black,colorlinks=true} 
+% %\usepackage{pstcol} 								% PSTricks with the standard color package
+
+% \newtheorem{theorem}{{\bf Định lý}}
+% \newtheorem{property}{{\bf Tính chất}}
+% \newtheorem{proposition}{{\bf Mệnh đề}}
+% \newtheorem{corollary}[proposition]{{\bf Hệ quả}}
+% \newtheorem{lemma}[proposition]{{\bf Bổ đề}}
+
+% \everymath{\color{blue}}
+% %\usepackage{fancyhdr}
+% \setlength{\headheight}{40pt}
+% \pagestyle{fancy}
+% \fancyhead{} % clear all header fields
+% \fancyhead[L]{
+% 	\begin{tabular}{rl}
+% 		\begin{picture}(25,15)(0,0)
+% 			\put(0,-8){\includegraphics[width=8mm, height=8mm]{Logo BK.png}}
+% 			%\put(0,-8){\epsfig{width=10mm,figure=hcmut.eps}}
+% 		\end{picture}&
+% 		%\includegraphics[width=8mm, height=8mm]{hcmut.png} & %
+% 		\begin{tabular}{l}
+% 			\textbf{\bf \ttfamily Trường Đại Học Bách Khoa TP.Hồ Chí Minh}\\
+% 		\end{tabular} 	
+% 	\end{tabular}
+% }
+% \fancyhead[R]{
+% 	\begin{tabular}{l}
+% 		\tiny \bf \\
+% 		\tiny \bf 
+% \end{tabular}  }
+% \fancyfoot{} % clear all footer fields
+% \fancyfoot[L]{\scriptsize \ttfamily Project cuối khóa - 2025}
+% \fancyfoot[R]{\scriptsize \ttfamily Trang {\thepage}/\pageref{LastPage}}
+% \renewcommand{\headrulewidth}{0.3pt}
+% \renewcommand{\footrulewidth}{0.3pt}
+
+\usepackage{fancyhdr}
+%%%
+\setcounter{secnumdepth}{4}
+\setcounter{tocdepth}{3}
+\makeatletter
+\newcounter {subsubsubsection}[subsubsection]
+\renewcommand\thesubsubsubsection{\thesubsubsection .\@alph\c@subsubsubsection}
+\newcommand\subsubsubsection{\@startsection{subsubsubsection}{4}{\z@}%
+	{-3.25ex\@plus -1ex \@minus -.2ex}%
+	{1.5ex \@plus .2ex}%
+	{\normalfont\normalsize\bfseries}}
+\newcommand*\l@subsubsubsection{\@dottedtocline{3}{10.0em}{4.1em}}
+\newcommand*{\subsubsubsectionmark}[1]{}
+
+
+\makeatother
+
+
+
+\renewcommand{\headrulewidth}{0.3pt}
+ \renewcommand{\footrulewidth}{0.3pt}
+\fancyfoot{} % clear all footer fields
+\fancyfoot[L]{\scriptsize \ttfamily Báo cáo Bài tập lớn Lập trình cho Trí tuệ nhân tạo và Khoa học dữ liệu - CO3135 HK261 }
+\fancyfoot[R]{\scriptsize \ttfamily Trang \thepage}
+
+
+
+
+\definecolor{dkgreen}{rgb}{0,0.6,0}
+\definecolor{gray}{rgb}{0.5,0.5,0.5}
+\definecolor{mauve}{rgb}{0.58,0,0.82}
+
+\lstset{frame=tb,
+	language=Matlab,
+	aboveskip=3mm,
+	belowskip=3mm,
+	showstringspaces=false,
+	columns=flexible,
+	basicstyle={\small\ttfamily},
+	numbers=none,
+	numberstyle=\tiny\color{gray},
+	keywordstyle=\color{blue},
+	commentstyle=\color{dkgreen},
+	stringstyle=\color{mauve},
+	breaklines=true,
+	breakatwhitespace=true,
+	tabsize=3,
+	numbers=left,
+	stepnumber=1,
+	numbersep=1pt,    
+	firstnumber=1,
+	numberfirstline=true
+}
+\usepackage[T5]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage[vietnamese]{babel}
+\usepackage{listingsutf8}
+\usepackage{mdframed}
+%\usepackage{fancyhdr}
+\setlength{\headheight}{50pt}
+\lstset{style=mystyle}
+\usepackage{fancyhdr}
+%\usepackage{fancyhdr}
+
+\setlength{\headheight}{40pt}
+\pagestyle{fancy}
+\fancyhead{} % clear all header fields
+\fancyhead[L]{%
+  \begin{tabular}{rl}
+    \includegraphics[width=10mm]{IMAGE/LOGO HCMUT.png} &
+    \parbox[b]{14cm}{% chiều rộng khối chữ, chỉnh theo ý
+      \textbf{\ttfamily TRƯỜNG ĐẠI HỌC BÁCH KHOA - ĐHQG-HCM}\\[1pt]
+      \textbf{\ttfamily KHOA KHOA HỌC VÀ KỸ THUẬT MÁY TÍNH}
+    }
+  \end{tabular}%
+}
+
+
+\begin{document}
+
+	\begin{titlepage}
+		\begin{center}
+			ĐẠI HỌC QUỐC GIA THÀNH PHỐ HỒ CHÍ MINH \\
+			TRƯỜNG ĐẠI HỌC BÁCH KHOA \\
+			KHOA KHOA HỌC \& KỸ THUẬT MÁY TÍNH
+		\end{center}
+		
+		\vspace{1cm}
+		
+		\begin{figure}[h!]
+			\begin{center}
+				\includegraphics[width=4cm]{IMAGE/LOGO HCMUT.png}
+			\end{center}
+		\end{figure}
+		
+		\vspace{1cm}
+		
+		
+		\begin{center}
+            \begin{tabular}{c}
+                \textbf{\Large Lập trình cho Trí tuệ nhân tạo và Khoa học dữ liệu} \\[6pt]
+                \textbf{\Large CO3135} \\[8pt]
+                \hline
+                \\[6pt]
+                \hspace{-1cm}\textbf{\Large PHÁT HIỆN BẤT THƯỜNG PHỤ TẢI ĐIỆN} \\
+                \hspace{-1cm}\textbf{\Large BẰNG CÁC PHƯƠNG PHÁP HỌC MÁY VÀ HỌC SÂU} \\
+                \hspace{-1cm}\textbf{\Large TÍCH HỢP THÔNG TIN SIÊU DỮ LIỆU} \\[10pt]
+                \hline
+            \end{tabular}
+        \end{center}
+		
+		\vspace{1.5cm}
+		
+		\begin{table}[h]
+			\begin{tabular}{rrl}
+				\hspace{5 cm} & GVHD: & ThS Trần Huy \\
+				&NHÓM:& \textbf{L01}  \\
+				& SV: & Nguyễn Ngọc Tôn - 2313508\\
+				& & Nguyễn Miên Phú - 2312658\\
+				& & Trần Đỗ Đức Phát - 2312596\\
+                & & Huỳnh Kim Quý  - 2312894\\
+                & & Nguyễn Đức Tiến - 2313431\\ 
+			\end{tabular}
+		\end{table}
+		
+		\begin{center}
+            \vspace{50pt}
+			{\footnotesize TP. HỒ CHÍ MINH, THÁNG 12/2026}
+		\end{center}
+	\end{titlepage}
+	
+	
+	\thispagestyle{empty}
+	
+	\newpage
+	\tableofcontents
+	\newpage
+	
+	%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+	
+	
+	%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\include{0 Bảng phân công}
+
+\include{1 Tổng quan về bài toán và dữ liệu}
+
+\include{2 Tổng quan tài liệu}
+
+\include{3 Tiền xử lý dữ liệu}
+
+\include{4 ML}
+
+\include{5 DL}
+
+\include{6 Đánh giá, So sánh và Phân tích kết quả hiệu năng}
+
+\include{7 Kết luận và Hướng phát triển tương lai}
+\end{document}

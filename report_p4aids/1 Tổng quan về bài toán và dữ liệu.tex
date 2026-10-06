@@ -1,0 +1,190 @@
+\section{Tổng quan về Bài toán và Dữ liệu}
+\subsection{Giới thiệu bài toán}
+
+Các tòa nhà hiện đại tiêu thụ một lượng lớn năng lượng và được trang bị nhiều công tơ điện thông minh (smart electricity meters). Các thiết bị này liên tục ghi nhận mức tiêu thụ điện theo thời gian, tạo ra một lượng lớn dữ liệu chuỗi thời gian. Việc phân tích các dữ liệu này có thể hỗ trợ phát hiện những trường hợp sử dụng năng lượng bất thường, từ đó góp phần xác định các vấn đề như sự cố thiết bị, thiết bị xuống cấp, cấu hình không phù hợp hoặc các hành vi sử dụng năng lượng không hiệu quả.
+
+Trong bài toán này, nhóm tập trung vào \textit{Energy Anomaly Detection}, tức bài toán phát hiện các điểm bất thường trong dữ liệu tiêu thụ điện. Một điểm dữ liệu được xem là bất thường (\textit{anomaly}) khi mức tiêu thụ điện tại thời điểm đó có hành vi khác biệt đáng kể so với trạng thái sử dụng điện thông thường. Ngược lại, các điểm dữ liệu phù hợp với trạng thái sử dụng thông thường được xem là bình thường (\textit{normal}).
+
+Bài toán trong cuộc thi Large-scale Energy Anomaly Detection (LEAD) tập trung vào dạng \textit{point anomaly}, trong đó mỗi điểm đo điện được xem xét và xác định là bình thường hoặc bất thường. Cụ thể, dữ liệu đầu vào bao gồm thông tin về tòa nhà, thời điểm ghi nhận và mức tiêu thụ điện. Mục tiêu của mô hình là học được các đặc trưng của dữ liệu tiêu thụ điện từ tập dữ liệu huấn luyện có gán nhãn, sau đó dự đoán trạng thái bất thường của các điểm dữ liệu chưa được gán nhãn.
+
+Về mặt bài toán học máy, có thể biểu diễn quá trình tổng quát như sau:
+\[
+X = \{\text{building\_id},\text{timestamp},\text{meter\_reading},\text{features}\}
+\]
+
+\[
+X \longrightarrow \text{Mô hình phát hiện bất thường}
+\longrightarrow y \in \{0,1\},
+\]
+
+trong đó $y=0$ biểu thị điểm dữ liệu bình thường và $y=1$ biểu thị điểm dữ liệu bất thường. Bên cạnh các phương pháp Học máy truyền thống, bài toán cũng có thể được giải quyết bằng các phương pháp Học sâu nhằm khai thác các đặc trưng và mối quan hệ phức tạp trong dữ liệu chuỗi thời gian.
+
+Việc phát hiện chính xác các điểm bất thường trong dữ liệu tiêu thụ điện có ý nghĩa thực tiễn trong việc giám sát và quản lý năng lượng. Kết quả phát hiện có thể hỗ trợ nhận biết các hành vi sử dụng điện bất thường, phát hiện các vấn đề liên quan đến thiết bị và góp phần giảm lãng phí năng lượng trong các tòa nhà.
+
+\subsection{Mô tả tập dữ liệu}
+
+Dữ liệu được sử dụng trong bài toán được cung cấp thông qua cuộc thi
+\textit{Large-scale Energy Anomaly Detection (LEAD)} trên nền tảng
+Kaggle. Bộ dữ liệu được xây dựng dựa trên dữ liệu của cuộc thi
+\textit{ASHRAE - Great Energy Predictor III} và được mở rộng bằng cách
+gán nhãn bất thường cho các điểm dữ liệu tiêu thụ điện. Dữ liệu bao gồm
+các phép đo điện theo từng giờ trong năm 2016 tại nhiều tòa nhà thương
+mại.
+
+Bộ dữ liệu được chia thành tập huấn luyện và tập kiểm tra. Tập huấn
+luyện gồm dữ liệu của 200 tòa nhà với tổng cộng 1.749.494 bản ghi,
+trong khi tập kiểm tra gồm dữ liệu của 206 tòa nhà khác với tổng cộng
+1.800.567 bản ghi. Cả hai tập dữ liệu đều có các bản ghi trải dài từ
+00:00 ngày 01/01/2016 đến 23:00 ngày 31/12/2016.
+
+\subsubsection{Các tệp dữ liệu}
+
+% Bộ dữ liệu gồm năm tệp CSV chính: \texttt{train.csv},
+% \texttt{test.csv}, 
+\texttt{train\_features.csv},
+\texttt{test\_features.csv}
+và \texttt{sample\_submission.csv}.
+
+\begin{itemize}
+    % \item \texttt{train.csv}: tập dữ liệu huấn luyện gồm 1.749.494
+    % bản ghi thuộc 200 tòa nhà. Mỗi bản ghi chứa mã tòa nhà, thời điểm
+    % đo, mức tiêu thụ điện và nhãn bất thường.
+
+    % \item \texttt{test.csv}: tập dữ liệu kiểm tra gồm 1.800.567
+    % bản ghi thuộc 206 tòa nhà. Tập này không chứa nhãn
+    % \texttt{anomaly} và được sử dụng để đánh giá khả năng dự đoán
+    % của mô hình. Mỗi bản ghi có thêm \texttt{row\_id} để xác định
+    % bản ghi tương ứng trong tệp kết quả.
+
+    \item \texttt{train\_features.csv}: tập các đặc trưng bổ sung
+    tương ứng với tập huấn luyện. Tệp gồm 1.749.494 bản ghi và
+    57 thuộc tính, cung cấp thêm thông tin về tòa nhà, điều kiện
+    thời tiết, thời gian và các đặc trưng được xây dựng từ dữ liệu
+    tiêu thụ điện.
+
+    \item \texttt{test\_features.csv}: tập các đặc trưng bổ sung
+    tương ứng với tập kiểm tra, gồm 1.800.567 bản ghi và 57 thuộc tính nhưng không có biến \texttt{anomaly} do đây là dữ liệu test để thực hiện cho cuộc thi.
+
+    % \item \texttt{sample\_submission.csv}: tệp mẫu quy định định
+    % dạng kết quả dự đoán cần nộp, bao gồm \texttt{row\_id} và giá trị
+    % dự đoán \texttt{anomaly}.
+\end{itemize}
+
+\subsubsection{Các thuộc tính chính}
+
+Các thuộc tính cơ bản của tập huấn luyện và tập kiểm tra được mô tả
+trong Bảng~\ref{tab:main_features}.
+
+\begin{table}[H]
+\centering
+\caption{Các thuộc tính chính của bộ dữ liệu}
+\label{tab:main_features}
+\begin{tabular}{|l|p{9cm}|}
+\hline
+\textbf{Thuộc tính} & \textbf{Mô tả} \\ \hline
+
+\texttt{building\_id} &
+Mã định danh của tòa nhà nơi dữ liệu được ghi nhận. \\ \hline
+
+\texttt{timestamp} &
+Thời điểm ghi nhận mức tiêu thụ điện. Dữ liệu được ghi nhận theo
+từng giờ. \\ \hline
+
+\texttt{meter\_reading} &
+Mức tiêu thụ điện của tòa nhà tại thời điểm tương ứng, tính bằng
+kWh. \\ \hline
+
+\texttt{anomaly} &
+Nhãn xác định trạng thái của điểm dữ liệu trong tập huấn luyện,
+trong đó $0$ là dữ liệu bình thường và $1$ là dữ liệu bất thường.
+\\ \hline
+
+\texttt{row\_id} &
+Mã định danh của bản ghi trong tập kiểm tra, được sử dụng để liên
+kết kết quả dự đoán với từng bản ghi. \\ \hline
+
+\end{tabular}
+\end{table}
+
+Trong đó, thuộc tính \texttt{anomaly} chỉ xuất hiện trong tập huấn
+luyện và đóng vai trò là biến mục tiêu cần dự đoán. Kết quả thống kê
+cho thấy tập huấn luyện có 1.712.198 bản ghi thuộc lớp bình thường
+($\texttt{anomaly}=0$) và 37.296 bản ghi thuộc lớp bất thường
+($\texttt{anomaly}=1$). Như vậy, dữ liệu có sự mất cân bằng giữa hai
+lớp, với các điểm bất thường chiếm khoảng $2{,}13\%$ tổng số bản ghi.
+
+\subsubsection{Các đặc trưng bổ sung}
+
+Ngoài các thuộc tính cơ bản, hai tệp
+\texttt{train\_features.csv} và \texttt{test\_features.csv} cung cấp
+các đặc trưng bổ sung nhằm hỗ trợ quá trình xây dựng mô hình. Các
+đặc trưng này có thể được chia thành một số nhóm chính.
+
+\begin{table}[H]
+\centering
+\caption{Một số nhóm đặc trưng bổ sung}
+\label{tab:additional_features}
+\begin{tabular}{|l|p{7cm}|}
+\hline
+\textbf{Nhóm đặc trưng} & \textbf{Một số thuộc tính tiêu biểu} \\ \hline
+
+Thông tin tòa nhà &
+\texttt{site\_id}, \texttt{building\_id},
+\texttt{primary\_use}, \texttt{square\_feet},
+\texttt{year\_built}, \texttt{floor\_count} \\ \hline
+
+Điều kiện thời tiết &
+\texttt{air\_temperature}, \texttt{cloud\_coverage},
+\texttt{dew\_temperature}, \texttt{precip\_depth\_1\_hr},
+\texttt{sea\_level\_pressure}, \texttt{wind\_direction},
+\texttt{wind\_speed} \\ \hline
+
+Đặc trưng thời gian &
+\texttt{hour}, \texttt{weekday}, \texttt{month}, \texttt{year},
+\texttt{weekday\_hour}, \texttt{is\_holiday} \\ \hline
+
+Đặc trưng chuỗi thời gian &
+Các đặc trưng thống kê của nhiệt độ theo các khoảng thời gian
+trước đó như \texttt{air\_temperature\_mean\_lag7},
+\texttt{air\_temperature\_max\_lag7},
+\texttt{air\_temperature\_std\_lag7}, v.v. \\ \hline
+
+Đặc trưng theo tòa nhà và thời gian &
+\texttt{building\_hour}, \texttt{building\_weekday},
+\texttt{building\_month}, \texttt{building\_weekday\_hour},
+\texttt{building\_meter} \\ \hline
+
+Đặc trưng thống kê &
+Các đặc trưng bắt đầu bằng \texttt{gte\_}, được xây dựng theo
+nhiều nhóm như giờ, ngày trong tuần, tháng, tòa nhà,
+loại hình sử dụng và địa điểm. \\ \hline
+
+\end{tabular}
+\end{table}
+
+Các đặc trưng bổ sung giúp mô hình có thêm thông tin ngoài mức tiêu
+thụ điện trực tiếp. Chẳng hạn, mức tiêu thụ điện có thể phụ thuộc vào
+loại hình sử dụng của tòa nhà, quy mô tòa nhà, thời điểm trong ngày
+hoặc điều kiện thời tiết. Những thông tin này có thể được khai thác
+trong các bước xây dựng đặc trưng và huấn luyện mô hình ở các chương
+tiếp theo.
+
+\subsubsection{Tình trạng dữ liệu thiếu}
+
+Qua quá trình kiểm tra dữ liệu, thuộc tính
+\texttt{meter\_reading} xuất hiện các giá trị bị thiếu. Trong tập
+huấn luyện có 107.653 bản ghi bị thiếu giá trị
+\texttt{meter\_reading}, tương đương khoảng $6{,}15\%$ tổng số bản
+ghi. Trong tập kiểm tra có 94.864 bản ghi bị thiếu giá trị này,
+tương đương khoảng $5{,}27\%$.
+
+Đáng chú ý, việc thiếu giá trị \texttt{meter\_reading} không đồng
+nghĩa với việc thiếu bản ghi thời gian. Một số bản ghi vẫn có
+\texttt{timestamp} và các thông tin liên quan đến tòa nhà nhưng
+không có giá trị tiêu thụ điện tương ứng. Vì vậy, dữ liệu thiếu cần
+được xem xét và xử lý trong bước tiền xử lý trước khi đưa vào các
+mô hình Học máy và Học sâu.
+
+Ngoài \texttt{meter\_reading}, các thuộc tính còn lại trong hai tệp
+\texttt{train\_features.csv} và \texttt{test\_features.csv} không
+ghi nhận giá trị thiếu trong quá trình kiểm tra dữ liệu.

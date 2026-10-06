@@ -1,0 +1,62 @@
+\section{Triển khai thuật toán Học Máy - Machine Learning}
+\subsubsection{Kết luận và Thiết kế Pipeline}
+Dựa trên phân tích ưu nhược điểm của từng thuật toán, nhóm nghiên cứu đề xuất một pipeline gồm bốn giai đoạn, tuân theo nguyên tắc: huấn luyện rời rạc từng mô hình trước, tối ưu hóa riêng biệt, sau đó kết hợp (ensemble) để đạt hiệu suất tối đa.
+
+\begin{enumerate}
+    \item \textbf{Giai đoạn 1: Tiền xử lý và Trích xuất đặc trưng (Feature Engineering)}
+    \begin{itemize}
+        \item Thực hiện các bước làm sạch dữ liệu: xử lý giá trị thiếu, loại bỏ ngoại lai rõ ràng, chuẩn hóa các biến liên tục.
+        \item Trích xuất các đặc trưng chuỗi thời gian: cửa sổ trượt (rolling window), đặc trưng độ trễ (lag features), mã hóa chu kỳ (cyclical encoding) cho giờ/ngày/tháng.
+        \item Ứng dụng \textbf{Isolation Forest} nhằm quét toàn bộ không gian dữ liệu. Điểm số bất thường $s(\mathbf{x}, n)$ được ghép nối vào tập dữ liệu gốc đóng vai trò như một đặc trưng siêu dữ liệu (Meta-feature), cung cấp thêm tín hiệu hội tụ cho các thuật toán phân lớp ở các giai đoạn sau.
+    \end{itemize}
+    
+    \item \textbf{Giai đoạn 2: Huấn luyện rời rạc từng mô hình (Baseline Modeling)}
+    \begin{itemize}
+        \item Tiến hành huấn luyện độc lập từng thuật toán với các siêu tham số mặc định hoặc hợp lý ban đầu. Các mô hình được đánh giá bao gồm:
+        \begin{enumerate}
+            \item \textbf{LightGBM} — tận dụng tốc độ và hiệu quả bộ nhớ trên dữ liệu quy mô lớn.
+            \item \textbf{XGBoost} — khai thác cơ chế điều chuẩn $L_1/L_2$ mạnh mẽ.
+            \item \textbf{CatBoost} — khai thác khả năng xử lý biến định danh và cấu trúc Ordered Boosting.
+            \item \textbf{Random Forest} — đánh giá sức mạnh của phương pháp Bagging với cơ chế chọn đặc trưng ngẫu nhiên.
+            \item \textbf{Extra Trees} — đánh giá hiệu quả của ngẫu nhiên hóa cực đoan trong việc giảm phương sai.
+        \end{enumerate}
+        \item Đánh giá hiệu năng từng mô hình đơn lẻ dựa trên các độ đo phù hợp với dữ liệu mất cân bằng: \textbf{F1-Score}, \textbf{PR-AUC} (Precision-Recall AUC) và \textbf{ROC-AUC}. Giai đoạn này thiết lập mức hiệu suất cơ sở (baseline) cho từng thuật toán.
+    \end{itemize}
+
+    \item \textbf{Giai đoạn 3: Tối ưu hóa từng mô hình (Hyperparameter Tuning)}
+    \begin{itemize}
+        \item \textbf{Tinh chỉnh siêu tham số:} Sử dụng phương pháp tìm kiếm Bayesian (Optuna) hoặc Random Search kết hợp với Cross-Validation phân tầng (Stratified K-Fold) để tìm bộ siêu tham số tối ưu cho từng mô hình riêng biệt.
+        \item \textbf{Tối ưu hóa ngưỡng cắt xác suất (Threshold Moving):} Thay vì sử dụng ngưỡng mặc định $0.5$, thực hiện tìm kiếm ngưỡng tối ưu trên tập validation nhằm tối đa hóa F1-Score, thích ứng với sự khan hiếm cực độ của nhãn $1$.
+        \item \textbf{So sánh kết quả:} Đối chiếu hiệu năng của từng mô hình sau tối ưu hóa so với baseline ở Giai đoạn 2, xác định top mô hình đơn lẻ tốt nhất.
+    \end{itemize}
+
+    \item \textbf{Giai đoạn 4: Dung hợp mô hình — Lắp ráp Ensemble (Model Ensemble)}
+    \begin{itemize}
+        \item \textbf{Stacking (Xếp chồng):} Sử dụng dự đoán xác suất (probability predictions) từ các mô hình đã tối ưu ở Giai đoạn 3 làm đặc trưng đầu vào cho một mô hình siêu học (meta-learner). Meta-learner học cách kết hợp tối ưu các tín hiệu từ nhiều kiến trúc khác nhau:
+        \begin{equation*}
+            \hat{y}_{\text{stack}} = g\left(\hat{p}_{\text{LGBM}}, \hat{p}_{\text{XGB}}, \hat{p}_{\text{Cat}}, \hat{p}_{\text{RF}}, \hat{p}_{\text{ET}}\right)
+        \end{equation*}
+        trong đó $g(\cdot)$ là meta-learner (thường là Logistic Regression hoặc một LightGBM nhẹ), $\hat{p}$ là xác suất dự đoán từ mỗi mô hình cơ sở.
+        \item \textbf{Blending (Trộn):} Kết hợp dự đoán thông qua trung bình có trọng số:
+        \begin{equation*}
+            \hat{p}_{\text{blend}} = \sum_{m=1}^{M} w_m \cdot \hat{p}_m, \quad \text{với} \quad \sum_{m=1}^{M} w_m = 1
+        \end{equation*}
+        trong đó trọng số $w_m$ được tối ưu hóa trên tập validation để tối đa hóa F1-Score.
+        \item \textbf{Soft Voting:} Tính trung bình cộng xác suất từ tất cả các mô hình, sau đó áp dụng ngưỡng cắt đã tối ưu:
+        \begin{equation*}
+            \hat{y}_{\text{vote}} = \mathbb{1}\left[\frac{1}{M}\sum_{m=1}^{M} \hat{p}_m \geq \tau^*\right]
+        \end{equation*}
+        trong đó $\tau^*$ là ngưỡng tối ưu được xác định từ Giai đoạn 3.
+        \item \textbf{Mixture of Experts theo ngữ cảnh:} Thay vì gán một bộ trọng số cố định cho mọi mẫu, huấn luyện một bộ định tuyến (gating model) để dự đoán trọng số của từng mô hình cơ sở dựa trên đặc trưng ngữ cảnh như \texttt{building\_id}, \texttt{meter}, thời điểm và điểm bất thường từ Isolation Forest. Xác suất dự đoán kết hợp được tính như sau:
+        \begin{equation*}
+            \hat{p}_{\text{MoE}}(\mathbf{x}) = \sum_{m=1}^{M} g_m(\mathbf{z})\,\hat{p}_m(\mathbf{x}), \quad \sum_{m=1}^{M} g_m(\mathbf{z}) = 1
+        \end{equation*}
+        trong đó $\mathbf{z}$ là các đặc trưng ngữ cảnh và $g_m(\mathbf{z})$ là trọng số do gating model sinh ra cho chuyên gia thứ $m$. Ví dụ, bộ định tuyến có thể ưu tiên CatBoost ở nhóm công tơ có nhiều biến phân loại, đồng thời ưu tiên LightGBM ở các nhóm dữ liệu lớn.
+        \item \textbf{Huấn luyện chống rò rỉ:} Tạo dự đoán out-of-fold (OOF) cho các mô hình cơ sở trên tập huấn luyện để huấn luyện gating model; không dùng dự đoán in-sample vì chúng có thể khiến bộ định tuyến học thuộc lỗi huấn luyện. Với dữ liệu chuỗi thời gian, các fold phải được chia theo thứ tự thời gian (hoặc theo nhóm thiết bị và thời gian), không xáo trộn ngẫu nhiên, để tránh thông tin tương lai lọt vào quá trình huấn luyện.
+        \item \textbf{So sánh tổng thể:} Đối chiếu hiệu năng của các phương pháp Ensemble (Stacking, Blending, Soft Voting và Mixture of Experts) so với mô hình đơn lẻ tốt nhất ở Giai đoạn 3. Báo cáo các độ đo F1-Score, PR-AUC, ROC-AUC cùng thời gian suy luận để đánh giá đồng thời chất lượng dự đoán và chi phí triển khai.
+    \end{itemize}
+\end{enumerate}
+
+
+\subsection{Huấn luyện và Tinh chỉnh mô hình}
+%Trước khi đi vào mô hình phải nêu rõ tại sao chọn thuật toán này, mục đích đầu ra là gì và các bước như thế nào

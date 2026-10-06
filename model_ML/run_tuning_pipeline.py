@@ -5,7 +5,7 @@ import os
 import optuna
 from pathlib import Path
 from sklearn.model_selection import train_test_split
-from sklearn.metrics import fbeta_score, log_loss
+from sklearn.metrics import fbeta_score, log_loss, f1_score
 from model_classes import XGBoostModel, LightGBMModel, CatBoostModel, RandomForestModel, ExtraTreesModel
 import warnings
 warnings.filterwarnings('ignore')
@@ -16,7 +16,7 @@ PROCESSED_DIR = Path(script_dir).parent / "data" / "processed"
 
 # Nạp cả 2 bộ dữ liệu để phục vụ chiến thuật ghép cặp
 DATASET_PREPROCESSED = PROCESSED_DIR / "train_preprocessed.parquet"
-DATASET_ENGINEERED = PROCESSED_DIR / "train_engineered.parquet"
+
 TARGET = "anomaly"
 
 # Số lượng mẫu dùng để Tuning (Nên dùng số nhỏ để chạy nhanh, ví dụ 200k - 500k dòng)
@@ -30,47 +30,47 @@ def objective(trial, model_name, X_train, y_train, X_val, y_val):
     # if model_name == "XGBoost":
     #     params = {
     #         'learning_rate': trial.suggest_float('learning_rate', 0.01, 0.3, log=True),
-    #         'max_depth': trial.suggest_int('max_depth', 3, 12),
+    #         'max_depth': trial.suggest_int('max_depth', 10, 15),
     #         'subsample': trial.suggest_float('subsample', 0.5, 1.0),
     #         'n_estimators': trial.suggest_int('n_estimators', 50, 150)
     #     }
     #     model = XGBoostModel(**params)
         
-    # if model_name == "LightGBM":
+    # elif model_name == "LightGBM":
     #     params = {
     #         'learning_rate': trial.suggest_float('learning_rate', 0.01, 0.3, log=True),
     #         'num_leaves': trial.suggest_int('num_leaves', 20, 150),
-    #         'max_depth': trial.suggest_int('max_depth', 3, 15),
-    #         'feature_fraction': trial.suggest_float('feature_fraction', 0.6, 1.0)
+    #         'max_depth': trial.suggest_int('max_depth', 10, 15),
+    #         'feature_fraction': trial.suggest_float('feature_fraction', 0.6, 0.8)
     #     }
     #     model = LightGBMModel(**params)
         
     if model_name == "CatBoost":
         params = {
-            'learning_rate': trial.suggest_float('learning_rate', 0.01, 0.3, log=True),
-            'depth': trial.suggest_int('depth', 4, 12),
-            'iterations': trial.suggest_int('iterations', 50, 150),
-            'l2_leaf_reg': trial.suggest_float('l2_leaf_reg', 1.0, 20.0, log=True)
+            'learning_rate': trial.suggest_float('learning_rate', 0.10, 0.35, log=True),
+            'depth': trial.suggest_int('depth', 12, 15),
+            'iterations': trial.suggest_int('iterations', 130, 160),
+            'l2_leaf_reg': trial.suggest_float('l2_leaf_reg', 1.0, 3.0, log=True)
         }
         model = CatBoostModel(**params)
         
-    elif model_name == "Random Forest":
-        params = {
-            'max_depth': trial.suggest_int('max_depth', 5, 20),
-            'n_estimators': trial.suggest_int('n_estimators', 30, 100),
-            'min_samples_split': trial.suggest_int('min_samples_split', 2, 10),
-            'class_weight': 'balanced' # Rất quan trọng để trị mất cân bằng
-        }
-        model = RandomForestModel(**params)
+    # elif model_name == "Random Forest":
+    #     params = {
+    #         'max_depth': trial.suggest_int('max_depth', 5, 20),
+    #         'n_estimators': trial.suggest_int('n_estimators', 30, 100),
+    #         'min_samples_split': trial.suggest_int('min_samples_split', 2, 10),
+    #         'class_weight': 'balanced' # Rất quan trọng để trị mất cân bằng
+    #     }
+    #     model = RandomForestModel(**params)
         
-    elif model_name == "Extra Trees":
-        params = {
-            'max_depth': trial.suggest_int('max_depth', 5, 20),
-            'n_estimators': trial.suggest_int('n_estimators', 30, 100),
-            'min_samples_split': trial.suggest_int('min_samples_split', 2, 10),
-            'class_weight': 'balanced' # Bắt buộc phải có với Extra Trees
-        }
-        model = ExtraTreesModel(**params)
+    # elif model_name == "Extra Trees":
+    #     params = {
+    #         'max_depth': trial.suggest_int('max_depth', 5, 20),
+    #         'n_estimators': trial.suggest_int('n_estimators', 30, 100),
+    #         'min_samples_split': trial.suggest_int('min_samples_split', 2, 10),
+    #         'class_weight': 'balanced' # Bắt buộc phải có với Extra Trees
+    #     }
+    #     model = ExtraTreesModel(**params)
 
     # Huấn luyện và dự đoán
     # Để Optuna chạy im lặng, ta tắt print trong lúc fit
@@ -80,12 +80,16 @@ def objective(trial, model_name, X_train, y_train, X_val, y_val):
     if y_prob.ndim > 1: # Xử lý trường hợp predict_proba trả về mảng 2D (như RF)
         y_prob = y_prob[:, 1]
     
-    # Tính toán Custom Score (Nặng Recall, Phạt Log Loss)
-    f2 = fbeta_score(y_val, y_pred, beta=2.0)
-    loss = log_loss(y_val, y_prob)
-    
-    custom_score = f2 - (0.1 * loss)
-    return custom_score
+    # Tính toán F1 Score ở ngưỡng tối ưu
+    thresholds = np.arange(0.01, 0.99, 0.02)
+    best_f1 = -1
+    for th in thresholds:
+        pred_th = (y_prob >= th).astype(int)
+        f1 = f1_score(y_val, pred_th, zero_division=0)
+        if f1 > best_f1:
+            best_f1 = f1
+            
+    return best_f1
 
 # =================================================================================
 # MAIN PIPELINE
@@ -110,22 +114,28 @@ def prepare_data(dataset_path):
 print("\n[1] Chuẩn bị bộ dữ liệu PREPROCESSED (Dành riêng cho XGBoost)")
 X_train_pre, X_val_pre, y_train_pre, y_val_pre = prepare_data(DATASET_PREPROCESSED)
 
-print("\n[2] Chuẩn bị bộ dữ liệu ENGINEERED (FE) (Dành cho các mô hình còn lại)")
-X_train_fe, X_val_fe, y_train_fe, y_val_fe = prepare_data(DATASET_ENGINEERED)
-
-# Cấu hình chiến thuật (Mô hình -> Bộ dữ liệu)
+# Cấu hình chiến thuật (Bỏ qua XGBoost và LightGBM vì đã tìm được thông số chuẩn)
 tuning_strategy = {
     "XGBoost": (X_train_pre, X_val_pre, y_train_pre, y_val_pre, "Preprocessed"),
-    "LightGBM": (X_train_fe, X_val_fe, y_train_fe, y_val_fe, "Engineered"),
-    "CatBoost": (X_train_fe, X_val_fe, y_train_fe, y_val_fe, "Engineered"),
-    "Random Forest": (X_train_fe, X_val_fe, y_train_fe, y_val_fe, "Engineered"),
-    "Extra Trees": (X_train_fe, X_val_fe, y_train_fe, y_val_fe, "Engineered")
+    "LightGBM": (X_train_pre, X_val_pre, y_train_pre, y_val_pre, "Preprocessed"),
+    "CatBoost": (X_train_pre, X_val_pre, y_train_pre, y_val_pre, "Preprocessed"),
+    "Random Forest": (X_train_pre, X_val_pre, y_train_pre, y_val_pre, "Preprocessed"),
+    "Extra Trees": (X_train_pre, X_val_pre, y_train_pre, y_val_pre, "Preprocessed")
 }
 
 best_results_log = []
 
-# Tắt log hệ thống của Optuna cho đỡ rác màn hình
+# Tắt log hệ thống của Optuna để thay bằng Custom Print của ta
 optuna.logging.set_verbosity(optuna.logging.WARNING)
+
+def optuna_callback(study, trial):
+    exec_time = (trial.datetime_complete - trial.datetime_start).total_seconds()
+    if trial.value is not None:
+        best_params_str = ", ".join([f"{k}: {v:.4f}" if isinstance(v, float) else f"{k}: {v}" for k, v in study.best_params.items()])
+        print(f"     [Vòng {trial.number:02d}] F1: {trial.value:.4f} | Thời gian: {exec_time:.1f}s")
+        print(f"       -> [Kỷ lục Vòng {study.best_trial.number:02d}] F1: {study.best_value:.4f} | Params: {best_params_str}")
+    else:
+        print(f"     [Vòng {trial.number:02d}] THẤT BẠI | Thời gian: {exec_time:.1f}s")
 
 for m_name, (X_t, X_v, y_t, y_v, ds_name) in tuning_strategy.items():
     print(f"\n  -> Đang tìm tham số tối ưu cho {m_name} trên tập {ds_name}...")
@@ -134,9 +144,9 @@ for m_name, (X_t, X_v, y_t, y_v, ds_name) in tuning_strategy.items():
     # Khởi tạo Optuna Study
     study = optuna.create_study(direction="maximize") # Tối đa hóa Custom Score
     
-    # Chạy tối ưu hóa
+    # Chạy tối ưu hóa kèm theo callback hiển thị
     try:
-        study.optimize(lambda trial: objective(trial, m_name, X_t, y_t, X_v, y_v), n_trials=N_TRIALS)
+        study.optimize(lambda trial: objective(trial, m_name, X_t, y_t, X_v, y_v), n_trials=N_TRIALS, callbacks=[optuna_callback])
         
         best_score = study.best_value
         best_params = study.best_params
