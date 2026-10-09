@@ -2,3 +2,5 @@ numpy>=2,<3
 pandas>=2.2,<4
 matplotlib>=3.8,<4
 scikit-learn>=1.6,<2
+pyarrow>=15,<23
+torch>=2.2,<3
