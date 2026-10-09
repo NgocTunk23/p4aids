@@ -15,6 +15,9 @@ model_ML/saved_models/
 # Raw data
 energy-anomaly-detection/
 
+# Kaggle folder
+kaggle/
+
 # Generated DL artifacts
 model_DL/artifacts/checkpoints/*
 model_DL/artifacts/logs/*
