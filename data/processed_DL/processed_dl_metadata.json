@@ -1,0 +1,57 @@
+{
+  "version": 1,
+  "train": {
+    "raw_rows": 1749494,
+    "processed_rows": 1756800,
+    "inserted_rows": 7306,
+    "buildings": 200,
+    "start": "2016-01-01 00:00:00",
+    "end": "2016-12-31 23:00:00"
+  },
+  "test": {
+    "raw_rows": 1800567,
+    "processed_rows": 1809504,
+    "inserted_rows": 8937,
+    "buildings": 206,
+    "start": "2016-01-01 00:00:00",
+    "end": "2016-12-31 23:00:00"
+  },
+  "model_features": [
+    "meter_reading",
+    "square_feet",
+    "year_built",
+    "floor_count",
+    "air_temperature",
+    "cloud_coverage",
+    "dew_temperature",
+    "precip_depth_1_hr",
+    "sea_level_pressure",
+    "wind_direction",
+    "wind_speed",
+    "is_holiday",
+    "meter_log1p",
+    "meter_delta_1",
+    "meter_delta_24",
+    "meter_run_length",
+    "meter_missing_mask",
+    "row_exists_mask",
+    "hour_sin",
+    "hour_cos",
+    "weekday_sin",
+    "weekday_cos",
+    "month_sin",
+    "month_cos",
+    "primary_use",
+    "site_id"
+  ],
+  "categorical_features": [
+    "primary_use",
+    "site_id"
+  ],
+  "causal_feature_engineering": true,
+  "notes": [
+    "gte_* and raw string interactions are excluded.",
+    "Inserted rows never enter metrics or submission.",
+    "Transforms are fitted independently inside each fold."
+  ]
+}
