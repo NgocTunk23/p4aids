@@ -1,9 +1,15 @@
-% \section*{Danh sách thành viên và bảng phân công}
-% \section*{Danh sách thành viên và bảng phân công}
+% [CŨ]:
+% \begin{tabular}{|c|c|m{4.5cm}|m{6cm}|c|}
+%     ... sử dụng \begin{itemize}[nosep, leftmargin=*] ... \end{itemize} ...
+% \end{tabular}
+% [LÝ DO SỬA]: Môi trường itemize bên trong ô bảng LaTeX (parbox của cột m) mặc định loại bỏ khoảng đệm trên (discard top glue) nhưng giữ lại khoảng đệm dưới (bottom glue), dẫn đến nội dung bị kéo lệch dính sát mép trên. Đồng thời các cột c chỉ căn theo đường baseline thay vì căn giữa theo trục đứng.
+% Giải pháp: Cấu hình tất cả các cột thành dạng m{...} kết hợp \centering / \raggedright, và dùng \textbullet~... \newline thay cho itemize để loại bỏ triệt để khoảng trắng rỗng thừa, giúp toàn bộ nội dung (bao gồm cả dòng nhiệm vụ) được căn giữa đối xứng hoàn hảo theo chiều dọc.
+
 \begin{table}[H]
     \centering
-    \renewcommand{\arraystretch}{1.3} % Điều chỉnh độ giãn dòng vừa vặn
-    \begin{tabular}{|c|c|m{4.5cm}|m{6cm}|c|}
+    \setlength{\extrarowheight}{4pt}
+    \renewcommand{\arraystretch}{1.3}
+    \begin{tabularx}{\textwidth}{|>{\centering\arraybackslash}m{1.0cm}|>{\centering\arraybackslash}m{2.0cm}|>{\raggedright\arraybackslash}m{3.8cm}|>{\raggedright\arraybackslash}X|>{\centering\arraybackslash}m{1.8cm}|}
         \hline
         \textbf{STT} & 
         \textbf{MSSV} & 
@@ -12,36 +18,29 @@
         \textbf{Đóng góp} \\
         \hline
         1 & 2313508 & Nguyễn Ngọc Tôn & 
-        \begin{itemize}[nosep, leftmargin=*]
-        % \vspace{0.2cm}
-            \item 1
-        \end{itemize}
+        \textbullet~Thực hiện tiền xử lý dữ liệu \newline
+        \textbullet~Xây dựng pipeline Machine Learning
         & 100\% \\
         \hline
         2 & 2312658 & Nguyễn Miên Phú & 
-        \begin{itemize}[nosep, leftmargin=*]
-            \item 1
-        \end{itemize}
+        \textbullet~Viết báo cáo 
         & 100\% \\
         \hline
         3 & 2312596 & Trần Đỗ Đức Phát & 
-        \begin{itemize}[nosep, leftmargin=*]
-            \item 1
-        \end{itemize}
+        \textbullet~Xây dựng pipeline Deep Learning \newline
+        \textbullet~Viết báo cáo 
         & 100\% \\
         \hline
         4 & 2312894 & Huỳnh Kim Quý & 
-        \begin{itemize}[nosep, leftmargin=*]
-            \item 1
-        \end{itemize}
+        \textbullet~Xây dựng pipeline Deep Learning \newline
+        \textbullet~Viết báo cáo
         & 100\% \\
         \hline
         5 & 2313431 & Nguyễn Đức Tiến & 
-        \begin{itemize}[nosep, leftmargin=*]
-            \item 1
-        \end{itemize}
+        \textbullet~Viết báo cáo
         & 100\% \\
         \hline
-    \end{tabular}
+    \end{tabularx}
     \caption{\textbf{Phân công nhiệm vụ và mức độ đóng góp}}
+    \label{tab:bang_phan_cong}
 \end{table}

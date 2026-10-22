@@ -1,7 +1,237 @@
-\section{Khám phá dữ liệu (EDA) và Tiền xử lý Dữ liệu cơ bản}
-\subsection{Khám phá dữ liệu - EDA}
+\section{Khám phá Dữ liệu (EDA) và Tiền xử lý Dữ liệu}
 
+Dựa trên hai tệp đặc trưng \texttt{train\_features.csv} và \texttt{test\_features.csv} đã giới thiệu ở Chương 1, chương này tập trung phân tích khám phá dữ liệu (EDA) ban đầu, xây dựng quy trình tiền xử lý chuẩn hóa và kiểm toán dữ liệu sau xử lý. Toàn bộ quy trình được xây dựng nhất quán và thực thi thông qua notebook thực nghiệm \texttt{preprocessingforALL}. Nhằm mục đích đánh giá thực nghiệm xem việc tích hợp thêm ngữ cảnh khu vực địa lý có thực sự mang lại sự khác biệt và giúp cải thiện khả năng nhận diện bất thường hay không, nhóm nghiên cứu thiết lập quy trình tạo ra song song hai bộ dữ liệu thực nghiệm: bộ dữ liệu cơ sở (Baseline) và bộ dữ liệu mở rộng tương tác khu vực (Zone-enhanced).
 
+\subsection{Khám phá Dữ liệu Ban đầu}
 
-\subsection{Tiền xử lý dữ liệu}
-% Bao gồm preprocessing và cả EDA sau đó, bắt buộc có History diagram
+\subsubsection{Phân tích sự Mất cân bằng Lớp Dữ liệu}
+Dữ liệu nhãn bất thường phản ánh trạng thái hoạt động của hệ thống phụ tải điện: $y=0$ tương ứng với trạng thái bình thường (\textit{Normal}) và $y=1$ tương ứng với trạng thái bất thường (\textit{Anomaly}). Thống kê trên toàn bộ $1.749.494$ bản ghi của tập huấn luyện cho kết quả phân bố như sau:
+\begin{itemize}
+    \item \textbf{Lớp bình thường ($y=0$):} $1.712.198$ bản ghi, chiếm tỷ lệ xấp xỉ $97{,}87\%$.
+    \item \textbf{Lớp bất thường ($y=1$):} $37.296$ bản ghi, chỉ chiếm tỷ lệ khoảng $2{,}13\%$.
+\end{itemize}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.68\textwidth]{IMAGE/eda_label_imbalance.png}
+    \caption{\textbf{Phân phối mức độ mất cân bằng giữa nhãn bình thường và bất thường}}
+    \label{fig:label_imbalance}
+\end{figure}
+
+Hình~\ref{fig:label_imbalance} trực quan hóa tỷ lệ mất cân bằng nghiêm trọng này thông qua biểu đồ cột trên thang đo logarit. Mức độ mất cân bằng tỷ lệ $1 : 46$ đặt ra thách thức kỹ thuật lớn:
+\begin{enumerate}
+    \item Nếu sử dụng hàm mất mát thông thường mà không điều chỉnh, mô hình sẽ có xu hướng tối ưu hóa bằng cách dự đoán toàn bộ mẫu là lớp đa số, dẫn đến chỉ số Accuracy rất cao ($>97\%$) nhưng hoàn toàn mất khả năng nhận diện các sự cố thực tế.
+    \item Nếu sử dụng ngưỡng quyết định mặc định $\tau = 0{,}5$, đại đa số các mẫu dị thường có xác suất dự đoán nằm trong khoảng $0{,}1 - 0{,}4$ sẽ bị bỏ sót, khiến chỉ số Recall và F1-Score bị suy giảm nghiêm trọng. Do đó, việc áp dụng kỹ thuật tối ưu hóa ngưỡng cắt xác suất (Threshold Moving) là điều kiện tiên quyết trong các giai đoạn sau.
+\end{enumerate}
+
+\subsubsection{Toàn cảnh Lịch sử Phụ tải và Phân bố Dị thường theo Thời gian}
+Nhằm nắm bắt toàn diện hành vi phụ tải ở cấp độ vĩ mô và sự phân bố của các biến cố dị thường xuyên suốt 366 ngày trong năm 2016 (năm nhuận), nhóm nghiên cứu xây dựng lược đồ lịch sử vận hành trên toàn bộ 200 tòa nhà thuộc tập huấn luyện (Hình~\ref{fig:eda_history_diagram}). Biểu đồ này được trích xuất trực tiếp từ hàm phân tích thời gian \texttt{plot\_eda\_snapshot()} tại Bước 4 của quy trình thực nghiệm.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.98\textwidth]{IMAGE/eda_history_diagram.png}
+    \caption{\textbf{Lược đồ Lịch sử Phụ tải Điện và Tỷ lệ Dị thường theo Ngày trong năm 2016}}
+    \label{fig:eda_history_diagram}
+\end{figure}
+
+Từ lược đồ lịch sử vĩ mô tại Hình~\ref{fig:eda_history_diagram}, hai quy luật vận hành then chốt được khám phá:
+\begin{enumerate}
+    \item \textbf{Đặc thù lịch sử phụ tải trung bình ngày (biểu đồ trên):}
+    \begin{itemize}
+        \item Mức tiêu thụ điện bình quân toàn hệ thống đạt mức trung bình $179{,}88\,\text{kWh}$. Đường trung bình trượt 7 ngày (đường màu đỏ, tính bình quân theo từng tuần để triệt tiêu dao động giữa ngày làm việc và cuối tuần) cho thấy xu hướng phụ tải tăng cao rõ rệt vào các tháng mùa hè (tháng 6 đến tháng 8), đạt đỉnh $198{,}1\,\text{kWh}$ vào ngày 24/08/2016 do nhu cầu vận hành tối đa của hệ thống làm mát trung tâm (HVAC).
+        \item Ngược lại, vào các kỳ nghỉ lễ lớn như Tết Dương lịch (01/01/2016) hoặc kỳ nghỉ mùa đông, mức tiêu thụ sụt giảm sâu xuống $140{,}7\,\text{kWh}$ do các hoạt động làm việc và học tập tạm ngưng.
+        \item Dải phân vị $25\% - 75\%$ (\textit{IQR band}, tô nền xanh nhạt) phản ánh sự phân hóa mạnh mẽ về quy mô công trình: các tòa nhà giáo dục và văn phòng nhỏ duy trì phụ tải nền thấp ($20 - 40\,\text{kWh}$), trong khi các cơ sở phức hợp lớn tiêu thụ liên tục trên $200\,\text{kWh}$.
+    \end{itemize}
+    \item \textbf{Đặc thù lịch sử xuất hiện dị thường theo thời gian (biểu đồ dưới):}
+    \begin{itemize}
+        \item Mặc dù tỷ lệ dị thường bình quân cả năm chỉ là $2{,}14\%$ (đường chấm đen), các điểm dị thường không phân bố ngẫu nhiên đồng đều mà tập trung thành từng đợt sự cố hệ thống kéo dài nhiều ngày liên tiếp.
+        \item Tiêu biểu nhất là đợt bùng phát dị thường vào trung tuần tháng 7 (đạt đỉnh $23{,}7\%$ vào ngày 17/07/2016) và các đợt biến động mạnh vào tháng 2 và tháng 3. Hiện tượng cụm dị thường theo thời gian chứng minh rằng việc mô hình hóa chuỗi thời gian thông qua các đặc trưng trễ, trung bình trượt, và tương tác vùng khí hậu là hoàn toàn cần thiết để phát hiện kịp thời các sự cố mang tính chuỗi.
+    \end{itemize}
+\end{enumerate}
+
+\subsubsection{Phân loại Hình thái Dị thường Phụ tải trên Chuỗi Thời gian}
+Trong khi Mục~3.1.2 quan sát xu hướng dài hạn theo ngày trên toàn mạng lưới, mục này đi sâu vào độ phân giải từng giờ tại một công trình đại diện (Tòa nhà \#439, Hình~\ref{fig:anomaly_timeseries}) nhằm nhận diện quy luật phụ tải cơ sở và phân loại các hình thái dị thường thực tế.
+
+Chuỗi thời gian phụ tải theo giờ thể hiện hai chu kỳ sinh hoạt cơ sở: chu kỳ 24 giờ ngày/đêm (\textit{Diurnal Cycle} với đỉnh phụ tải vào giờ làm việc 8h - 17h và đáy phụ tải nền vào ban đêm) cùng chu kỳ tuần (\textit{Weekly Pattern} với mức phụ tải giảm sút rõ rệt vào cuối tuần). Dựa trên sự sai lệch so với hai quy luật nền tảng này, các điểm dị thường trong dữ liệu được phân chia thành hai nhóm hình thái chính:
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.98\textwidth]{IMAGE/eda_anomaly_timeseries.png}
+    \caption{\textbf{Trực quan hóa chuỗi thời gian phụ tải điện theo giờ và các dạng dị thường tại Tòa nhà \#439}}
+    \label{fig:anomaly_timeseries}
+\end{figure}
+
+\begin{enumerate}
+    \item \textbf{Dị thường điểm (Point Anomaly):} Biểu hiện qua các xung đột biến tức thời tăng vọt hoặc sụt giảm về 0 đột ngột trong một vài giờ lẻ. Nguyên nhân thường xuất phát từ sự cố chập tải cục bộ, khởi động thiết bị công suất cực lớn không báo trước, hoặc cảm biến đo bị ngắt quãng tín hiệu tức thời.
+    \item \textbf{Dị thường theo chuỗi (Sequential / Collective Anomaly):} Biểu hiện qua một đoạn liên tục nhiều giờ hoặc nhiều ngày mà mức tiêu thụ điện giữ nguyên ở mức cao bất thường (ví dụ: hệ thống điều hòa trung tâm bị bỏ quên không tắt trong suốt chuỗi ngày cuối tuần, thể hiện rõ tại Hình~\ref{fig:anomaly_timeseries}), hoặc phụ tải dao động hỗn loạn phá vỡ hoàn toàn chu kỳ ngày/đêm thông thường. Dạng dị thường này đòi hỏi mô hình phải kết hợp các đặc trưng trễ, biến chu kỳ lượng giác và độ lệch chuẩn trượt để nhận diện.
+\end{enumerate}
+
+\subsubsection{Nhiễu Cảm biến và Tình trạng Thiếu Dữ liệu}
+Bên cạnh bài toán mất cân bằng nhãn, tình trạng nhiễu và đứt gãy tín hiệu đo lường từ đồng hồ thông minh là thách thức lớn thứ hai được phát hiện qua bước EDA. Kết quả thống kê chi tiết được trực quan hóa tại Hình~\ref{fig:missing_sensor_noise}.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.98\textwidth]{IMAGE/eda_missing_sensor_noise.png}
+    \caption{\textbf{Thống kê Dữ liệu Khuyết: So sánh Train vs Test (trái) và Top Tòa nhà bị Gián đoạn Cảm biến Phụ tải Cao nhất (phải)}}
+    \label{fig:missing_sensor_noise}
+\end{figure}
+
+Từ Hình~\ref{fig:missing_sensor_noise}, nhóm nghiên cứu ghi nhận các kết luận then chốt sau:
+\begin{enumerate}
+    \item \textbf{Tỷ lệ khuyết thuộc tính phụ tải (biểu đồ trái):} Biến \texttt{meter\_reading} bị khuyết $107.653$ bản ghi ($6{,}15\%$) trong tập huấn luyện và $94.864$ bản ghi ($5{,}27\%$) trong tập kiểm tra. Đáng chú ý, toàn bộ các thuộc tính thời tiết môi trường (\texttt{air\_temperature}, \texttt{dew\_temperature}, \texttt{wind\_speed}, \dots) và tem thời gian \texttt{timestamp} đều đạt độ toàn vẹn $100\%$ ($0$ giá trị thiếu). Điều này khẳng định hệ thống trạm khí tượng hoạt động hoàn toàn ổn định, nguyên nhân thiếu dữ liệu thuần túy do kết nối truyền thông IoT từ đồng hồ thông minh về máy chủ đo lường bị ngắt quãng.
+    \item \textbf{Tính cục bộ của sự cố cảm biến (biểu đồ phải):} Dữ liệu thiếu không rải đều mà tập trung nghiêm trọng tại một số công trình cá biệt. Điển hình như Tòa nhà \#144 bị khuyết $5.410$ giờ ($61{,}6\%$) và Tòa nhà \#112 bị khuyết $5.350$ giờ ($60{,}9\%$) dữ liệu trong năm. Việc mất tín hiệu kéo dài hàng ngàn giờ liên tiếp đặt ra yêu cầu quy trình tiền xử lý phải có giải pháp điền khuyết chuỗi thời gian phù hợp, tránh gây biến dạng phân phối thực tế.
+\end{enumerate}
+
+\subsection{Quy trình Tiền xử lý Dữ liệu}
+
+Nhằm chuẩn bị không gian đặc trưng tối ưu và loại bỏ rủi ro rò rỉ dữ liệu (\textit{data leakage}), quy trình tiền xử lý được chuẩn hóa theo 7 bước biến đổi đặc trưng cốt lõi (tương ứng với các khối xử lý từ Bước 2 đến Bước 8 trong notebook \texttt{preprocessingforALL.ipynb}). Toàn bộ các thao tác nạp dữ liệu và khám phá sơ bộ đã được trình bày độc lập tại Mục~3.1.
+
+Đặc biệt, trong nghiên cứu này, nhóm chủ động thiết kế quy trình nhằm tạo ra song song \textbf{hai bộ dữ liệu thực nghiệm}:
+\begin{enumerate}
+    \item \textbf{Bộ dữ liệu cơ sở (Baseline Dataset):} Bao gồm đầy đủ các đặc trưng phụ tải, khí tượng, biến chu kỳ lượng giác và đặc tính công trình sau chuẩn hóa chuẩn mực.
+    \item \textbf{Bộ dữ liệu mở rộng khu vực (Zone-enhanced Dataset):} Được tích hợp bổ sung các đặc trưng tương tác vùng khí hậu và quy mô công trình theo địa bàn (\texttt{zone\_interaction}, \texttt{site\_sqft\_mean}, \texttt{use\_sqft\_mean}).
+\end{enumerate}
+Mục tiêu cốt lõi của việc tạo hai bộ dữ liệu là nhằm phục vụ đối chứng thực nghiệm ở các chương sau: làm rõ câu hỏi khoa học rằng liệu việc mô hình hóa ngữ cảnh khu vực địa lý có thực sự mang lại sự khác biệt và giúp cải thiện vượt bậc độ chính xác phân loại dị thường (thông qua chỉ số F1-Score) hay không.
+
+Chi tiết 7 bước biến đổi đặc trưng được triển khai tuần tự như sau:
+
+\begin{enumerate}
+    \item \textbf{Bước 1: Tách Nhãn mục tiêu và Định danh ra khỏi Ma trận Đặc trưng.}
+    Vector nhãn $y_{\text{train}} = \texttt{anomaly}$ được tách riêng và đặt chỉ mục liên tục để phục vụ huấn luyện có giám sát. Đồng thời, cột định danh \texttt{row\_id} ở tập kiểm tra được lưu trữ độc lập để ghép kết quả dự đoán cuối cùng (\texttt{submission}). Toàn bộ hai cột này được loại bỏ khỏi ma trận đặc trưng $X_{\text{train}}$ và $X_{\text{test}}$, bảo đảm mô hình không bị rò rỉ nhãn hoặc nhận diện mẫu dựa trên thứ tự dòng.
+
+    \item \textbf{Bước 2: Chuẩn hóa Timestamp và Mã hóa Chu kỳ Thời gian ($\sin/\cos$).}
+    Trường thời gian \texttt{timestamp} được ép kiểu sang định dạng \texttt{datetime64[ns]} chuẩn. Do thời gian có tính chu kỳ tuần hoàn khép kín (giờ 23 nối tiếp giờ 0, tháng 12 nối tiếp tháng 1), việc sử dụng giá trị số nguyên đơn thuần sẽ làm mất tính liên tục không gian. Do đó, các thành phần thời gian được mã hóa lượng giác trực tiếp:
+    \begin{equation*}
+        x_{\sin} = \sin\left(\frac{2\pi t}{T}\right), \quad x_{\cos} = \cos\left(\frac{2\pi t}{T}\right)
+    \end{equation*}
+    trong đó chu kỳ $T=24$ cho giờ trong ngày (\texttt{hour\_sin}, \texttt{hour\_cos}), $T=7$ cho ngày trong tuần (\texttt{weekday\_sin}, \texttt{weekday\_cos}), và $T=12$ cho tháng trong năm (\texttt{month\_sin}, \texttt{month\_cos}). Sau khi sinh các biến lượng giác, các cột thời gian gốc (\texttt{hour}, \texttt{weekday}, \texttt{month}) và các tọa độ thời gian cũ được loại bỏ hoàn toàn để tránh hiện tượng đa cộng tuyến.
+
+    \item \textbf{Bước 3: Đồng bộ Không gian Đặc trưng, Phân loại Kiểu dữ liệu, Tạo Cờ Missing và Loại bỏ Đặc trưng không phù hợp.}
+    \begin{itemize}
+        \item \textbf{Tạo cờ missing:} Trước khi điền khuyết, nhóm khởi tạo biến cờ nhị phân:
+        \begin{equation*}
+            \texttt{meter\_reading\_was\_missing} = 
+            \begin{cases}
+                1, & \text{nếu } \texttt{meter\_reading} \text{ bị thiếu (NaN)} \\
+                0, & \text{ngược lại}
+            \end{cases}
+        \end{equation*}
+        Biến cờ này lưu giữ tín hiệu quan trọng về sự gián đoạn kết nối IoT của đồng hồ đo.
+        \item \textbf{Đồng bộ Schema và phân nhóm:} Căn chỉnh hai tập dữ liệu đạt cùng cấu trúc; phân loại tường minh danh sách biến định lượng (\texttt{numeric\_columns}) và định tính (\texttt{categorical\_columns}).
+        \item \textbf{Loại bỏ đặc trưng không phù hợp:} Loại bỏ biến hằng số không phương sai (\texttt{year}, \texttt{gte\_meter}), các tổ hợp thời gian trùng lặp (\texttt{weekday\_hour}), và \textbf{đặc biệt quan trọng:} loại bỏ toàn bộ các đặc trưng gắn chặt với ID cụ thể của tòa nhà (\texttt{building\_weekday\_hour}, \texttt{building\_month}, \texttt{gte\_building\_id}, \dots). Do $100\%$ các tòa nhà trong tập kiểm tra là công trình hoàn toàn mới chưa từng xuất hiện ở tập huấn luyện, việc giữ lại các biến đặc thù theo ID tòa nhà sẽ gây ra hiện tượng Overfitting nghiêm trọng.
+    \end{itemize}
+
+    \item \textbf{Bước 4: Điền giá trị thiếu cho Dữ liệu Định lượng bằng Nội suy Chuỗi thời gian.}
+    Khác với các phép gán trung vị hoặc trung bình toàn cục làm biến dạng dáng điệu phụ tải, nhóm áp dụng phương pháp nội suy tuyến tính theo thời gian (\texttt{interpolate(method=\allowbreak'time')}) được tính toán độc lập trong từng tòa nhà (\texttt{building\_id}). Ở các khoảng biên đầu và cuối chuỗi, kỹ thuật \textit{forward fill} và \textit{backward fill} được kết hợp để lấp đầy $100\%$ dữ liệu thiếu mà vẫn tôn trọng xu hướng động học thực tế.
+
+    \item \textbf{Bước 5: Xử lý Giá trị Ngoại lai (Outlier Treatment) bằng Khoảng Tứ phân vị IQR.}
+    Đối với các biến thời tiết môi trường (\texttt{air\_temperature}, \texttt{dew\_\allowbreak temperature}, \texttt{wind\_speed}, \dots), nhóm áp dụng quy tắc khoảng tứ phân vị (\textit{Interquartile Range - IQR}):
+    \begin{equation*}
+        \text{IQR} = Q_3 - Q_1, \quad [\text{Ngưỡng dưới}, \text{Ngưỡng trên}] = [Q_1 - 1{,}5\text{IQR}, \, Q_3 + 1{,}5\text{IQR}]
+    \end{equation*}
+    Các quan trắc thời tiết vượt ra ngoài khoảng này do lỗi thiết bị đo khí tượng được kẹp (\textit{clip}) về giá trị trung vị cục bộ. 
+    
+    \textbf{Đặc biệt lưu ý:} Thuộc tính phụ tải \texttt{meter\_reading} và các đặc trưng Target Encoding (\texttt{gte\_}) được miễn trừ hoàn toàn khỏi bước này; việc ép phụ tải về trung vị sẽ trực tiếp triệt tiêu các mẫu dị thường mà mô hình cần nhận dạng.
+
+    \item \textbf{Bước 6: Chuẩn hóa Dữ liệu Định lượng (Z-score Normalization) và Tích hợp Đặc trưng Khu vực (Zone Features).}
+    \begin{itemize}
+        \item \textbf{Chuẩn hóa Z-score:} Đưa các biến định lượng về phân phối có trung bình bằng 0 và độ lệch chuẩn bằng 1 bằng \texttt{StandardScaler}:
+        \begin{equation*}
+            Z = \frac{x - \mu}{\sigma}
+        \end{equation*}
+        Tham số $\mu, \sigma$ chỉ được ước lượng (\textit{fit}) trên tập huấn luyện và áp dụng (\textit{transform}) cho tập kiểm tra. Các biến cờ nhị phân ($0/1$), các biến chu kỳ $\sin/\cos \in [-1, 1]$, và các biến tỷ lệ \texttt{gte\_} $\in [0, 1]$ được giữ nguyên thang đo gốc.
+        \item \textbf{Tích hợp Đặc trưng Khu vực (Zone Features):} Để tạo ra bộ dữ liệu Zone-enhanced, nhóm xây dựng thêm 3 đặc trưng tương tác địa lý:
+        \begin{enumerate}
+            \item $\texttt{zone\_interaction} = \text{CatCode}(\texttt{site\_id} \,\|\, \text{`\_'} \,\|\, \texttt{primary\_use})$: Mô hình hóa nhu cầu tiêu thụ đặc thù theo từng vùng khí hậu và công năng.
+            \item $\texttt{site\_sqft\_mean}$: Quy mô diện tích sàn trung bình của từng khu vực đô thị (\texttt{site\_id}).
+            \item $\texttt{use\_sqft\_mean}$: Quy mô diện tích sàn trung bình theo từng nhóm công năng (\texttt{primary\_use}).
+        \end{enumerate}
+        Sự hiện diện của 3 thuộc tính này chính là điểm phân tách giữa hai bộ dữ liệu thực nghiệm (Baseline vs Zone-enhanced).
+    \end{itemize}
+
+    \item \textbf{Bước 7: Mã hóa Biến Phân loại (Categorical Encoding).}
+    Nhóm áp dụng kết hợp hai chiến lược mã hóa danh mục tối ưu:
+    \begin{itemize}
+        \item \textbf{One-Hot Encoding:} Dành cho các thuộc tính phân loại có lực lượng thấp như loại đồng hồ (\texttt{meter\_0}, \texttt{meter\_1}, \dots) và công năng (\texttt{primary\_use\_Education}, \dots), giúp giải thuật cây và mạng nơ-ron xử lý bình đẳng các nhóm không có quan hệ thứ bậc.
+        \item \textbf{Frequency Encoding (Mã hóa tần suất):} Dành cho các định danh có lực lượng cao như khu vực (\texttt{site\_id}) và tòa nhà (\texttt{building\_id}); mã hóa theo tần suất xuất hiện giúp phản ánh mức độ phổ biến của từng thực thể mà không làm bùng nổ số chiều.
+    \end{itemize}
+\end{enumerate}
+
+\subsection{Khám phá Dữ liệu sau Tiền xử lý}
+
+Sau khi hoàn tất toàn bộ chuỗi biến đổi tiền xử lý, nhóm nghiên cứu tiến hành kiểm toán dữ liệu và khám phá đối chiếu (tương ứng Bước 9 trong notebook thực nghiệm) nhằm đánh giá toàn diện sự thay đổi của tập dữ liệu trước khi bước vào giai đoạn huấn luyện mô hình.
+
+\subsubsection{Kiểm tra Tính Toàn vẹn và Phân bổ Đặc trưng}
+Quá trình kiểm tra ràng buộc nghiêm ngặt (\texttt{assert}) trên hai tập dữ liệu mang lại các kết quả kiểm toán sau:
+\begin{enumerate}
+    \item \textbf{Bảo toàn tuyệt đối số lượng mẫu:} Tập huấn luyện giữ nguyên chính xác $1.749.494$ dòng, tập kiểm tra giữ nguyên $1.800.567$ dòng. Không có bất kỳ bản ghi nào bị xóa bỏ ngoài ý muốn.
+    \item \textbf{Triệt tiêu hoàn toàn giá trị thiếu:} Toàn bộ các thuộc tính đạt tỷ lệ hoàn chỉnh $100\%$ ($0$ giá trị \texttt{NaN}).
+    \item \textbf{Đồng nhất không gian đặc trưng:} Hai tập huấn luyện và kiểm tra sở hữu không gian đặc trưng hoàn toàn trùng khớp, với tổng cộng 53 thuộc tính sẵn sàng cho mô hình hóa.
+\end{enumerate}
+
+Bảng~\ref{tab:final_feature_summary} tổng hợp chi tiết cấu trúc các nhóm đặc trưng còn giữ lại trong không gian biểu diễn cuối cùng.
+
+\begin{table}[H]
+\centering
+\small
+\setlength{\extrarowheight}{4pt}
+\begin{tabularx}{\textwidth}{|>{\raggedright\arraybackslash}m{3.2cm}|>{\centering\arraybackslash}m{2.2cm}|>{\raggedright\arraybackslash}X|}
+\hline
+\textbf{Nhóm Đặc trưng} & \textbf{Số lượng} & \textbf{Các thuộc tính tiêu biểu và Ý nghĩa} \\
+\hline
+Đặc trưng Phụ tải gốc & 1 & \texttt{meter\_reading} (sau khi nội suy và Z-score). \\
+\hline
+Đặc trưng Cảm biến Khí tượng & 6 & \texttt{air\_temperature}, \texttt{dew\_temperature}, \texttt{wind\_speed}, \texttt{wind\_direction}, \texttt{precip\_depth\_1\_hr}, \texttt{sea\_level\_pressure} (sau lọc IQR). \\
+\hline
+Chu kỳ Lượng giác & 6 & \texttt{hour\_sin}, \texttt{hour\_cos}, \texttt{weekday\_sin}, \texttt{weekday\_cos}, \texttt{month\_sin}, \texttt{month\_cos} (mô hình hóa chu kỳ tuần hoàn). \\
+\hline
+Đặc tính Công trình & 2 & \texttt{square\_feet}, \texttt{is\_holiday} (diện tích sàn và cờ ngày nghỉ). \\
+\hline
+Cờ Gián đoạn Cảm biến & 1 & \texttt{meter\_reading\_was\_missing} (lưu dấu vết đứt gãy truyền thông). \\
+\hline
+Mã hóa Mục tiêu (GTE) & 10 & \texttt{gte\_hour}, \texttt{gte\_weekday}, \texttt{gte\_month}, \texttt{gte\_site\_id}, \texttt{gte\_primary\_use}, \texttt{gte\_meter\_hour}, \dots \\
+\hline
+Tương tác Khu vực (Zone) & 3 & \texttt{zone\_interaction}, \texttt{site\_sqft\_mean}, \texttt{use\_sqft\_mean} (phân hóa địa phương; tạo nên bộ dữ liệu Zone-enhanced). \\
+\hline
+Mã hóa Danh mục & 24 & Các cột One-Hot (\texttt{primary\_use\_*}, \texttt{meter\_*}) và Frequency Encoding (\texttt{site\_id}, \texttt{building\_id}). \\
+\hline
+\end{tabularx}
+\caption{\textbf{Tổng hợp phân loại các nhóm đặc trưng trong ma trận dữ liệu sau tiền xử lý}}
+\label{tab:final_feature_summary}
+\end{table}
+
+\subsubsection{Lược đồ Lịch sử Tiến trình Tiền xử lý (Preprocessing History Diagram)}
+Nhằm trực quan hóa tính liên tục của quá trình biến đổi dữ liệu qua từng giai đoạn, nhóm nghiên cứu xây dựng lược đồ lịch sử tiền xử lý tại Hình~\ref{fig:preprocessing_history}.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.98\textwidth]{IMAGE/preprocessing_history_diagram.png}
+    \caption{\textbf{Lược đồ Lịch sử Tiền xử lý (Preprocessing History Diagram): Diễn biến triệt tiêu giá trị thiếu và biến động không gian đặc trưng qua từng giai đoạn}}
+    \label{fig:preprocessing_history}
+\end{figure}
+
+Lược đồ lịch sử tại Hình~\ref{fig:preprocessing_history} thể hiện rõ:
+\begin{itemize}
+    \item \textbf{Về dữ liệu thiếu (biểu đồ trên):} Tỷ lệ khuyết $6{,}15\%$ ở biến phụ tải được giải quyết triệt để sau bước nội suy chuỗi thời gian, đưa toàn bộ hệ thống về trạng thái hoàn chỉnh $0\%$ dữ liệu thiếu trước khi bước vào các phép toán chuẩn hóa.
+    \item \textbf{Về không gian đặc trưng (biểu đồ dưới):} Số chiều đặc trưng xuất phát từ 57 cột ban đầu, mở rộng lên đỉnh 64 cột sau khi bổ sung cờ missing, các biến sin/cos và khối tương tác khu vực; sau đó được tinh giản về đúng 53 thuộc tính cốt lõi nhờ kiên quyết loại bỏ các biến trùng lặp và các biến gây rò rỉ ID tòa nhà.
+\end{itemize}
+
+\subsubsection{Khám phá và Động lực Khoa học của Tương tác Khu vực (Zone EDA)}
+Để làm rõ vì sao nhóm nghiên cứu quyết định phát triển song song bộ dữ liệu Zone-enhanced bên cạnh bộ Baseline, Hình~\ref{fig:zone_comparison} trực quan hóa sự phân hóa thực tế về phụ tải và nhiệt độ giữa các khu vực địa lý tiêu biểu (\texttt{site\_id} 0, 2, 4, 9).
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.98\textwidth]{IMAGE/eda_zone_comparison.png}
+    \caption{\textbf{Phân bố Mức tiêu thụ điện (trái) và Phân phối Nhiệt độ (phải) giữa các Khu vực (Site 0, 2, 4, 9)}}
+    \label{fig:zone_comparison}
+\end{figure}
+
+Phân tích Hình~\ref{fig:zone_comparison} cho thấy hai quy luật môi trường mang tính quyết định:
+\begin{itemize}
+    \item \textbf{Sự phân cực về mức tiêu thụ (biểu đồ trái):} Khu vực Site 0 và Site 2 có trung vị phụ tải thấp ($30 - 60\,\text{kWh}$) với biên độ dao động hẹp, trong khi Site 4 và Site 9 tiêu thụ liên tục ở mức rất cao ($>180\,\text{kWh}$) và xuất hiện nhiều đuôi phân phối kéo dài.
+    \item \textbf{Sự sai khác về đới khí hậu (biểu đồ phải):} Nhiệt độ không khí tại Site 0 tập trung chủ yếu trong vùng nóng ($25^\circ\text{C} - 35^\circ\text{C}$), đòi hỏi hệ thống điều hòa HVAC chạy liên tục. Ngược lại, Site 4 và Site 9 nằm trong đới khí hậu ôn đới lạnh với nhiệt độ chủ yếu dưới $15^\circ\text{C}$, nơi nhu cầu sưởi ấm chiếm ưu thế.
+\end{itemize}
+
+Nếu chỉ sử dụng bộ dữ liệu cơ sở (Baseline) mà không tích hợp đặc trưng Zone, mô hình học máy sẽ bị ép phải khớp một hàm mục tiêu trung bình hóa trên toàn bộ 16 khu vực, dẫn đến việc ngộ nhận một mức phụ tải $100\,\text{kWh}$ tại Site 0 là dị thường (trong khi ở Site 4 đó lại là mức tải nền bình thường). 
+
+Chính vì vậy, việc tạo ra **hai bộ dữ liệu (Baseline và Zone-enhanced)** cho phép nhóm nghiên cứu tiến hành đánh giá thực nghiệm đa chiều ở Chương 4 và Chương 6, qua đó xác thực một cách định lượng xem việc cung cấp thông tin ngữ cảnh khu vực địa lý có giúp các mô hình (đặc biệt là Gradient Boosting) phân biệt chính xác hơn các hành vi phụ tải dị thường cục bộ hay không.

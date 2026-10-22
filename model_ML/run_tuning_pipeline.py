@@ -1,182 +1,268 @@
-import pandas as pd
-import numpy as np
-import time
 import os
-import optuna
+import sys
+
+# Đảm bảo UTF-8 cho Windows Console để in tiếng Việt có dấu không bị lỗi UnicodeEncodeError
+if sys.platform == "win32":
+    try:
+        if hasattr(sys.stdout, 'reconfigure'):
+            getattr(sys.stdout, 'reconfigure')(encoding='utf-8')
+        if hasattr(sys.stderr, 'reconfigure'):
+            getattr(sys.stderr, 'reconfigure')(encoding='utf-8')
+    except Exception:
+        pass
+
+# In thông báo ngay lập tức để người dùng biết script đã bắt đầu chạy
+print("=" * 85, flush=True)
+print("     TỐI ƯU SIÊU THAM SỐ ĐA LÕI TRÊN DỮ LIỆU BASELINE (OPTUNA 50 VÒNG)", flush=True)
+print("=" * 85, flush=True)
+print("-> Đang khởi động và nạp các thư viện Machine Learning (XGBoost, LightGBM, CatBoost)...", flush=True)
+
+import time
+import json
+import argparse
+import numpy as np
+import pandas as pd
 from pathlib import Path
 from sklearn.model_selection import train_test_split
-from sklearn.metrics import fbeta_score, log_loss, f1_score
-from model_classes import XGBoostModel, LightGBMModel, CatBoostModel, RandomForestModel, ExtraTreesModel
+from sklearn.metrics import precision_recall_curve
+import optuna
+
+# Thêm đường dẫn gốc để import model_classes
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+from model_ML.model_classes import XGBoostModel, LightGBMModel, CatBoostModel
+
 import warnings
 warnings.filterwarnings('ignore')
 
-# ----------------- CONFIGURATION -----------------
-script_dir = os.path.dirname(os.path.abspath(__file__))
-PROCESSED_DIR = Path(script_dir).parent / "data" / "processed"
-
-# Nạp cả 2 bộ dữ liệu để phục vụ chiến thuật ghép cặp
-DATASET_PREPROCESSED = PROCESSED_DIR / "train_preprocessed.parquet"
-
+# ---------------------------------------------------------------------------------
+# CẤU HÌNH ĐA LÕI VÀ TUNING
+# ---------------------------------------------------------------------------------
+N_CORES = os.cpu_count() or 4
+N_TRIALS = 50  # Mặc định 50 vòng cho mỗi mô hình
 TARGET = "anomaly"
 
-# Số lượng mẫu dùng để Tuning (Nên dùng số nhỏ để chạy nhanh, ví dụ 200k - 500k dòng)
-TUNING_SAMPLE_SIZE = None
-N_TRIALS = 30 # Số lần thử nghiệm cấu hình cho mỗi mô hình
+script_dir = Path(__file__).resolve().parent
+DATA_PATH = script_dir.parent / "data" / "processed" / "train_preprocessed.parquet"
+OUTPUT_JSON = script_dir / "baseline_tuning_best_params.json"
+OUTPUT_TXT = script_dir / "baseline_tuning_summary.txt"
 
-def objective(trial, model_name, X_train, y_train, X_val, y_val):
-    """
-    Định nghĩa không gian tìm kiếm (Search Space) siêu tham số cho từng loại mô hình
-    """
-    # if model_name == "XGBoost":
-    #     params = {
-    #         'learning_rate': trial.suggest_float('learning_rate', 0.01, 0.3, log=True),
-    #         'max_depth': trial.suggest_int('max_depth', 10, 15),
-    #         'subsample': trial.suggest_float('subsample', 0.5, 1.0),
-    #         'n_estimators': trial.suggest_int('n_estimators', 50, 150)
-    #     }
-    #     model = XGBoostModel(**params)
-        
-    # elif model_name == "LightGBM":
-    #     params = {
-    #         'learning_rate': trial.suggest_float('learning_rate', 0.01, 0.3, log=True),
-    #         'num_leaves': trial.suggest_int('num_leaves', 20, 150),
-    #         'max_depth': trial.suggest_int('max_depth', 10, 15),
-    #         'feature_fraction': trial.suggest_float('feature_fraction', 0.6, 0.8)
-    #     }
-    #     model = LightGBMModel(**params)
-        
-    if model_name == "CatBoost":
-        params = {
-            'learning_rate': trial.suggest_float('learning_rate', 0.10, 0.35, log=True),
-            'depth': trial.suggest_int('depth', 12, 15),
-            'iterations': trial.suggest_int('iterations', 130, 160),
-            'l2_leaf_reg': trial.suggest_float('l2_leaf_reg', 1.0, 3.0, log=True)
-        }
-        model = CatBoostModel(**params)
-        
-    # elif model_name == "Random Forest":
-    #     params = {
-    #         'max_depth': trial.suggest_int('max_depth', 5, 20),
-    #         'n_estimators': trial.suggest_int('n_estimators', 30, 100),
-    #         'min_samples_split': trial.suggest_int('min_samples_split', 2, 10),
-    #         'class_weight': 'balanced' # Rất quan trọng để trị mất cân bằng
-    #     }
-    #     model = RandomForestModel(**params)
-        
-    # elif model_name == "Extra Trees":
-    #     params = {
-    #         'max_depth': trial.suggest_int('max_depth', 5, 20),
-    #         'n_estimators': trial.suggest_int('n_estimators', 30, 100),
-    #         'min_samples_split': trial.suggest_int('min_samples_split', 2, 10),
-    #         'class_weight': 'balanced' # Bắt buộc phải có với Extra Trees
-    #     }
-    #     model = ExtraTreesModel(**params)
+print("=" * 85)
+print("     TỐI ƯU SIÊU THAM SỐ ĐA LÕI TRÊN DỮ LIỆU BASELINE (THƯỜNG) - OPTUNA 50 VÒNG")
+print("=" * 85)
+print(f"-> Hệ thống phát hiện: {N_CORES} CPU Cores. Kích hoạt toàn bộ lõi cho huấn luyện.")
+print(f"-> Số vòng lặp (Trials) cho mỗi mô hình: {N_TRIALS}")
+print(f"-> Nguồn dữ liệu: {DATA_PATH.name}")
+print("-" * 85)
 
-    # Huấn luyện và dự đoán
-    # Để Optuna chạy im lặng, ta tắt print trong lúc fit
-    model.model.fit(X_train, y_train) 
-    y_pred = model.model.predict(X_val)
-    y_prob = model.model.predict_proba(X_val)
-    if y_prob.ndim > 1: # Xử lý trường hợp predict_proba trả về mảng 2D (như RF)
-        y_prob = y_prob[:, 1]
-    
-    # Tính toán F1 Score ở ngưỡng tối ưu
-    thresholds = np.arange(0.01, 0.99, 0.02)
-    best_f1 = -1
-    for th in thresholds:
-        pred_th = (y_prob >= th).astype(int)
-        f1 = f1_score(y_val, pred_th, zero_division=0)
-        if f1 > best_f1:
-            best_f1 = f1
-            
-    return best_f1
-
-# =================================================================================
-# MAIN PIPELINE
-# =================================================================================
-
-print("BẮT ĐẦU QUÁ TRÌNH TÌM KIẾM SIÊU THAM SỐ TỐI ƯU (HYPERPARAMETER TUNING)")
-print(f"Số vòng lặp (Trials) cho mỗi mô hình: {N_TRIALS}")
-print(f"Số lượng dữ liệu dùng để Tuning: {TUNING_SAMPLE_SIZE if TUNING_SAMPLE_SIZE else 'Toàn bộ'} dòng")
-print("="*80)
-
-def prepare_data(dataset_path):
-    print(f"\nĐang chuẩn bị dữ liệu từ: {dataset_path.name}...")
-    df = pd.read_parquet(dataset_path, engine="fastparquet")
-    if TUNING_SAMPLE_SIZE is not None and len(df) > TUNING_SAMPLE_SIZE:
-        df = df.sample(n=TUNING_SAMPLE_SIZE, random_state=42)
-    X = df.drop(columns=[TARGET, "row_id", "timestamp"], errors="ignore").fillna(0)
+# ---------------------------------------------------------------------------------
+# 1. TẢI VÀ CHUẨN BỊ DỮ LIỆU BASELINE
+# ---------------------------------------------------------------------------------
+def load_baseline_data():
+    t0 = time.time()
+    print("Đang nạp dữ liệu Baseline bằng PyArrow đa luồng...", end=" ", flush=True)
+    df = pd.read_parquet(DATA_PATH, engine="pyarrow")
+    if 'timestamp' in df.columns:
+        df = df.drop(columns=['timestamp'])
+    X = df.drop(columns=[TARGET, "row_id"], errors="ignore")
     y = df[TARGET]
-    # Cố định tập Train/Val cho mọi Trials để công bằng
+    print(f"Xong trong {time.time() - t0:.1f}s. Kích thước: {X.shape}")
+    
+    # Chia Train/Val cố định 80/20 với stratify=y để đảm bảo phân phối nhãn dị thường
     return train_test_split(X, y, test_size=0.2, random_state=42, stratify=y)
 
-# Tải trước 2 bộ dữ liệu
-print("\n[1] Chuẩn bị bộ dữ liệu PREPROCESSED (Dành riêng cho XGBoost)")
-X_train_pre, X_val_pre, y_train_pre, y_val_pre = prepare_data(DATASET_PREPROCESSED)
+X_train, X_val, y_train, y_val = load_baseline_data()
+print(f"-> Tập Train: {X_train.shape[0]:,} dòng | Tập Val: {X_val.shape[0]:,} dòng")
+print("-" * 85)
 
-# Cấu hình chiến thuật (Bỏ qua XGBoost và LightGBM vì đã tìm được thông số chuẩn)
-tuning_strategy = {
-    "XGBoost": (X_train_pre, X_val_pre, y_train_pre, y_val_pre, "Preprocessed"),
-    "LightGBM": (X_train_pre, X_val_pre, y_train_pre, y_val_pre, "Preprocessed"),
-    "CatBoost": (X_train_pre, X_val_pre, y_train_pre, y_val_pre, "Preprocessed"),
-    "Random Forest": (X_train_pre, X_val_pre, y_train_pre, y_val_pre, "Preprocessed"),
-    "Extra Trees": (X_train_pre, X_val_pre, y_train_pre, y_val_pre, "Preprocessed")
-}
+# ---------------------------------------------------------------------------------
+# 2. HÀM TỐI ƯU NGƯỠNG TĨNH DỰA TRÊN PRECISION-RECALL CURVE (VECTOR HÓA SIÊU TỐC)
+# ---------------------------------------------------------------------------------
+def optimize_threshold(y_true, y_prob):
+    """Tính toán F1 Score tối ưu dọc theo toàn bộ các ngưỡng xác suất bằng C++"""
+    precisions, recalls, thresholds = precision_recall_curve(y_true, y_prob)
+    f1_scores = 2 * (precisions * recalls) / (precisions + recalls + 1e-10)
+    best_idx = np.argmax(f1_scores)
+    best_th = thresholds[best_idx] if best_idx < len(thresholds) else 0.5
+    return float(f1_scores[best_idx]), float(best_th)
 
-best_results_log = []
+# ---------------------------------------------------------------------------------
+# 3. ĐỊNH NGHĨA OBJECTIVE CHO TỪNG MÔ HÌNH (SỬ DỤNG FULL CORES)
+# ---------------------------------------------------------------------------------
 
-# Tắt log hệ thống của Optuna để thay bằng Custom Print của ta
-optuna.logging.set_verbosity(optuna.logging.WARNING)
+def objective_lgb(trial):
+    params = {
+        'learning_rate': trial.suggest_float('learning_rate', 0.03, 0.25, log=True),
+        'num_leaves': trial.suggest_int('num_leaves', 63, 255),
+        'max_depth': trial.suggest_int('max_depth', 10, 18),
+        'feature_fraction': trial.suggest_float('feature_fraction', 0.5, 0.9),
+        'min_child_samples': trial.suggest_int('min_child_samples', 20, 100),
+        'n_estimators': trial.suggest_int('n_estimators', 120, 220),
+        'n_jobs': -1,          # Tận dụng 100% CPU cores
+        'random_state': 42,
+        'verbose': -1
+    }
+    model = LightGBMModel(**params)
+    model.train(X_train, y_train)
+    preds = model.predict_proba(X_val)
+    if len(preds.shape) > 1 and preds.shape[1] == 2:
+        preds = preds[:, 1]
+    best_f1, best_th = optimize_threshold(y_val, preds)
+    trial.set_user_attr('best_threshold', best_th)
+    return best_f1
 
-def optuna_callback(study, trial):
-    exec_time = (trial.datetime_complete - trial.datetime_start).total_seconds()
-    if trial.value is not None:
-        best_params_str = ", ".join([f"{k}: {v:.4f}" if isinstance(v, float) else f"{k}: {v}" for k, v in study.best_params.items()])
-        print(f"     [Vòng {trial.number:02d}] F1: {trial.value:.4f} | Thời gian: {exec_time:.1f}s")
-        print(f"       -> [Kỷ lục Vòng {study.best_trial.number:02d}] F1: {study.best_value:.4f} | Params: {best_params_str}")
-    else:
-        print(f"     [Vòng {trial.number:02d}] THẤT BẠI | Thời gian: {exec_time:.1f}s")
+def objective_xgb(trial):
+    params = {
+        'learning_rate': trial.suggest_float('learning_rate', 0.05, 0.3, log=True),
+        'max_depth': trial.suggest_int('max_depth', 10, 16),
+        'subsample': trial.suggest_float('subsample', 0.6, 1.0),
+        'colsample_bytree': trial.suggest_float('colsample_bytree', 0.6, 1.0),
+        'n_estimators': trial.suggest_int('n_estimators', 120, 180),
+        'tree_method': 'hist', # Tối ưu hóa histogram C++ đa luồng cực nhanh
+        'n_jobs': -1,          # Tận dụng 100% CPU cores
+        'eval_metric': 'logloss',
+        'random_state': 42
+    }
+    model = XGBoostModel(**params)
+    model.train(X_train, y_train)
+    preds = model.predict_proba(X_val)
+    if len(preds.shape) > 1 and preds.shape[1] == 2:
+        preds = preds[:, 1]
+    best_f1, best_th = optimize_threshold(y_val, preds)
+    trial.set_user_attr('best_threshold', best_th)
+    return best_f1
 
-for m_name, (X_t, X_v, y_t, y_v, ds_name) in tuning_strategy.items():
-    print(f"\n  -> Đang tìm tham số tối ưu cho {m_name} trên tập {ds_name}...")
-    start_time = time.time()
-    
-    # Khởi tạo Optuna Study
-    study = optuna.create_study(direction="maximize") # Tối đa hóa Custom Score
-    
-    # Chạy tối ưu hóa kèm theo callback hiển thị
-    try:
-        study.optimize(lambda trial: objective(trial, m_name, X_t, y_t, X_v, y_v), n_trials=N_TRIALS, callbacks=[optuna_callback])
+def objective_cat(trial):
+    params = {
+        'learning_rate': trial.suggest_float('learning_rate', 0.08, 0.35, log=True),
+        'depth': trial.suggest_int('depth', 8, 14),
+        'l2_leaf_reg': trial.suggest_float('l2_leaf_reg', 1.0, 5.0, log=True),
+        'iterations': trial.suggest_int('iterations', 120, 180),
+        'thread_count': -1,    # Tận dụng 100% CPU cores
+        'verbose': 0,
+        'random_state': 42
+    }
+    model = CatBoostModel(**params)
+    model.train(X_train, y_train)
+    preds = model.predict_proba(X_val)
+    if len(preds.shape) > 1 and preds.shape[1] == 2:
+        preds = preds[:, 1]
+    best_f1, best_th = optimize_threshold(y_val, preds)
+    trial.set_user_attr('best_threshold', best_th)
+    return best_f1
+
+# ---------------------------------------------------------------------------------
+# 4. CALLBACK THEO DÕI TIẾN ĐỘ THỜI GIAN THỰC
+# ---------------------------------------------------------------------------------
+def create_callback(model_name):
+    def optuna_callback(study, trial):
+        duration = (trial.datetime_complete - trial.datetime_start).total_seconds()
+        val = trial.value
+        best_val = study.best_value
+        is_record = (trial.number == study.best_trial.number)
         
-        best_score = study.best_value
-        best_params = study.best_params
+        status_tag = "[KỶ LỤC MỚI ⭐]" if is_record else "             "
+        th_val = trial.user_attrs.get('best_threshold', 0.5)
+        print(f"  [{model_name}] Trial {trial.number + 1:02d}/{N_TRIALS} | "
+              f"F1: {val:.4f} (Th: {th_val:.3f}) | {duration:5.1f}s | {status_tag} Best F1: {best_val:.4f}")
+    return optuna_callback
+
+# ---------------------------------------------------------------------------------
+# 5. ĐIỀU PHỐI VÀ LƯU KẾT QUẢ
+# ---------------------------------------------------------------------------------
+def run_tuning(models_to_run):
+    optuna.logging.set_verbosity(optuna.logging.WARNING)
+    
+    # Đọc kết quả cũ nếu có để cập nhật
+    all_best_params = {}
+    if OUTPUT_JSON.exists():
+        try:
+            with open(OUTPUT_JSON, "r", encoding="utf-8") as f:
+                all_best_params = json.load(f)
+        except Exception:
+            all_best_params = {}
+            
+    summary_results = []
+    
+    mapping = {
+        "LightGBM": objective_lgb,
+        "XGBoost": objective_xgb,
+        "CatBoost": objective_cat
+    }
+    
+    for name in models_to_run:
+        print(f"\n>>> BẮT ĐẦU TỐI ƯU SIÊU THAM SỐ CHO: {name.upper()} ({N_TRIALS} VÒNG) <<<")
+        t_model_start = time.time()
         
-        best_results_log.append({
-            "Model": m_name,
-            "Dataset Used": ds_name,
-            "Best Custom Score": round(best_score, 4),
-            "Best Hyperparameters": str(best_params)
+        study = optuna.create_study(direction="maximize", sampler=optuna.samplers.TPESampler(seed=42))
+        callback = create_callback(name)
+        
+        study.optimize(mapping[name], n_trials=N_TRIALS, callbacks=[callback])
+        
+        elapsed = time.time() - t_model_start
+        best_trial = study.best_trial
+        best_score = best_trial.value
+        best_th = best_trial.user_attrs.get('best_threshold', 0.5)
+        best_params = best_trial.params
+        
+        # Cập nhật kết quả
+        all_best_params[name] = {
+            "best_f1": round(best_score, 4),
+            "best_threshold": round(best_th, 4),
+            "tuning_time_sec": round(elapsed, 1),
+            "params": best_params
+        }
+        
+        summary_results.append({
+            "Mô hình": name,
+            "Best F1 Score": round(best_score, 4),
+            "Ngưỡng Tối Ưu": round(best_th, 4),
+            "Thời Gian (s)": round(elapsed, 1),
+            "Siêu tham số tốt nhất": str(best_params)
         })
         
-        print(f"     [XONG] Best Score: {best_score:.4f} | Time: {time.time() - start_time:.1f}s")
-        print(f"     [PARAMS] {best_params}")
+        # Lưu JSON liên tục sau mỗi model hoàn tất
+        with open(OUTPUT_JSON, "w", encoding="utf-8") as f:
+            json.dump(all_best_params, f, indent=4, ensure_ascii=False)
+            
+        print(f"--- ĐÃ HOÀN TẤT {name} ---")
+        print(f"  -> Best F1: {best_score:.4f} (Ngưỡng {best_th:.3f}) | Tổng thời gian: {elapsed:.1f}s")
+        print(f"  -> Params: {best_params}")
+
+    # In Bảng Tổng Kết
+    print("\n" + "=" * 90)
+    print("                 BẢNG TỔNG KẾT TUNING BASELINE (OPTUNA 50 VÒNG)")
+    print("=" * 90)
+    summary_df = pd.DataFrame(summary_results)
+    if not summary_df.empty:
+        try:
+            tbl_str = summary_df.to_markdown(index=False)
+        except Exception:
+            tbl_str = summary_df.to_string(index=False)
+        print(tbl_str)
+        with open(OUTPUT_TXT, "w", encoding="utf-8") as f:
+            f.write("BẢNG TỔNG KẾT TUNING BASELINE OPTUNA\n")
+            f.write(tbl_str)
+            f.write("\n")
+            
+    print(f"\n=> Đã lưu cấu hình siêu tham số chuẩn dạng JSON tại: {OUTPUT_JSON}")
+    print(f"=> Bạn có thể chạy script đánh giá toàn diện để đối chiếu trực tiếp Baseline vs Zone!")
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description="Optuna Multi-core Tuning Pipeline cho Baseline")
+    parser.add_argument("--model", type=str, default="all", choices=["all", "lgb", "xgb", "cat"],
+                        help="Chọn model cần tune: 'all' (cả 3), 'lgb', 'xgb', hoặc 'cat'")
+    parser.add_argument("--trials", type=int, default=N_TRIALS, help="Số vòng lặp Optuna (mặc định 50)")
+    args = parser.parse_args()
+    
+    N_TRIALS = args.trials
+    
+    if args.model == "lgb":
+        models_to_run = ["LightGBM"]
+    elif args.model == "xgb":
+        models_to_run = ["XGBoost"]
+    elif args.model == "cat":
+        models_to_run = ["CatBoost"]
+    else:
+        models_to_run = ["LightGBM", "XGBoost", "CatBoost"]
         
-    except Exception as e:
-        print(f"     [LỖI] {e}")
-
-# In Bảng tổng kết
-print("\n" + "="*90)
-print("BẢNG TỔNG KẾT SIÊU THAM SỐ TỐI ƯU THEO CHIẾN THUẬT LỰA CHỌN")
-print("="*90)
-
-results_df = pd.DataFrame(best_results_log)
-if not results_df.empty:
-    results_df = results_df.sort_values(by=["Best Custom Score"], ascending=False)
-    
-    # Hiển thị đẹp hơn
-    pd.set_option('display.max_colwidth', None) 
-    print(results_df.to_markdown(index=False))
-    
-    output_csv = os.path.join(script_dir, "tuning_best_params.csv")
-    results_df.to_csv(output_csv, index=False)
-    print(f"\nĐã lưu chi tiết cấu hình tối ưu tại: {output_csv}")
+    run_tuning(models_to_run)

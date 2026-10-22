@@ -1,0 +1,57 @@
+[
+    {
+        "optimal_threshold": 0.3042,
+        "f1_optimal": 0.9191,
+        "precision_optimal": 0.9537,
+        "recall_optimal": 0.8868,
+        "f1_05": 0.9116,
+        "precision_05": 0.9757,
+        "recall_05": 0.8553,
+        "model": "LightGBM",
+        "fit_time_sec": 9.49
+    },
+    {
+        "optimal_threshold": 0.2197,
+        "f1_optimal": 0.9282,
+        "precision_optimal": 0.946,
+        "recall_optimal": 0.911,
+        "f1_05": 0.9225,
+        "precision_05": 0.9769,
+        "recall_05": 0.8738,
+        "model": "XGBoost",
+        "fit_time_sec": 14.94
+    },
+    {
+        "optimal_threshold": 0.2546,
+        "f1_optimal": 0.9188,
+        "precision_optimal": 0.9435,
+        "recall_optimal": 0.8954,
+        "f1_05": 0.9056,
+        "precision_05": 0.9773,
+        "recall_05": 0.8437,
+        "model": "CatBoost",
+        "fit_time_sec": 125.65
+    },
+    {
+        "optimal_threshold": 0.4507,
+        "f1_optimal": 0.8559,
+        "precision_optimal": 0.9336,
+        "recall_optimal": 0.7902,
+        "f1_05": 0.8501,
+        "precision_05": 0.948,
+        "recall_05": 0.7705,
+        "model": "Random Forest",
+        "fit_time_sec": 36.62
+    },
+    {
+        "optimal_threshold": 0.1985,
+        "f1_optimal": 0.8786,
+        "precision_optimal": 0.9019,
+        "recall_optimal": 0.8564,
+        "f1_05": 0.8285,
+        "precision_05": 0.9881,
+        "recall_05": 0.7132,
+        "model": "Extra Trees",
+        "fit_time_sec": 30.59
+    }
+]

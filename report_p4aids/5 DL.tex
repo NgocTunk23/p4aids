@@ -1,8 +1,205 @@
 \section{Triển khai thuật toán Học Sâu - Deep Learning}
-\subsection{Tiền xử lý riêng dành cho Deep Learning}
-%Thực hiện những bước tiền xử lý cần thiết cho DL nếu có thể sài chung cho ML thì check và xem xét
+\subsection{Kết luận và Thiết kế Pipeline}
+Dựa trên phân tích ưu nhược điểm ở phần tổng quan, nhóm nghiên cứu đề xuất một pipeline Học sâu gồm năm giai đoạn. Pipeline tuân theo năm nguyên tắc thiết kế:
+\begin{enumerate}
+    \item \textbf{Cùng giao thức với phần Học máy:} dùng chung cách chia dữ liệu, cùng ba độ đo (F1-Score, PR-AUC, ROC-AUC) và cùng cách chọn ngưỡng, để so sánh Học máy và Học sâu là công bằng.
+    \item \textbf{Dựng chuỗi theo từng toà nhà:} không trộn dòng giữa các toà và không xáo trộn ngẫu nhiên theo từng giờ, vì các giờ liền kề rất giống nhau và sẽ gây rò rỉ thông tin.
+    \item \textbf{Mô hình có giám sát làm hướng chính:} bộ dữ liệu đã có nhãn \texttt{anomaly}, nên các bộ gán nhãn chuỗi (BiGRU/BiLSTM, TCN) là mô hình chính; mô hình tái tạo (LSTM-AE) đóng vai trò đối chứng và tạo đặc trưng bổ sung.
+    \item \textbf{Mỗi lựa chọn đi kèm một giả thuyết kiểm chứng được:} mọi lý do chọn hoặc loại một thuật toán được gắn với một thí nghiệm cụ thể ở mục kiểm chứng giả thuyết.
+    \item \textbf{Dung hợp với Học máy ở cuối:} đầu ra của các mô hình Học sâu trở thành mô hình cơ sở thêm vào bước Ensemble của phần Học máy.
+\end{enumerate}
 
-\subsection{Kỹ thuật Huấn luyện (Training/Fine-tuning techniques)}
-%Trước khi đi vào mô hình phải nêu rõ tại sao chọn thuật toán này, mục đích đầu ra là gì và các bước như thế nào
+\begin{enumerate}
+    \item \textbf{Giai đoạn 1: Kiểm định dữ liệu, Tiền xử lý và Dựng chuỗi}
+    \begin{itemize}
+        \item \textbf{Kiểm định lưới thời gian:} đưa mỗi toà nhà về lưới giờ đều đặn (một dòng mỗi giờ) bằng \texttt{reindex}. Các giờ thiếu được đánh dấu bằng cờ khuyết chứ không bị bỏ đi, để cửa sổ trượt luôn đúng khoảng cách thời gian.
+        \item \textbf{Xử lý giá trị khuyết:} không điền khuyết ``mù'' cho \texttt{meter\_reading}. Giá trị khuyết được thay bằng $0$ sau chuẩn hoá và đi kèm một kênh cờ \texttt{is\_missing}, để mô hình tự học ý nghĩa của sự khuyết. Các biến thời tiết điền bằng nội suy tuyến tính theo toà nhà.
+        \item \textbf{Chuẩn hoá theo từng toà nhà:} dùng $\log(1 + x)$ rồi chuẩn hoá bằng median và IQR của riêng toà nhà, vì thang đo giữa các toà chênh nhau rất lớn (giá trị tối đa trong tập kiểm định lên đến hàng nghìn). \textbf{Các thống kê này chỉ tính trên giai đoạn huấn luyện}, không dùng dữ liệu sau mốc chia.
+        \item \textbf{Xây dựng kênh đầu vào:} giá trị đo đã chuẩn hoá, \texttt{is\_missing}, độ dài đoạn giá trị lặp \texttt{run\_len} (qua $\log(1 + x)$), hiệu giá trị với giờ trước, các biến thời tiết chính, và mã hoá chu kỳ $\sin/\cos$ của giờ, thứ, tháng. Đặc trưng toà nhà gồm \texttt{primary\_use} (embedding), $\log(\texttt{square\_feet})$ và \texttt{site\_id} (embedding).
+        \item \textbf{Không dùng:} các cột khoá ghép kiểu chuỗi (\texttt{building\_hour}, \texttt{building\_weekday\_hour},\ldots) và nhóm \texttt{gte\_*} (target encoding của \texttt{meter\_reading}). Nhóm \texttt{gte\_*} chỉ được thêm ở thí nghiệm riêng để kiểm tra rò rỉ. \texttt{building\_id} không dùng làm embedding vì tập kiểm tra cuối cùng gồm các toà nhà chưa từng thấy.
+        \item \textbf{Cắt đoạn (chunking) thay vì cửa sổ trượt bước $1$:} mỗi toà nhà được cắt thành các đoạn dài $L = 336$ giờ (hai tuần), bước nhảy $168$ giờ (đoạn kề nhau chồng lấp một tuần). Mô hình dự đoán nhãn cho \textbf{toàn bộ} các giờ trong đoạn. Cách này giảm khối lượng tính toán hàng trăm lần so với cửa sổ trượt bước $1$ mà vẫn cho dự đoán ở mọi giờ.
+    \end{itemize}
 
-\subsection{Giải thích mô hình - Explanation}
+    \item \textbf{Giai đoạn 2: Huấn luyện rời rạc từng mô hình (Baseline Modeling)}
+    \begin{itemize}
+        \item Huấn luyện độc lập từng mô hình với siêu tham số mặc định hợp lý ban đầu. Nhóm \textbf{mô hình chính} gồm:
+        \begin{enumerate}
+            \item \textbf{BiGRU} (và BiLSTM làm đối chứng) — bộ gán nhãn chuỗi hai chiều, khai thác ngữ cảnh hai phía.
+            \item \textbf{TCN nhân quả} — bộ gán nhãn chuỗi chỉ dùng quá khứ, huấn luyện nhanh và kiểm soát được vùng nhìn.
+            \item \textbf{LSTM Autoencoder} — mô hình tái tạo không giám sát, huấn luyện chỉ trên cửa sổ bình thường; vừa là baseline đối chứng, vừa tạo đặc trưng sai số tái tạo.
+        \end{enumerate}
+        \item Nhóm \textbf{mô hình mở rộng} (chạy khi còn thời gian): TCN không nhân quả, USAD, bản tái hiện GAN-LSTM trên tập con toà nhà ở mức cửa sổ, Transformer Encoder nhỏ.
+        \item Đánh giá hiệu năng từng mô hình đơn lẻ bằng \textbf{F1-Score}, \textbf{PR-AUC} và \textbf{ROC-AUC} theo từng giờ, đồng thời tách recall theo hai loại bất thường (giá trị bằng $1{,}0$ và các bất thường còn lại). Giai đoạn này thiết lập mức hiệu suất cơ sở cho Học sâu.
+    \end{itemize}
+
+    \item \textbf{Giai đoạn 3: Tối ưu hóa từng mô hình (Hyperparameter Tuning)}
+    \begin{itemize}
+        \item \textbf{Tinh chỉnh siêu tham số:} dùng Optuna kết hợp cắt tỉa (pruning), mục tiêu là PR-AUC trên tập kiểm định. Không gian tìm kiếm nêu ở mục đặc tả kiến trúc.
+        \item \textbf{Hàm mất mát cho mất cân bằng:} so sánh ba cấu hình: BCE không trọng số, BCE có trọng số lớp ($w_{+}$ thay đổi từ $1$ đến khoảng $45$) và Focal Loss ($\gamma \in \{1, 2, 3\}$).
+        \item \textbf{Tối ưu hoá ngưỡng cắt:} ngưỡng chọn để tối đa hoá F1-Score trên một khoảng thời gian \textbf{riêng} (tháng $9$), tách khỏi tập đánh giá cuối (từ tháng $10$). Cách này tránh con số F1 quá lạc quan do chọn ngưỡng trực tiếp trên tập đánh giá.
+        \item \textbf{Điều chuẩn và ổn định huấn luyện:} dropout, weight decay, cắt gradient (gradient clipping) và dừng sớm (early stopping) theo PR-AUC kiểm định.
+        \item \textbf{So sánh kết quả:} đối chiếu từng mô hình sau tối ưu với baseline ở Giai đoạn 2, xác định mô hình Học sâu đơn lẻ tốt nhất.
+    \end{itemize}
+
+    \item \textbf{Giai đoạn 4: Dung hợp mô hình (Model Ensemble)}
+    \begin{itemize}
+        \item \textbf{Đặc trưng sai số tái tạo cho mô hình Học máy:} điểm tái tạo $a_t$ của LSTM-AE (chuẩn hoá theo toà nhà) được thêm vào bộ đặc trưng của các mô hình cây, tương tự cách dùng điểm Isolation Forest ở phần Học máy. Để tránh lạc quan giả tạo, điểm này trên dữ liệu huấn luyện phải được tính ngoài mẫu (out-of-fold theo nhóm toà nhà).
+        \item \textbf{Dung hợp Học sâu và Học máy:} thêm xác suất của mô hình Học sâu tốt nhất vào bộ mô hình cơ sở của Stacking, Blending và Soft Voting đã mô tả ở phần Học máy:
+        \begin{equation*}
+            \hat{p}_{\text{blend}} = \sum_{m=1}^{M} w_m \cdot \hat{p}_m, \quad \text{với} \quad \sum_{m=1}^{M} w_m = 1, \quad m \in \{\text{LGBM}, \text{XGB}, \text{Cat}, \text{BiGRU}, \text{TCN}\}
+        \end{equation*}
+        Trộn theo thứ hạng (rank averaging) cũng được thử vì xác suất của mô hình có trọng số lớp và của mô hình cây có thang đo khác nhau.
+        \item \textbf{Huấn luyện chống rò rỉ:} dự đoán out-of-fold cho mô hình cơ sở được tạo bằng \texttt{GroupKFold} theo toà nhà (hoặc chia theo thứ tự thời gian), không dùng chia phân tầng ngẫu nhiên theo từng giờ.
+        \item \textbf{So sánh tổng thể:} đối chiếu Ensemble Học sâu+Học máy với mô hình đơn lẻ tốt nhất của mỗi nhóm, báo cáo F1-Score, PR-AUC, ROC-AUC và thời gian suy luận.
+    \end{itemize}
+
+    \item \textbf{Giai đoạn 5: Đánh giá giao thức kép và Phân tích lỗi}
+    \begin{itemize}
+        \item \textbf{Giao thức T (theo thời gian):} huấn luyện với tháng $1$ đến $8$, chọn ngưỡng ở tháng $9$, đánh giá từ tháng $10$ đến tháng $12$.
+        \item \textbf{Giao thức B (theo toà nhà):} \texttt{GroupKFold} $5$ phần theo \texttt{building\_id} trên cả năm, ngưỡng chọn trong phần huấn luyện của mỗi lượt. Giao thức này mô phỏng việc dự đoán trên các toà nhà chưa thấy, gần với thiết lập tập kiểm tra của cuộc thi.
+        \item \textbf{Giao thức C (mức cửa sổ, chỉ để đối chiếu tài liệu):} cửa sổ $60$ giờ không chồng lấp, cửa sổ bất thường nếu có ít nhất một giờ bất thường, theo thiết lập của Orvati Nia et al. (2026).
+        \item \textbf{Phân tích lỗi:} recall theo loại bất thường, phân bố recall theo từng toà nhà, và theo độ dài đoạn lặp, nhằm trả lời mô hình bắt được loại bất thường nào và bỏ sót loại nào.
+        \item Mỗi cấu hình chạy ít nhất $3$ giá trị seed khác nhau, báo cáo trung bình và độ lệch chuẩn.
+    \end{itemize}
+\end{enumerate}
+
+\subsection{Luận giải việc lựa chọn và loại trừ các thuật toán}
+Phần này giải thích vì sao mỗi họ mô hình được đưa vào hoặc không đưa vào pipeline chính. Các nhận định ``giả thuyết'' được kiểm chứng ở mục thí nghiệm cuối chương.
+
+\textbf{1. Nhóm được chọn làm mô hình chính}
+\begin{itemize}
+    \item \textbf{BiGRU/BiLSTM:} bộ dữ liệu có nhãn nên có thể học có giám sát. Hai chiều cho phép mô hình biết một đoạn giá trị lặp kéo dài bao lâu, thông tin mà mô hình xét từng điểm không có. GRU được ưu tiên vì ít tham số hơn LSTM, LSTM giữ làm đối chứng. Hạn chế là chỉ dùng được ngoại tuyến, và nhóm sẽ nêu rõ điều này khi báo cáo.
+    \item \textbf{TCN nhân quả:} song song hoá được trên GPU nên huấn luyện nhanh trên khoảng $1{,}75$ triệu bước thời gian, vùng nhìn tính được trước ($R = 253$ giờ với $k = 3$, $L = 6$ phủ chu kỳ tuần). Chỉ dùng quá khứ nên bổ sung góc nhìn ``cảnh báo thời gian thực'' bên cạnh BiGRU.
+    \item \textbf{LSTM Autoencoder:} giữ làm đại diện của hệ hình tái tạo, vì đã có nhiều nghiên cứu trên LEAD lấy nó làm baseline, và rẻ hơn GAN nhiều. Không dùng làm mô hình chính vì không tận dụng nhãn và có rủi ro bỏ sót bất thường dạng phẳng (giả thuyết H3).
+\end{itemize}
+
+\textbf{2. Nhóm đưa vào hướng mở rộng}
+\begin{itemize}
+    \item \textbf{GAN-LSTM / TAnoGAN:} có kết quả công bố trực tiếp trên LEAD nên có giá trị đối chiếu. Tuy nhiên mỗi cửa sổ cần khoảng $300$ bước tối ưu vector tiềm ẩn khi suy luận. Ước tính của nhóm: chấm điểm từng giờ trên khoảng $1{,}3$ triệu cửa sổ huấn luyện cần khoảng $4 \times 10^8$ lượt chạy bộ sinh, không khả thi; chấm điểm theo cửa sổ không chồng lấp ($60$ giờ) trên $200$ toà nhà chỉ cần khoảng $2{,}9 \times 10^4$ cửa sổ, tương đương khoảng $8{,}8 \times 10^6$ lượt, khả thi. Vì vậy GAN chỉ được tái hiện ở mức cửa sổ trên một tập con toà nhà, dùng giao thức C để đối chiếu với bài báo.
+    \item \textbf{USAD:} huấn luyện nhanh, ổn định hơn GAN và không cần tối ưu tiềm ẩn khi suy luận, nhưng chưa có công bố trên dữ liệu năng lượng và vẫn là hệ hình không giám sát. Thử nếu còn thời gian.
+    \item \textbf{Transformer Encoder nhỏ:} chỉ thử ở dạng bộ gán nhãn chuỗi có giám sát với vài tầng, vì chỉ có $200$ chuỗi và mô hình lớn dễ quá khớp.
+    \item \textbf{Mô hình theo cụm toà nhà:} lấy ý tưởng từ Cansever \& Konyar (2026): phân cụm toà nhà theo hành vi tiêu thụ rồi huấn luyện một mô hình cho mỗi cụm, hoặc đưa nhãn cụm vào làm đầu vào mô hình.
+\end{itemize}
+
+\textbf{3. Nhóm không đưa vào pipeline chính}
+\begin{itemize}
+    \item \textbf{Conv-AE và VAE:} cùng hệ hình tái tạo với LSTM-AE nhưng báo cáo trên LEAD của Orvati Nia et al. (2026) thấp hơn các mô hình sinh đối kháng, và đã có LSTM-AE làm đại diện. Thêm chúng sẽ tăng chi phí mà không mở ra góc nhìn mới.
+    \item \textbf{Anomaly Transformer, TranAD:} thiết kế cho chuỗi đa biến không giám sát với quy tắc đánh giá điều chỉnh theo đoạn, không tận dụng nhãn, chưa có đánh giá trên LEAD. Với chỉ $200$ chuỗi, rủi ro quá khớp cao. Chỉ giữ lại ý tưởng bộ mã hoá chú ý ở dạng nhỏ nêu trên.
+    \item \textbf{RNN thuần (vanilla RNN):} bị triệt tiêu gradient trên chuỗi dài hàng trăm bước, LSTM/GRU thay thế hoàn toàn.
+    \item \textbf{MLP trên cửa sổ làm phẳng:} mất cấu trúc thứ tự, tham số tăng theo $w \times d$, và mô hình cây ở phần Học máy đã làm tốt vai trò này với đặc trưng độ trễ.
+    \item \textbf{SMOTE trên chuỗi:} khác với phần Học máy, nhóm không dùng SMOTE cho mô hình chuỗi vì nội suy giữa hai cửa sổ bất thường tạo ra các chuỗi không có thật, làm hỏng cấu trúc thời gian và đoạn giá trị lặp. Mất cân bằng được xử lý bằng hàm mất mát có trọng số hoặc focal loss.
+\end{itemize}
+
+\textbf{Tiểu kết:} việc loại trừ không phủ nhận giá trị của các thuật toán này, mà là kết quả của việc chọn lọc theo ba đặc tính của bài toán: dữ liệu có nhãn nhưng mất cân bằng nặng, bất thường gồm cả loại có giá trị đặc biệt lẫn loại phụ thuộc ngữ cảnh, và chỉ có $200$ chuỗi toà nhà với khoảng $1{,}75$ triệu quan trắc.
+
+\subsection{Đặc tả kiến trúc và siêu tham số}
+\textbf{1. BiGRU / BiLSTM gán nhãn chuỗi}
+\begin{itemize}
+    \item \textbf{Đầu vào:} tensor kích thước $B \times L \times d$ với $L = 336$ và $d$ khoảng $18$ đến $22$ kênh theo giai đoạn 1; vector đặc trưng toà nhà (embedding \texttt{primary\_use}, \texttt{site\_id}, $\log(\texttt{square\_feet})$) được nối vào mọi bước thời gian.
+    \item \textbf{Kiến trúc:} $2$ tầng GRU/LSTM hai chiều, $64$ đơn vị ẩn mỗi chiều, dropout $0{,}2$, tầng tuyến tính ra một logit mỗi giờ.
+    \item \textbf{Đầu ra:} xác suất bất thường $\hat{p}_t$ cho từng giờ trong đoạn; khi suy luận, các đoạn chồng lấp được ghép lại và lấy phần lõi (bỏ vùng biên của đoạn).
+    \item \textbf{Huấn luyện:} AdamW, tốc độ học $10^{-3}$ giảm dần theo cosine, cắt gradient ở $1{,}0$, dừng sớm theo PR-AUC kiểm định.
+\end{itemize}
+
+\textbf{2. TCN nhân quả}
+\begin{itemize}
+    \item \textbf{Kiến trúc:} $6$ khối dư, mỗi khối hai tích chập nhân quả giãn nở với $d \in \{1, 2, 4, 8, 16, 32\}$, nhân $k = 3$, $64$ kênh, chuẩn hoá trọng số, dropout $0{,}1$. Vùng nhìn $R = 1 + 2 \cdot 2 \cdot 63 = 253$ giờ.
+    \item \textbf{Đầu vào/đầu ra:} giống BiGRU; đầu ra là một logit mỗi giờ.
+    \item \textbf{Biến thể không nhân quả:} thay đệm nhân quả bằng đệm đối xứng để so sánh công bằng với BiGRU về lượng ngữ cảnh.
+\end{itemize}
+
+\textbf{3. LSTM Autoencoder}
+\begin{itemize}
+    \item \textbf{Dữ liệu huấn luyện:} chỉ các cửa sổ không chứa giờ bất thường nào, lấy từ giai đoạn huấn luyện; cửa sổ độ dài $w \in \{60, 168\}$ giờ ($60$ giờ để tương thích tài liệu).
+    \item \textbf{Kiến trúc:} bộ mã hoá LSTM hai tầng $64$ đơn vị, vector tiềm ẩn $32$ chiều, bộ giải mã đối xứng; hàm mất mát MSE.
+    \item \textbf{Điểm bất thường:} sai số tái tạo từng giờ, chuẩn hoá theo toà nhà bằng median và IQR của sai số trên giai đoạn huấn luyện của toà đó; ngưỡng chọn ở tháng $9$.
+\end{itemize}
+
+\textbf{4. Không gian tìm kiếm Optuna}
+\begin{center}
+\small
+\begin{tabular}{|p{4.2cm}|p{8.3cm}|}
+\hline
+\textbf{Siêu tham số} & \textbf{Khoảng tìm kiếm} \\
+\hline
+Số đơn vị ẩn / số kênh & $\{32, 64, 128\}$ \\
+\hline
+Số tầng RNN / số khối TCN & RNN: $\{1, 2, 3\}$; TCN: $L \in \{4, 5, 6, 7\}$, nhân $k \in \{3, 5, 7\}$ (kiểm tra $R \geq 168$) \\
+\hline
+Độ dài đoạn $L$ (gán nhãn chuỗi) & $\{168, 336, 672\}$ \\
+\hline
+Dropout & $[0, 0{,}5]$ \\
+\hline
+Tốc độ học & $[10^{-4}, 3 \times 10^{-3}]$ theo thang log \\
+\hline
+Trọng số lớp dương $w_{+}$ & $\{1, 7, 20, 45\}$ (khoảng $\sqrt{45} \approx 7$ là mức trung gian) \\
+\hline
+Focal loss $\gamma$ & $\{0, 1, 2, 3\}$ \\
+\hline
+Có/không kênh \texttt{run\_len} và hiệu giá trị & $\{\text{có}, \text{không}\}$ (thí nghiệm H1) \\
+\hline
+\end{tabular}
+\end{center}
+
+\subsection{Các kỹ thuật và thuật toán bổ trợ khác (Có thể tích hợp thêm)}
+\begin{itemize}
+    \item \textbf{Huấn luyện chính xác hỗn hợp (Mixed Precision):} giảm bộ nhớ GPU và tăng tốc huấn luyện. Toàn bộ chuỗi chỉ khoảng $1{,}75 \times 10^6 \times 20 \times 4$ byte, tức khoảng $0{,}14$ GB, nên có thể giữ cả bộ dữ liệu trong RAM và cắt đoạn lười (lazy slicing) theo chỉ số thay vì lưu sẵn các cửa sổ.
+    \item \textbf{Làm mượt và hậu xử lý dự đoán:} làm mượt xác suất theo cửa sổ ngắn hoặc lọc bỏ các đoạn bất thường quá ngắn; chỉ dùng khi có thí nghiệm chứng minh cải thiện, và được báo cáo như một bước riêng.
+    \item \textbf{Mô hình theo cụm toà nhà:} phân cụm toà nhà theo thống kê tiêu thụ (K-means, như Cansever \& Konyar, 2026) rồi huấn luyện một mô hình cho mỗi cụm hoặc dùng nhãn cụm làm đầu vào. Thống kê dùng để phân cụm chỉ tính trên giai đoạn huấn luyện.
+    \item \textbf{Hiệu chỉnh xác suất (Calibration):} do dùng trọng số lớp hoặc focal loss, xác suất đầu ra bị lệch; có thể dùng Platt scaling hoặc hồi quy đẳng hướng (isotonic) trên tập kiểm định để trộn xác suất công bằng hơn trong bước Ensemble.
+    \item \textbf{Optuna (Hyperparameter Optimization Framework):} như phần Học máy, dùng TPE và cắt tỉa các thử nghiệm kém hứa hẹn để tiết kiệm GPU.
+\end{itemize}
+
+\subsection{Chi tiết Pipeline Tiền xử lý dữ liệu và Áp dụng trên File}
+Quy trình tác động lên các tệp trong thư mục \texttt{data/} như sau:
+
+\textbf{1. Tập huấn luyện (Train):}
+\begin{itemize}
+    \item \textbf{Files áp dụng:} \texttt{train\_features.csv}. Theo kết quả \texttt{info()} của nhóm, tệp này đã chứa sẵn cả \texttt{meter\_reading} và nhãn \texttt{anomaly} cùng các đặc trưng, nên không cần ghép với \texttt{train.csv} cho mô hình Học sâu. Tệp \texttt{train.csv} được dùng để đối chiếu nhãn và giá trị đo.
+    \item \textbf{Đọc dữ liệu:} đọc toàn bộ với \texttt{parse\_dates} cho \texttt{timestamp} và ép kiểu \texttt{float32}; tệp khoảng $582$ MB.
+    \item \textbf{Sắp xếp và chuẩn hoá lưới thời gian:} sắp theo (\texttt{building\_id}, \texttt{timestamp}) rồi \texttt{reindex} về lưới giờ đều theo từng toà nhà.
+    \item \textbf{Tạo đặc trưng chuỗi:} \texttt{run\_len} (độ dài đoạn giá trị lặp tính từ quá khứ), hiệu bậc nhất, mã hoá $\sin/\cos$ của giờ, thứ, tháng, kênh \texttt{is\_missing}.
+    \item \textbf{Cắt đoạn:} dựng chỉ mục (\texttt{building\_id}, bắt đầu, độ dài $336$, bước $168$) và cắt lười khi huấn luyện; các đoạn không được vượt qua mốc chia dữ liệu.
+\end{itemize}
+
+\textbf{2. Chia dữ liệu và thống kê chuẩn hoá:}
+\begin{itemize}
+    \item Giao thức T: huấn luyện trước $01/09/2016$, chọn ngưỡng trong tháng $9$, đánh giá từ $01/10/2016$. Giao thức B: \texttt{GroupKFold} theo \texttt{building\_id}.
+    \item Median, IQR, giá trị chuẩn hoá của từng toà nhà và các tham số nhúng chỉ được ước lượng trên phần huấn luyện của từng lượt chia, rồi áp dụng sang phần còn lại.
+    \item Với LSTM-AE: chỉ giữ các cửa sổ không chứa giờ bất thường nào trong phần huấn luyện; cửa sổ chứa bất thường chỉ dùng cho kiểm định và đánh giá.
+\end{itemize}
+
+\textbf{3. Tập kiểm tra (Test):}
+\begin{itemize}
+    \item \textbf{Files áp dụng:} \texttt{test\_features.csv} (và \texttt{test.csv}). Theo mô tả của Orvati Nia et al. (2026), tập kiểm tra gồm $206$ toà nhà khác với $200$ toà nhà huấn luyện. Nhóm chưa xác nhận tập này có nhãn công khai hay không, nên các phép đánh giá của đề tài dùng giao thức T và B trên tập huấn luyện, còn tập kiểm tra chỉ dùng để suy luận cuối cùng nếu cần.
+    \item Nếu suy luận trên toà nhà mới, thống kê chuẩn hoá của toà đó được ước lượng từ chính chuỗi của toà đó (thiết lập ngoại tuyến), và điều này được nêu rõ trong báo cáo.
+\end{itemize}
+
+\subsection{Bộ thí nghiệm kiểm chứng giả thuyết}
+Mỗi lựa chọn trong pipeline gắn với một giả thuyết có thể bác bỏ bằng thực nghiệm. Kết quả, kể cả khi trái với kỳ vọng, đều được báo cáo.
+\begin{center}
+\small
+\begin{tabular}{|p{1.1cm}|p{6.3cm}|p{5.1cm}|}
+\hline
+\textbf{Mã} & \textbf{Giả thuyết} & \textbf{Thí nghiệm / đại lượng đo} \\
+\hline
+H1 & Kênh \texttt{run\_len} và hiệu giá trị giúp mô hình Học sâu tốt hơn; hoặc mạng tự học được chúng từ giá trị thô & Huấn luyện có/không hai kênh này; so PR-AUC và recall theo loại bất thường \\
+\hline
+H2 & Mô hình gán nhãn chuỗi có giám sát vượt LSTM-AE không giám sát & So PR-AUC và F1 cùng giao thức; hai mô hình dùng cùng cửa sổ \\
+\hline
+H3 & LSTM-AE bỏ sót bất thường dạng phẳng vì chuỗi hằng số dễ tái tạo & Tách sai số tái tạo theo \texttt{run\_len}; so recall nhóm bằng $1{,}0$ với nhóm còn lại \\
+\hline
+H4 & Ngữ cảnh hai phía (BiGRU, TCN không nhân quả) tốt hơn mô hình nhân quả ở các đoạn lặp & So BiGRU/TCN không nhân quả với TCN nhân quả theo độ dài đoạn lặp \\
+\hline
+H5 & Dung hợp Học sâu và Học máy tốt hơn từng mô hình riêng lẻ & So Stacking/Blending có và không có mô hình Học sâu ở bước Ensemble \\
+\hline
+H6 & Mô hình giảm hiệu năng khi chuyển sang toà nhà chưa thấy & So giao thức T với giao thức B; xem \texttt{square\_feet} và embedding \texttt{site\_id} có gây phụ thuộc toà nhà hay không \\
+\hline
+H7 & Focal loss tốt hơn BCE có trọng số trên dữ liệu mất cân bằng & So PR-AUC giữa ba cấu hình hàm mất mát trong cùng kiến trúc \\
+\hline
+H8 & Mô hình theo cụm toà nhà tốt hơn mô hình toàn cục & So mô hình toàn cục với mô hình theo cụm trên cùng giao thức B \\
+\hline
+\end{tabular}
+\end{center}
+Nhóm báo cáo kết quả dưới dạng trung bình $\pm$ độ lệch chuẩn của ít nhất $3$ lần chạy. Các chênh lệch nhỏ hơn độ lệch chuẩn không được diễn giải là khác biệt thực sự.
+

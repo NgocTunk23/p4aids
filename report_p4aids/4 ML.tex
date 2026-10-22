@@ -1,62 +1,331 @@
 \section{Triển khai thuật toán Học Máy - Machine Learning}
-\subsubsection{Kết luận và Thiết kế Pipeline}
-Dựa trên phân tích ưu nhược điểm của từng thuật toán, nhóm nghiên cứu đề xuất một pipeline gồm bốn giai đoạn, tuân theo nguyên tắc: huấn luyện rời rạc từng mô hình trước, tối ưu hóa riêng biệt, sau đó kết hợp (ensemble) để đạt hiệu suất tối đa.
 
+\subsection{Thước đo Đánh giá và Cơ chế Ngưỡng Quyết định}
+
+\subsubsection{Thước đo Đánh giá}
+Trong bài toán phát hiện dị thường với tỷ lệ mất cân bằng nghiêm trọng ($97{,}87\%$ bình thường vs $2{,}13\%$ dị thường), việc lựa chọn thước đo đánh giá là yếu tố sống còn để đảm bảo tính khách quan:
+\begin{itemize}
+    \item \textbf{Vô hiệu hóa Độ chính xác Tổng thể (Accuracy):} Một mô hình ngây thơ dự đoán $100\%$ mẫu là bình thường ($y=0$) vẫn đạt $\text{Accuracy} = 97{,}87\%$, nhưng hoàn toàn thất bại trong việc cảnh báo sự cố rò rỉ hay quá tải điện.
+    \item \textbf{Sự sai lệch của ROC-AUC:} Do số lượng mẫu âm tính quá lớn ($TN > 1{,}71$ triệu dòng), tỷ lệ báo động giả $\text{FPR} = \frac{FP}{FP+TN}$ luôn bị ghìm ở mức cực nhỏ dù mô hình dự đoán nhầm hàng chục ngàn mẫu. Điều này tạo ra ảo tưởng lạc quan với điểm $\text{ROC-AUC} > 0{,}95$ nhưng thực chất độ chính xác dự báo dị thường lại rất thấp.
+    \item \textbf{F1-Score là Thước đo Đánh giá Tối thượng (Primary Metric):} Mục tiêu vận hành thực tế của hệ thống điện đòi hỏi: vừa phải bắt trúng tối đa các sự cố bất thường để kịp thời xử lý (tối đa hóa Recall), vừa phải giảm thiểu các báo động giả gây lãng phí nhân lực kiểm tra hiện trường (tối đa hóa Precision). $F_1$-Score chính là trung bình điều hòa (\textit{harmonic mean}) ràng buộc chặt chẽ cả hai đại lượng:
+    \begin{equation*}
+        \text{Precision} = \frac{TP}{TP + FP}, \quad \text{Recall} = \frac{TP}{TP + FN}
+    \end{equation*}
+    \begin{equation*}
+        F_1\text{-Score} = 2 \times \frac{\text{Precision} \times \text{Recall}}{\text{Precision} + \text{Recall}}
+    \end{equation*}
+    Nếu một trong hai chỉ số Precision hoặc Recall bị suy giảm, $F_1$-Score sẽ lập tức bị kéo tụt. Toàn bộ các vòng lặp tối ưu hóa và so sánh mô hình trong chương này đều sử dụng $F_1$-Score làm hàm mục tiêu quyết định.
+\end{itemize}
+
+\subsubsection{Cơ chế Ngưỡng Quyết định}\hspace{1cm}
+Do nhãn $1$ quá khan hiếm, hàm mất mát Log-loss đẩy xác suất dự đoán $P(y=1)$ lệch mạnh về gần $0$. Nhóm thiết lập cơ chế ra quyết định hai tầng:
 \begin{enumerate}
-    \item \textbf{Giai đoạn 1: Tiền xử lý và Trích xuất đặc trưng (Feature Engineering)}
-    \begin{itemize}
-        \item Thực hiện các bước làm sạch dữ liệu: xử lý giá trị thiếu, loại bỏ ngoại lai rõ ràng, chuẩn hóa các biến liên tục.
-        \item Trích xuất các đặc trưng chuỗi thời gian: cửa sổ trượt (rolling window), đặc trưng độ trễ (lag features), mã hóa chu kỳ (cyclical encoding) cho giờ/ngày/tháng.
-        \item Ứng dụng \textbf{Isolation Forest} nhằm quét toàn bộ không gian dữ liệu. Điểm số bất thường $s(\mathbf{x}, n)$ được ghép nối vào tập dữ liệu gốc đóng vai trò như một đặc trưng siêu dữ liệu (Meta-feature), cung cấp thêm tín hiệu hội tụ cho các thuật toán phân lớp ở các giai đoạn sau.
-    \end{itemize}
-    
-    \item \textbf{Giai đoạn 2: Huấn luyện rời rạc từng mô hình (Baseline Modeling)}
-    \begin{itemize}
-        \item Tiến hành huấn luyện độc lập từng thuật toán với các siêu tham số mặc định hoặc hợp lý ban đầu. Các mô hình được đánh giá bao gồm:
-        \begin{enumerate}
-            \item \textbf{LightGBM} — tận dụng tốc độ và hiệu quả bộ nhớ trên dữ liệu quy mô lớn.
-            \item \textbf{XGBoost} — khai thác cơ chế điều chuẩn $L_1/L_2$ mạnh mẽ.
-            \item \textbf{CatBoost} — khai thác khả năng xử lý biến định danh và cấu trúc Ordered Boosting.
-            \item \textbf{Random Forest} — đánh giá sức mạnh của phương pháp Bagging với cơ chế chọn đặc trưng ngẫu nhiên.
-            \item \textbf{Extra Trees} — đánh giá hiệu quả của ngẫu nhiên hóa cực đoan trong việc giảm phương sai.
-        \end{enumerate}
-        \item Đánh giá hiệu năng từng mô hình đơn lẻ dựa trên các độ đo phù hợp với dữ liệu mất cân bằng: \textbf{F1-Score}, \textbf{PR-AUC} (Precision-Recall AUC) và \textbf{ROC-AUC}. Giai đoạn này thiết lập mức hiệu suất cơ sở (baseline) cho từng thuật toán.
-    \end{itemize}
-
-    \item \textbf{Giai đoạn 3: Tối ưu hóa từng mô hình (Hyperparameter Tuning)}
-    \begin{itemize}
-        \item \textbf{Tinh chỉnh siêu tham số:} Sử dụng phương pháp tìm kiếm Bayesian (Optuna) hoặc Random Search kết hợp với Cross-Validation phân tầng (Stratified K-Fold) để tìm bộ siêu tham số tối ưu cho từng mô hình riêng biệt.
-        \item \textbf{Tối ưu hóa ngưỡng cắt xác suất (Threshold Moving):} Thay vì sử dụng ngưỡng mặc định $0.5$, thực hiện tìm kiếm ngưỡng tối ưu trên tập validation nhằm tối đa hóa F1-Score, thích ứng với sự khan hiếm cực độ của nhãn $1$.
-        \item \textbf{So sánh kết quả:} Đối chiếu hiệu năng của từng mô hình sau tối ưu hóa so với baseline ở Giai đoạn 2, xác định top mô hình đơn lẻ tốt nhất.
-    \end{itemize}
-
-    \item \textbf{Giai đoạn 4: Dung hợp mô hình — Lắp ráp Ensemble (Model Ensemble)}
-    \begin{itemize}
-        \item \textbf{Stacking (Xếp chồng):} Sử dụng dự đoán xác suất (probability predictions) từ các mô hình đã tối ưu ở Giai đoạn 3 làm đặc trưng đầu vào cho một mô hình siêu học (meta-learner). Meta-learner học cách kết hợp tối ưu các tín hiệu từ nhiều kiến trúc khác nhau:
-        \begin{equation*}
-            \hat{y}_{\text{stack}} = g\left(\hat{p}_{\text{LGBM}}, \hat{p}_{\text{XGB}}, \hat{p}_{\text{Cat}}, \hat{p}_{\text{RF}}, \hat{p}_{\text{ET}}\right)
-        \end{equation*}
-        trong đó $g(\cdot)$ là meta-learner (thường là Logistic Regression hoặc một LightGBM nhẹ), $\hat{p}$ là xác suất dự đoán từ mỗi mô hình cơ sở.
-        \item \textbf{Blending (Trộn):} Kết hợp dự đoán thông qua trung bình có trọng số:
-        \begin{equation*}
-            \hat{p}_{\text{blend}} = \sum_{m=1}^{M} w_m \cdot \hat{p}_m, \quad \text{với} \quad \sum_{m=1}^{M} w_m = 1
-        \end{equation*}
-        trong đó trọng số $w_m$ được tối ưu hóa trên tập validation để tối đa hóa F1-Score.
-        \item \textbf{Soft Voting:} Tính trung bình cộng xác suất từ tất cả các mô hình, sau đó áp dụng ngưỡng cắt đã tối ưu:
-        \begin{equation*}
-            \hat{y}_{\text{vote}} = \mathbb{1}\left[\frac{1}{M}\sum_{m=1}^{M} \hat{p}_m \geq \tau^*\right]
-        \end{equation*}
-        trong đó $\tau^*$ là ngưỡng tối ưu được xác định từ Giai đoạn 3.
-        \item \textbf{Mixture of Experts theo ngữ cảnh:} Thay vì gán một bộ trọng số cố định cho mọi mẫu, huấn luyện một bộ định tuyến (gating model) để dự đoán trọng số của từng mô hình cơ sở dựa trên đặc trưng ngữ cảnh như \texttt{building\_id}, \texttt{meter}, thời điểm và điểm bất thường từ Isolation Forest. Xác suất dự đoán kết hợp được tính như sau:
-        \begin{equation*}
-            \hat{p}_{\text{MoE}}(\mathbf{x}) = \sum_{m=1}^{M} g_m(\mathbf{z})\,\hat{p}_m(\mathbf{x}), \quad \sum_{m=1}^{M} g_m(\mathbf{z}) = 1
-        \end{equation*}
-        trong đó $\mathbf{z}$ là các đặc trưng ngữ cảnh và $g_m(\mathbf{z})$ là trọng số do gating model sinh ra cho chuyên gia thứ $m$. Ví dụ, bộ định tuyến có thể ưu tiên CatBoost ở nhóm công tơ có nhiều biến phân loại, đồng thời ưu tiên LightGBM ở các nhóm dữ liệu lớn.
-        \item \textbf{Huấn luyện chống rò rỉ:} Tạo dự đoán out-of-fold (OOF) cho các mô hình cơ sở trên tập huấn luyện để huấn luyện gating model; không dùng dự đoán in-sample vì chúng có thể khiến bộ định tuyến học thuộc lỗi huấn luyện. Với dữ liệu chuỗi thời gian, các fold phải được chia theo thứ tự thời gian (hoặc theo nhóm thiết bị và thời gian), không xáo trộn ngẫu nhiên, để tránh thông tin tương lai lọt vào quá trình huấn luyện.
-        \item \textbf{So sánh tổng thể:} Đối chiếu hiệu năng của các phương pháp Ensemble (Stacking, Blending, Soft Voting và Mixture of Experts) so với mô hình đơn lẻ tốt nhất ở Giai đoạn 3. Báo cáo các độ đo F1-Score, PR-AUC, ROC-AUC cùng thời gian suy luận để đánh giá đồng thời chất lượng dự đoán và chi phí triển khai.
-    \end{itemize}
+    \item \textbf{Tầng 1 (Dự báo Xác suất Liên tục):} Mô hình tính toán xác suất dị thường liên tục $\hat{p}_i = P(y_i=1 \mid \mathbf{x}_i) \in [0, 1]$.
+    \item \textbf{Tầng 2 (Quyết định Gán nhãn qua Ngưỡng Tối ưu):} Nhãn nhị phân được gán thông qua ngưỡng cắt $\tau$:
+    \begin{equation*}
+        \hat{y}_i = \mathbb{1}\left[\hat{p}_i \ge \tau\right]
+    \end{equation*}
+    trong đó $\tau$ không cố định ở mức $0{,}5$ mà được quét lưới để cực đại hóa $F_1$-Score trên tập kiểm định:
+    \begin{equation*}
+        \tau^* = \arg\max_{\tau \in [0{,}01; 0{,}99]} F_1\left(y_{\text{val}}, \, \mathbb{1}[\hat{p}_{\text{val}} \geq \tau]\right)
+    \end{equation*}
 \end{enumerate}
 
+\subsection{Thử nghiệm, Huấn luyện và Đánh giá các Mô hình}
 
-\subsection{Huấn luyện và Tinh chỉnh mô hình}
-%Trước khi đi vào mô hình phải nêu rõ tại sao chọn thuật toán này, mục đích đầu ra là gì và các bước như thế nào
+\subsubsection{Phân tích Thực nghiệm: Ưu thế của Gradient Boosting và Bác bỏ Cây Truyền thống}
+
+Để thiết lập mốc đối chứng ban đầu (\textit{baseline benchmarks}), nhóm nghiên cứu đã triển khai hai thuật toán Bagging kinh điển đại diện cho họ mô hình cây truyền thống là \textbf{Random Forest} và \textbf{Extra Trees} trên cùng tập dữ liệu \textbf{Baseline (Preprocessed)}.
+
+Tại mỗi chu kỳ, xác suất dị thường liên tục trên tập kiểm định ($20\%$ Stratified Validation) được quét để xác định ngưỡng phân loại tối ưu $\tau^*$ mang lại $F_1$-Score cao nhất, đồng thời đối chiếu trực tiếp với ngưỡng mặc định $\tau = 0{,}5$. Kết quả so sánh đối chứng giữa các mô hình trên tập dữ liệu Baseline được tổng hợp chi tiết tại Bảng~\ref{tab:model_feasibility_comparison}.
+
+\begin{table}[H]
+\centering
+\caption{\textbf{So sánh hiệu năng giữa các mô hình đơn trên tập dữ liệu Baseline}}
+\label{tab:model_feasibility_comparison}
+\renewcommand{\arraystretch}{1.2}
+\resizebox{0.88\textwidth}{!}{
+\begin{tabular}{|l|c|c|c|c|c|}
+\hline
+\textbf{Mô hình} & \textbf{Ngưỡng $\tau^*$} & \textbf{Precision} & \textbf{Recall} & \textbf{F1 (0.5)} & \textbf{F1 ($\tau^*$)} \\ \hline
+\textbf{XGBoost} & 0,30 & \textbf{0,9637} & \textbf{0,9001} & \textbf{0,9234} & \textbf{0,9308} \\ \hline
+\textbf{LightGBM} & 0,29 & 0,9528 & 0,8961 & 0,9122 & 0,9236 \\ \hline
+\textbf{CatBoost} & 0,26 & 0,9435 & 0,8954 & 0,9056 & 0,9188 \\ \hline
+\textit{Random Forest} & 0,45 & 0,9336 & 0,7902 & 0,8501 & 0,8559 \\ \hline
+\textit{Extra Trees} & 0,20 & 0,9019 & 0,8564 & 0,8285 & 0,8786 \\ \hline
+\end{tabular}
+}
+\end{table}
+
+Từ Bảng~\ref{tab:model_feasibility_comparison}, nhóm nghiên cứu đưa ra một số nhận định như sau về Họ mô hình cây truyền thống:
+    \begin{itemize}
+        \item Điểm $F_1$ của Random Forest chỉ đạt $0{,}8559$ và Extra Trees chỉ đạt $0{,}8786$, bị bỏ lại rất xa so với XGBoost ($0{,}9308$, chênh lệch tới $+7{,}49\%$ so với RF và $+5{,}22\%$ so với ET) cũng như LightGBM ($0{,}9236$) và CatBoost ($0{,}9188$).
+        \item Điểm yếu chí mạng nằm ở khả năng bắt trúng mẫu thiểu số (Recall): Do cơ chế Bagging chỉ trung bình hóa ngẫu nhiên mà không tập trung học bù sai số cho các mẫu khó, Recall của Random Forest bị ghìm ở mức cực kỳ thấp ($79{,}02\%$). Điều này đồng nghĩa với việc cứ $100$ sự cố rò rỉ hoặc quá tải điện thực tế thì mô hình bỏ lọt tới gần $21$ sự cố.
+        \item Việc hạ ngưỡng phân loại từ $0{,}5$ về $\tau^* = 0{,}20$ đã giúp $F_1$-Score của Extra Trees nhảy vọt từ $0{,}8285$ lên $0{,}8786$ (tăng $+5{,}01\%$). Dẫu vậy, nỗ lực tối ưu ngưỡng này chỉ giúp thu hẹp một phần khoảng cách chứ không thể bù đắp được sự tụt hậu cố hữu so với Gradient Boosting dù đều đã thực hiện fine tuning.
+    \end{itemize}
+
+\textbf{Quyết định kỹ thuật:} Nhóm quyết định loại bỏ hoàn toàn Random Forest và Extra Trees khỏi các giai đoạn tinh chỉnh tiếp theo và khâu dung hợp Ensemble, tập trung $100\%$ tài nguyên tính toán vào ba thuật toán Gradient Boosting vượt trội: \textbf{XGBoost}, \textbf{LightGBM} và \textbf{CatBoost}.
+
+\subsubsection{Thực nghiệm Đánh giá Đặc trưng: Bác bỏ Isolation Forest và Kiểm định Rò rỉ Dữ liệu (No Leakage)}
+
+Nhằm xây dựng ma trận đặc trưng đầu vào tối ưu nhất cho các thuật toán Boosting, nhóm đã tiến hành hai cuộc thực nghiệm kiểm định độc lập:
+
+\paragraph{Thử nghiệm và bác bỏ điểm dị biệt từ Isolation Forest (Unsupervised Meta-Feature):}\hspace{1cm}
+
+Ban đầu, nhóm thử nghiệm ý tưởng kết hợp học không giám sát: sử dụng thuật toán Isolation Forest để tính toán điểm số dị biệt $s(\mathbf{x}) \in [0, 1]$ trên toàn bộ không gian dữ liệu, sau đó đưa điểm số này vào làm một đặc trưng đầu vào bổ sung (meta-feature) cho các mô hình phân lớp có giám sát.
+
+Tuy nhiên, kết quả đối chứng thực nghiệm chi tiết giữa bộ dữ liệu tiền xử lý chuẩn (Baseline) và bộ dữ liệu có thêm Isolation Forest (\texttt{IF}) tại Bảng~\ref{tab:isolation_forest_comparison} đã chỉ ra tác động tiêu cực của phương pháp này:
+
+\begin{table}[H]
+\centering
+\caption{\textbf{So sánh hiệu năng trước và sau khi tích hợp đặc trưng Isolation Forest (IF)}}
+\label{tab:isolation_forest_comparison}
+\renewcommand{\arraystretch}{1.2}
+\resizebox{0.88\textwidth}{!}{
+\begin{tabular}{|l|l|c|c|c|c|}
+\hline
+\textbf{Mô hình} & \textbf{Dữ liệu} & \textbf{Ngưỡng $\tau^*$} & \textbf{Precision} & \textbf{Recall} & \textbf{F1-Score} \\ \hline
+\multirow{2}{*}{\textbf{XGBoost}} 
+& Baseline & 0,30 & \textbf{0,9637} & \textbf{0,9001} & \textbf{0,9308} \\ \cline{2-6}
+& Tích hợp IF & 0,24 & 0,9512 & 0,8982 & 0,9240 \\ \hline
+\multirow{2}{*}{\textbf{LightGBM}} 
+& Baseline & 0,29 & 0,9528 & \textbf{0,8961} & \textbf{0,9236} \\ \cline{2-6}
+& Tích hợp IF & 0,32 & \textbf{0,9546} & 0,8820 & 0,9169 \\ \hline
+\multirow{2}{*}{\textbf{CatBoost}} 
+& Baseline & 0,26 & 0,9435 & \textbf{0,8954} & \textbf{0,9188} \\ \cline{2-6}
+& Tích hợp IF & 0,30 & \textbf{0,9529} & 0,8742 & 0,9119 \\ \hline
+\end{tabular}
+}
+\end{table}
+
+\textbf{Phân tích nguyên nhân:} Điểm dị biệt từ Isolation Forest vốn được xây dựng trên giả định cô lập điểm đơn thuần dựa trên mật độ không gian cục bộ, không nắm bắt được chu kỳ phụ tải điện và các yếu tố thời tiết biến thiên theo thời gian. Khi đưa vào các mô hình Boosting đã được tối ưu hóa siêu tham số, đặc trưng này vô tình đóng vai trò là một kênh nhiễu (\textit{noise injection}), làm giảm độ nhạy phát hiện bất thường (Recall của cả ba mô hình đều sụt giảm từ $0{,}2\%$ đến $2{,}1\%$) và kéo giảm $F_1$-Score tổng thể (XGBoost giảm từ $0{,}9308$ xuống $0{,}9240$, LightGBM giảm từ $0{,}9236$ xuống $0{,}9169$, CatBoost giảm từ $0{,}9188$ xuống $0{,}9119$). Do đó, nhóm quyết định \textbf{loại bỏ hoàn toàn đặc trưng Isolation Forest} khỏi pipeline chính thức.
+
+\paragraph{Kiểm định và so sánh Đặc trưng Trễ (Lag) với Đặc trưng Khu vực (Zone):}\hspace{1cm}
+
+Trong giai đoạn mở rộng đặc trưng chuỗi thời gian, nhóm đã thử nghiệm hai chiến lược: (1) Trích xuất sâu các biến trễ phụ tải đa bước (\texttt{Lag Features}); (2) Trích xuất các biến tương tác bối cảnh khu vực và quy mô công trình (\texttt{Zone Features} gồm tương tác giữa \texttt{site\_id}, \texttt{primary\_use} và \texttt{square\_feet}). Nhằm đảm bảo tính khách quan và nhất quán, cả hai tập đặc trưng đều được kiểm định trên cùng một tập phân chia $80\%$ huấn luyện và $20\%$ kiểm định bảo toàn tỷ lệ nhãn với bộ siêu tham số tối ưu thu được từ quá trình Tuning:
+
+\begin{table}[H]
+\centering
+\caption{\textbf{So sánh đối chứng hiệu năng giữa Baseline, Đặc trưng Trễ (Lag) và Đặc trưng Khu vực (Zone)}}
+\label{tab:lag_vs_zone_leakage_test}
+\renewcommand{\arraystretch}{1.2}
+\resizebox{0.92\textwidth}{!}{
+\begin{tabular}{|l|l|c|c|c|c|}
+\hline
+\textbf{Chiến thuật Đặc trưng} & \textbf{Mô hình} & \textbf{Ngưỡng $\tau^*$} & \textbf{Precision} & \textbf{Recall} & \textbf{F1-Score} \\ \hline
+\multirow{3}{*}{Mốc chuẩn: Baseline} 
+& XGBoost & 0,30 & \textbf{0,9637} & 0,9001 & 0,9308 \\ \cline{2-6}
+& LightGBM & 0,29 & 0,9528 & \textbf{0,8961} & 0,9236 \\ \cline{2-6}
+& CatBoost & 0,26 & 0,9435 & \textbf{0,8954} & 0,9188 \\ \hline
+\multirow{3}{*}{Nhánh 1: Lag Features} 
+& XGBoost & 0,24 & 0,9528 & 0,9067 & 0,9292 \\ \cline{2-6}
+& LightGBM & 0,22 & 0,9141 & 0,8793 & 0,8964 \\ \cline{2-6}
+& CatBoost & 0,23 & 0,9392 & 0,8839 & 0,9107 \\ \hline
+\multirow{3}{*}{\textbf{Nhánh 2: Zone Features}} 
+& \textbf{XGBoost} & 0,26 & 0,9568 & \textbf{0,9079} & \textbf{0,9317} \\ \cline{2-6}
+& \textbf{LightGBM} & 0,32 & \textbf{0,9612} & 0,8895 & \textbf{0,9240} \\ \cline{2-6}
+& \textbf{CatBoost} & 0,29 & \textbf{0,9520} & 0,8905 & \textbf{0,9202} \\ \hline
+\end{tabular}
+}
+\end{table}
+
+\textbf{Phân tích và Nhận xét Thực nghiệm chuyên sâu:} 
+Bảng~\ref{tab:lag_vs_zone_leakage_test} đem lại góc nhìn đối chiếu đa chiều giữa ba chiến lược đặc trưng trên cùng bộ siêu tham số đã tối ưu:
+\begin{itemize}
+    \item \textbf{Tác động tiêu cực của Đặc trưng Trễ (Lag Features) so với Baseline:} Khi đưa các biến trễ phụ tải thô (\texttt{meter\_}\allowbreak\texttt{reading} tại các bước $t-1, t-2$) vào mô hình, hiệu năng của cả ba thuật toán đều bị suy giảm so với mốc Baseline chuẩn. Đáng chú ý nhất, F1-Score của LightGBM sụt giảm mạnh từ $0{,}9236$ xuống $0{,}8964$ (giảm $-2{,}72\%$) và CatBoost giảm từ $0{,}9188$ xuống $0{,}9107$ (giảm $-0{,}81\%$). Nguyên nhân là do trong chuỗi dữ liệu thực tế, các khoảng trống mất tín hiệu cảm biến hoặc biến động bất thường đột ngột làm đứt đoạn chuỗi trễ, biến các giá trị trễ thành nguồn phát tán nhiễu thay vì cung cấp tín hiệu dự báo tin cậy.
+    \item \textbf{Sự ưu việt vượt trội của Đặc trưng Khu vực (Zone Features):} Trái ngược với biến trễ, việc bổ sung các biến tương tác bối cảnh khu vực (\texttt{Zone Features} gồm tương tác giữa \texttt{site\_id}, \allowbreak\texttt{primary\_use} và \allowbreak\texttt{square\_feet}) đã nâng trần hiệu năng của toàn bộ hệ thống lên mức cao nhất:
+    \begin{itemize}
+        \item XGBoost thiết lập kỷ lục mới với $F_1 = 0{,}9317$ (vượt mốc $0{,}9308$ của Baseline và $0{,}9292$ của Lag), đồng thời tỷ lệ phát hiện dị thường Recall đạt đỉnh cao nhất là $90{,}79\%$.
+        \item LightGBM cải thiện F1 lên $0{,}9240$, với độ chính xác Precision đạt tới $0{,}9612$ (tăng gần $+1\%$ so với Baseline).
+        \item CatBoost đạt $F_1 = 0{,}9202$ (tăng từ $0{,}9188$ của Baseline), cải thiện cả Precision từ $0{,}9435$ lên $0{,}9520$.
+    \end{itemize}
+    \item \textbf{Tính bền vững và tính sẵn sàng trong triển khai thực tế:} Nhóm đặc trưng Zone Features khai thác các thuộc tính tĩnh về địa bàn công trình và quy mô diện tích. Đây là các thông tin bối cảnh luôn sẵn sàng $100\%$, không đòi hỏi đồng bộ chuỗi thời gian liên tục hay lo ngại mất gói tin mạng IoT. Điều này vừa giúp nâng cao độ chính xác phân loại, vừa bảo đảm an toàn vận hành, loại bỏ hoàn toàn nguy cơ sụp đổ dây chuyền do mất dữ liệu lịch sử.
+\end{itemize}
+Do đó, nhánh \textbf{Zone Features} được nhóm nghiên cứu tin tưởng lựa chọn làm bộ đặc trưng nòng cốt duy nhất để tiến hành dung hợp các mô hình Ensemble tiếp theo.
+
+\subsubsection{Tinh chỉnh Siêu tham số (Hyperparameter Tuning) với Optuna}
+
+Nhằm khai thác tối đa tiềm năng của từng thuật toán, nhóm sử dụng khung tối ưu hóa \textbf{Optuna} dựa trên thuật toán Bayes TPE (\textit{Tree-structured Parzen Estimator}). Không gian tìm kiếm được cấu hình riêng cho từng thuật toán qua các chu kỳ thử nghiệm (\textit{trials}).
+
+Do dữ liệu có mức độ mất cân bằng lớp cao và thang đo đánh giá cốt lõi của bài toán là chỉ số $F_1$, hàm mục tiêu của Optuna được thiết lập nhằm tìm kiếm bộ siêu tham số tối ưu hóa $F_1\text{-Score}$ kết hợp dò tìm ngưỡng phân loại tốt nhất (thay vì cố định ngưỡng mặc định $0{,}5$). Cụ thể, tại mỗi chu kỳ thử nghiệm, thuật toán đánh giá phân phối xác suất dự đoán $\hat{p}$ trên tập validation và xác định ngưỡng $th^*$ mang lại $F_1\text{-Score}$ cao nhất:
+\begin{equation*}
+    \text{Score}_{\text{optimal}} = \max_{th \in (0, 1)} F_1\big(y, \, \mathbb{I}(\hat{p} \ge th)\big)
+\end{equation*}
+Chiến lược này giúp mô hình đạt điểm số tối ưu và phản ánh chính xác hiệu năng thực tế trên bài toán phát hiện bất thường phụ tải.
+
+Quá trình tinh chỉnh được thực hiện độc lập trên cả hai cụm dữ liệu: cụm \textbf{Baseline} (thông qua file \texttt{model\_ML/run\_tuning\_pipeline.py}) và cụm \textbf{Zone} (thông qua file \texttt{model\_ML/}\allowbreak\texttt{tune\_zone\_optuna.py}). Bảng~\ref{tab:tuned_hyperparameters} tổng hợp các bộ siêu tham số tối ưu nhất thu được.
+
+\begin{table}[H]
+\centering
+\caption{\textbf{Bộ siêu tham số tối ưu thu được sau quá trình Tuning bằng Optuna}}
+\label{tab:tuned_hyperparameters}
+\renewcommand{\arraystretch}{1.2}
+\resizebox{\textwidth}{!}{
+\begin{tabular}{|l|l|p{8.5cm}|}
+\hline
+\textbf{Nhánh dữ liệu} & \textbf{Thuật toán} & \textbf{Bộ siêu tham số tối ưu} \\ \hline
+\multirow{3}{*}{\textbf{Baseline}} 
+& XGBoost & \texttt{learning\_rate}: 0,2376, \texttt{max\_depth}: 15, \texttt{subsample}: 0,9600, \texttt{colsample\_bytree}: 0,6211, \texttt{n\_estimators}: 164 \\ \cline{2-3}
+& LightGBM & \texttt{learning\_rate}: 0,1537, \texttt{num\_leaves}: 233, \texttt{max\_depth}: 17, \texttt{feature\_fraction}: 0,8459, \texttt{min\_child\_samples}: 62, \texttt{n\_estimators}: 200 \\ \cline{2-3}
+& CatBoost & \texttt{learning\_rate}: 0,2626, \texttt{depth}: 14, \texttt{iterations}: 178, \texttt{l2\_leaf\_reg}: 1,3969 \\ \hline
+\multirow{3}{*}{\textbf{Zone}} 
+& XGBoost & \texttt{learning\_rate}: 0,2382, \texttt{max\_depth}: 16, \texttt{subsample}: 0,9755, \texttt{colsample\_bytree}: 0,6088, \texttt{n\_estimators}: 152 \\ \cline{2-3}
+& LightGBM & \texttt{learning\_rate}: 0,1577, \texttt{num\_leaves}: 252, \texttt{max\_depth}: 16, \texttt{feature\_fraction}: 0,5721, \texttt{min\_child\_samples}: 73, \texttt{n\_estimators}: 215 \\ \cline{2-3}
+& CatBoost & \texttt{learning\_rate}: 0,3467, \texttt{depth}: 14, \texttt{iterations}: 176, \texttt{l2\_leaf\_reg}: 2,2573 \\ \hline
+\end{tabular}
+}
+\end{table}
+
+\paragraph{Phân tích đặc trưng các bộ siêu tham số tối ưu:}\hspace{1cm}
+
+Từ các bộ siêu tham số tối ưu thu được tại Bảng~\ref{tab:tuned_hyperparameters}, có thể rút ra một số nhận định kỹ thuật quan trọng về hành vi của từng mô hình:
+\begin{itemize}
+    \item \textbf{Cân bằng giữa dung lượng mô hình và điều chuẩn trên LightGBM:} Thuật toán Bayes TPE đã mở rộng số lượng lá (\texttt{num\_leaves} đạt $233$ ở Baseline và $252$ ở Zone) cùng độ sâu cây (\texttt{max\_depth} từ $16 - 17$). Nhờ cơ chế Leaf-wise kết hợp cùng việc kiểm soát \texttt{feature\_fraction} ($0{,}57 - 0{,}85$) và \texttt{min\_child\_samples} ($62 - 73$), LightGBM khai thác sâu các tương tác phi tuyến phức tạp trong dữ liệu mà vẫn duy trì tính tổng quát hóa cao, ngăn ngừa quá khớp.
+    \item \textbf{Cơ chế lấy mẫu đặc trưng ngẫu nhiên trên XGBoost:} XGBoost đạt trạng thái tối ưu ở độ sâu cây lớn (\texttt{max\_depth}: $15 - 16$), tốc độ học \texttt{learning\_rate} $\approx 0{,}24$ với việc chỉ lấy mẫu khoảng $60\% - 62\%$ số lượng đặc trưng tại mỗi cây (\texttt{colsample\_bytree}). Cơ chế này giúp giảm tương quan giữa các cây quyết định độc lập, tạo ra các biên phân tách cực kỳ vững chắc và đẩy F1-Score lên đỉnh cao nhất.
+    \item \textbf{Điều chuẩn chặt chẽ trên CatBoost:} Thuật toán CatBoost phát huy hiệu quả cao nhất với độ sâu cây đối xứng \texttt{depth}: $14$ và hệ số điều chuẩn $L_2$ (\texttt{l2\_leaf\_reg}) đạt mức $1{,}40$ (Baseline) và $2{,}26$ (Zone). Việc siết chặt điều chuẩn trên nhánh Zone giúp mô hình kiểm soát tốt biên độ lá khi tiếp nhận các đặc trưng tương tác phân vùng, giữ cho phân phối xác suất dự đoán luôn mượt và ổn định.
+\end{itemize}
+Việc hoàn thiện tinh chỉnh các siêu tham số này tạo tiền đề vững chắc để các mô hình đơn đạt tới trạng thái cực đại hóa phân tách nhãn trước khi tiến hành tối ưu hóa ngưỡng quyết định và dung hợp Ensemble.
+
+\subsubsection{Kỹ thuật Ngưỡng Động 16 Khu vực (Site-Specific Dynamic Thresholding)}
+
+Như đã phân tích và áp dụng nhất quán xuyên suốt các giai đoạn thực nghiệm trên, việc dịch chuyển ngưỡng phân loại toàn cục $\tau^*$ đã chứng minh hiệu quả vượt trội trong việc khắc phục tình trạng mất cân bằng lớp trầm trọng, giúp $F_1$-Score của toàn bộ các mô hình bứt phá so với ngưỡng mặc định $0{,}5$ (minh chứng đối chiếu tại Bảng~\ref{tab:model_feasibility_comparison}).
+
+Tuy nhiên, việc sử dụng một ngưỡng cắt tĩnh duy nhất $\tau^*$ cho toàn bộ hệ thống vẫn chứa đựng một giả định mang tính đơn giản hóa: \textit{coi mọi khu vực địa lý đều có cùng quy luật phụ tải và biên độ dao động bất thường như nhau}.
+
+\paragraph{Cơ sở Lý thuyết: Ngưỡng Động Phi tham số (Nonparametric Dynamic Thresholding):}\hspace{1cm}
+
+Để khắc phục hạn chế này, nhóm nghiên cứu đã tham khảo cơ sở lý thuyết từ công trình nổi tiếng của Hundman et al. (KDD 2018) \textit{"Detecting Spacecraft Anomalies Using LSTMs and Nonparametric Dynamic Thresholding"}. Hundman và các cộng sự chỉ ra rằng trong các hệ thống chuỗi thời gian phân tán phức tạp, mỗi kênh cảm biến hoặc khu vực hoạt động chịu tác động của các điều kiện môi trường riêng biệt; do đó, việc áp đặt một ngưỡng cắt tĩnh duy nhất cho toàn bộ hệ thống là không phù hợp. Ngưỡng phát hiện bất thường cần phải được điều chỉnh động theo phân phối xác suất dự đoán của từng cụm cục bộ.
+
+\paragraph{Triển khai Ngưỡng Động cho 16 Khu vực:}\hspace{1cm}
+
+Áp dụng nguyên lý trên vào bài toán, nhóm thiết lập thuật toán \textbf{Ngưỡng Động theo Khu vực (Dynamic Threshold per Zone)}:
+\begin{enumerate}
+    \item Dữ liệu kiểm định được phân tách theo 16 khu vực địa lý (\texttt{site\_id} $k \in \{0, \dots, 15\}$).
+    \item Với mỗi khu vực $k$, thuật toán xác định một ngưỡng cắt riêng biệt $\tau_k^*$:
+    \begin{equation*}
+        \tau_k^* = \arg\max_{\tau \in [0{,}01; 0{,}99]} F_1\left(y_{\text{val}}^{(k)}, \mathbb{1}[P(y=1|X_{\text{val}}^{(k)}) \geq \tau]\right)
+    \end{equation*}
+    Nếu một khu vực không có mẫu dị thường nào trong tập kiểm định, ngưỡng được gán an toàn $\tau_k^* = 1{,}0$.
+    \item Khi đưa vào dự đoán thực tế trên tập kiểm tra, mẫu thuộc khu vực nào sẽ được áp dụng ngưỡng cắt tương ứng của khu vực đó:
+    \begin{equation*}
+        \hat{y}_i = \mathbb{1}\left[P(y_i=1|\mathbf{x}_i) \geq \tau_{\text{site}(i)}^*\right]
+    \end{equation*}
+\end{enumerate}
+
+Thực nghiệm cho thấy cơ chế ngưỡng động theo 16 khu vực giúp F1-Score tiếp tục cải thiện thêm từ $+0{,}18\%$ đến $+0{,}47\%$ trên các mô hình (tiêu biểu như XGBoost nhánh Zone tăng từ $0{,}9317$ lên $0{,}9341$, LightGBM tăng từ $0{,}9240$ lên $0{,}9287$), khẳng định tính thích ứng cục bộ vượt trội khi đối phó với dữ liệu chuỗi thời gian phụ tải đa phân vùng.
+
+\subsection{Kỹ thuật Dung hợp Mô hình Nâng cao (Model Ensemble)}
+
+\subsubsection{Cơ sở Lý thuyết: Lựa chọn Tập hợp Mô hình (Ensemble Selection)}
+Để đẩy hiệu năng phân lớp lên mức tối đa, nhóm nghiên cứu đã áp dụng kỹ thuật \textbf{Weighted Blending} dựa trên cơ sở lý thuyết bài báo kinh điển của Caruana et al. (ICML 2004) \textit{"Ensemble Selection from Libraries of Models"}. Caruana chứng minh rằng việc kết hợp tuyến tính có trọng số từ một tập hợp các mô hình có cấu trúc đa dạng (\textit{diverse architectures}) luôn vượt trội so với bất kỳ mô hình đơn lẻ nào, đồng thời ưu việt hơn phép lấy trung bình cộng đơn thuần nhờ khả năng tối ưu hóa trọng số đóng góp của từng thành phần. Nguyên lý này cũng là chiến thuật nòng cốt được áp dụng rộng rãi và chứng minh tính hiệu quả vượt trội trong các bài toán phân tích chuỗi thời gian phụ tải năng lượng quy mô lớn như \textit{ASHRAE Great Energy Predictor III}.
+
+\subsubsection{Các Phương pháp Dung hợp Thực nghiệm}
+Nhằm khảo sát toàn diện các chiến lược kết hợp thông tin, nhóm nghiên cứu đã hiện thực hóa và kiểm định sáu kỹ thuật dung hợp mô hình từ cấp độ tuyến tính đến phi tuyến thích nghi:
+\begin{enumerate}
+    \item \textbf{Soft Voting (Trung bình cộng xác suất không trọng số):} Phương pháp cơ bản nhất, lấy giá trị trung bình số học giữa các xác suất dự báo:
+    \begin{equation*}
+        P_{\text{vote}} = \frac{1}{3} \left(P_{\text{XGB}} + P_{\text{LGB}} + P_{\text{Cat}}\right)
+    \end{equation*}
+    Phương pháp này giúp giảm phương sai dự báo (\textit{variance reduction}) mà không cần tối ưu trọng số, đóng vai trò là mốc chuẩn so sánh cho các cơ chế dung hợp nâng cao.
+
+    \item \textbf{Top-2 Weighted Blending (Tổ hợp 2 mô hình chủ lực XGBoost + CatBoost):} Tổ hợp tuyến tính tập trung vào hai thuật toán có năng lực phân tách tốt nhất và ít tương quan sai số nhất, loại trừ mô hình thứ ba để kiểm định giả thuyết tối giản hóa:
+    \begin{equation*}
+        P_{\text{top2}} = w_{\text{XGB}} P_{\text{XGB}} + w_{\text{Cat}} P_{\text{Cat}}, \quad \text{với } w_{\text{XGB}} + w_{\text{Cat}} = 1, \; w \ge 0
+    \end{equation*}
+    Vector trọng số được tối ưu hóa theo hàm mất mát Log-Loss, cho kết quả:
+    \begin{itemize}
+        \item Trên Baseline: $\mathbf{w} = [0{,}84\,\text{XGB}, \; 0{,}16\,\text{Cat}]$.
+        \item Trên Zone: $\mathbf{w} = [0{,}80\,\text{XGB}, \; 0{,}20\,\text{Cat}]$.
+    \end{itemize}
+
+    \item \textbf{Tri-Model Weighted Blending LogLoss (Trộn trọng số 3 mô hình tối thiểu hóa Log-Loss):} Tổ hợp lồi của cả ba mô hình với vector trọng số $\mathbf{w} = [w_{\text{XGB}}, w_{\text{LGB}}, w_{\text{Cat}}]$ thỏa mãn $\sum w_m = 1, w_m \geq 0$:
+    \begin{equation*}
+        P_{\text{blend}} = w_{\text{XGB}} P_{\text{XGB}} + w_{\text{LGB}} P_{\text{LGB}} + w_{\text{Cat}} P_{\text{Cat}}
+    \end{equation*}
+    Vector $\mathbf{w}$ được tìm kiếm thông qua giải thuật quy hoạch phi tuyến tuần tự (SLSQP) nhằm cực tiểu hóa hàm mất mát Cross-Entropy (Log-Loss) toàn cục trên tập kiểm định:
+    \begin{equation*}
+        \mathbf{w}^* = \arg\min_{\mathbf{w}} \left( -\frac{1}{N} \sum_{i=1}^N \left[ y_i \ln(P_{\text{blend}, i}) + (1 - y_i) \ln(1 - P_{\text{blend}, i}) \right] \right)
+    \end{equation*}
+    Kết quả tối ưu thu được phản ánh cấu trúc tương hỗ lý tưởng giữa ba kiến trúc:
+    \begin{itemize}
+        \item Trên tập dữ liệu Baseline: $\mathbf{w} = [0{,}68\,\text{XGB}, \; 0{,}26\,\text{LGB}, \; 0{,}06\,\text{Cat}]$.
+        \item Trên tập dữ liệu Zone: $\mathbf{w} = [0{,}65\,\text{XGB}, \; 0{,}25\,\text{LGB}, \; 0{,}10\,\text{Cat}]$.
+    \end{itemize}
+    Trong đó, XGBoost nắm giữ vai trò chủ lực ($65\% - 68\%$), LightGBM đóng góp $25\% - 26\%$ giúp làm mượt phân phối xác suất và gia tăng Recall, và CatBoost giữ $6\% - 10\%$ đóng vai trò điều chuẩn chống quá khớp.
+
+    \item \textbf{Dynamic Threshold-Aware Blending (Dung hợp hướng Ngưỡng động 16 Khu vực):} Thay vì tối ưu hóa hàm Log-Loss thuần túy trên toàn bộ dữ liệu, thuật toán quét lưới trực tiếp không gian trọng số $[w_1, w_2, w_3]$ với bước nhảy $0{,}05$ nhằm cực đại hóa chỉ số $F_1$-Score khi áp dụng đồng thời cơ chế dò tìm ngưỡng động theo từng khu vực địa bàn:
+    \begin{equation*}
+        \mathbf{w}_{\text{dyn}}^* = \arg\max_{\mathbf{w}} F_1\left(y_{\text{val}}, \mathbb{1}[P_{\text{blend}}(\mathbf{w}) \ge \boldsymbol{\tau}_{\text{site}}^*]\right)
+    \end{equation*}
+    Kết quả tối ưu:
+    \begin{itemize}
+        \item Trên Baseline: $\mathbf{w} = [0{,}50\,\text{XGB}, \; 0{,}25\,\text{LGB}, \; 0{,}25\,\text{Cat}]$.
+        \item Trên Zone: $\mathbf{w} = [0{,}60\,\text{XGB}, \; 0{,}25\,\text{LGB}, \; 0{,}15\,\text{Cat}]$.
+    \end{itemize}
+
+    \item \textbf{Stacking với Meta-Learner Tuyến tính (Logistic Regression):} Hiện thực hóa mô hình Stacking hai tầng kinh điển (Wolpert, 1992): Tầng 1 sinh ma trận xác suất ngoại mẫu $[P_{\text{XGB}}, P_{\text{LGB}}, P_{\text{Cat}}]$; Tầng 2 huấn luyện một mô hình Hồi quy Logistic có điều chuẩn $L_2$ trên tập Meta-Train (tách $50\%$ từ tập validation nhằm triệt tiêu rò rỉ dữ liệu). Mô hình học một siêu phẳng phân tách tối ưu:
+    \begin{equation*}
+        P_{\text{stack}} = \sigma\left(\beta_0 + \beta_1 P_{\text{XGB}} + \beta_2 P_{\text{LGB}} + \beta_3 P_{\text{Cat}}\right)
+    \end{equation*}
+
+    \item \textbf{Context-Aware Mixture of Experts (MoE Meta-Learner tích hợp Ngữ cảnh Khu vực):} Kỹ thuật dung hợp phi tuyến bậc cao: Thay vì chỉ dựa vào xác suất đầu ra như Stacking truyền thống, mô hình Meta-Learner (sử dụng LightGBM với siêu tham số tối ưu) tiếp nhận đồng thời cả vector xác suất $[P_{\text{XGB}}, P_{\text{LGB}}, P_{\text{Cat}}]$ và toàn bộ ma trận đặc trưng bối cảnh công trình (\texttt{site\_id}, \texttt{primary\_use}, \texttt{square\_feet}, các biến tương tác phân vùng). Cơ chế này cho phép Meta-Learner tự động định tuyến trọng số thích nghi theo từng đặc thù công trình và điều kiện vi khí hậu cục bộ.
+\end{enumerate}
+
+\subsubsection{Kết quả Thực nghiệm Dung hợp và So sánh Đối chứng}
+Bảng~\ref{tab:ensemble_comparison_summary} tổng hợp chi tiết kết quả thực nghiệm của sáu phương pháp Ensemble trên cả hai tập dữ liệu Baseline và Zone Features dưới cả hai cơ chế ngưỡng (Ngưỡng Tối ưu Toàn cục $\tau^*$ và Ngưỡng Động 16 Khu vực).
+
+\begin{table}[H]
+\centering
+\caption{\textbf{So sánh hiệu năng toàn diện giữa các phương pháp Ensemble trên tập kiểm định}}
+\label{tab:ensemble_comparison_summary}
+\renewcommand{\arraystretch}{1.25}
+\resizebox{\textwidth}{!}{
+\begin{tabular}{|l|l|c|c|c|c|c|}
+\hline
+\textbf{Tập dữ liệu} & \textbf{Phương pháp Dung hợp (Ensemble)} & \textbf{Ngưỡng $\tau^*$} & \textbf{Precision} & \textbf{Recall} & \textbf{F1 ($\tau^*$)} & \textbf{F1 (16 Khu Động)} \\ \hline
+\multirow{5}{*}{Baseline} 
+& Soft Voting (XGB + LGB + CAT) & 0,263 & 0,9539 & 0,9074 & 0,9301 & 0,9350 \\ \cline{2-7}
+& Stacking Meta-Learner (Logistic Regression) & 0,117 & 0,9605 & 0,8995 & 0,9290 & 0,9347 \\ \cline{2-7}
+& Top-2 Blend (XGB + CAT) [0,84 - 0,16] & 0,334 & \textbf{0,9688} & 0,8962 & 0,9311 & 0,9354 \\ \cline{2-7}
+& Dynamic Thresh Blend [0,50 - 0,25 - 0,25] & 0,319 & 0,9665 & 0,8981 & 0,9311 & 0,9363 \\ \cline{2-7}
+& \textbf{Weighted Blending LogLoss [0,68 - 0,26 - 0,06]} & 0,295 & 0,9639 & \textbf{0,9021} & \textbf{0,9320} & \textbf{0,9359} \\ \hline
+\multirow{6}{*}{\textbf{Zone}} 
+& Soft Voting (XGB + LGB + CAT) & 0,234 & 0,9492 & 0,9145 & 0,9315 & 0,9359 \\ \cline{2-7}
+& Stacking Meta-Learner (Logistic Regression) & 0,068 & 0,9536 & 0,9150 & 0,9339 & 0,9369 \\ \cline{2-7}
+& Context-Aware MoE (LightGBM Meta-Learner) & 0,294 & 0,9532 & 0,9118 & 0,9320 & 0,9354 \\ \cline{2-7}
+& Top-2 Blend (XGB + CAT) [0,80 - 0,20] & 0,251 & \textbf{0,9560} & 0,9111 & 0,9330 & 0,9348 \\ \cline{2-7}
+& Dynamic Thresh Blend [0,60 - 0,25 - 0,15] & 0,234 & 0,9524 & 0,9153 & 0,9335 & 0,9372 \\ \cline{2-7}
+& \textbf{Weighted Blending LogLoss [0,65 - 0,25 - 0,10]} & \textbf{0,232} & 0,9519 & \textbf{0,9159} & \textbf{0,9336} & \textbf{0,9373} \\ \hline
+\end{tabular}
+}
+\end{table}
+
+\textbf{Phân tích Thực nghiệm Chuyên sâu:}
+\begin{itemize}
+    \item \textbf{Sự vượt trội của Weighted Blending so với Soft Voting:} Kỹ thuật Weighted Blending tối ưu hóa theo Log-Loss luôn vượt trội hơn Soft Voting cả ở ngưỡng tĩnh ($0{,}9336$ so với $0{,}9315$) lẫn ngưỡng động ($0{,}9373$ so với $0{,}9359$). Do XGBoost có độ tin cậy vượt trội, việc gán tỷ trọng chủ lực ($65\%$) cho XGBoost thay vì cào bằng $33{,}3\%$ giúp hệ thống vừa bảo toàn được độ chính xác phân tách cực cao, vừa tận dụng được khả năng bắt mẫu khó của LightGBM ($25\%$) và tính ổn định điều chuẩn của CatBoost ($10\%$).
+    \item \textbf{Hiệu năng ấn tượng của Top-2 Blend:} Chỉ với hai mô hình XGBoost và CatBoost, Top-2 Blend đã đạt F1 ngưỡng tĩnh $0{,}9330$ và ngưỡng động $0{,}9348$. Kết quả này chứng minh tính tương hỗ sâu sắc giữa cơ chế tách nhánh Histogram bậc hai (XGBoost) và cây đối xứng Oblivious Trees (CatBoost), cung cấp một phương án dự phòng gọn nhẹ nếu muốn cắt giảm chi phí suy luận của mô hình thứ ba.
+    \item \textbf{Đặc điểm hành vi của Stacking Logistic Regression:} Mô hình Stacking tuyến tính đạt F1 tĩnh rất tốt ($0{,}9339$ trên Zone và $0{,}9290$ trên Baseline). Tuy nhiên, do hàm Sigmoid gặp phải dữ liệu mất cân bằng nghiêm trọng, phân phối xác suất đầu ra của Meta-Learner bị nén mạnh về gần $0$, khiến ngưỡng cắt tối ưu bị kéo sâu xuống $\tau^* = 0{,}068 - 0{,}117$.
+    \item \textbf{Năng lực thích ứng của Context-Aware MoE:} Bằng cách đưa thông tin địa bàn \texttt{site\_id} và quy mô công trình vào Meta-Learner LightGBM, mô hình đạt F1 tĩnh $0{,}9320$ và ngưỡng động $0{,}9354$ mà không cần dò tìm ngưỡng quá sâu ($\tau^* = 0{,}294$), thể hiện khả năng định tuyến xác suất thích nghi theo đặc thù từng khu vực.
+    \item \textbf{Đỉnh cao Hiệu năng Toàn diện:} Sự kết hợp giữa bộ đặc trưng \textbf{Zone Features}, thuật toán \textbf{Weighted Blending LogLoss [0,65 XGB + 0,25 LGB + 0,10 Cat]} và cơ chế \textbf{Ngưỡng Động 16 Khu vực} đã thiết lập kỷ lục hiệu năng cao nhất của đề tài với $F_1\text{-Score} = \mathbf{0{,}9373}$ (Precision đạt $\mathbf{0{,}9586}$, Recall đạt $\mathbf{0{,}9169}$).
+\end{itemize}
+
+\paragraph{Bảng Tổng kết Sự Tăng tiến Điểm số qua 4 Cấp độ Tối ưu Kỹ thuật:}\hspace{1cm}
+
+Nhằm trực quan hóa lộ trình nâng cấp sức mạnh mô hình theo đúng yêu cầu đề tài, Bảng~\ref{tab:four_stage_progression} thể hiện sự tăng tiến vượt bậc của chỉ số F1-Score qua bốn nấc thang phát triển: \textbf{Single Model $\rightarrow$ Baseline Ensemble $\rightarrow$ Zone Ensemble $\rightarrow$ Zone Ensemble + Dynamic Threshold}:
+
+\begin{table}[H]
+\centering
+\caption{\textbf{Sự tăng tiến hiệu năng qua 4 cấp độ tối ưu hóa kỹ thuật}}
+\label{tab:four_stage_progression}
+\renewcommand{\arraystretch}{1.25}
+\begin{tabularx}{\textwidth}{|c|X|X|c|c|c|c|}
+\hline
+\textbf{Cấp độ} & \textbf{Chiến thuật Phát triển} & \textbf{Cấu hình Kỹ thuật} & \textbf{Ngưỡng $\tau$} & \textbf{Precision} & \textbf{Recall} & \textbf{F1} \\ \hline
+\textbf{Cấp độ 1} & Single Model (Mô hình Đơn Tuned) & XGBoost Tuned (Tập Baseline) & 0,303 & 0,9637 & 0,9001 & 0,9308 \\ \hline
+\textbf{Cấp độ 2} & Baseline Ensemble & Weighted Blending [0,68 XGB + 0,26 LGB + 0,06 Cat] & 0,295 & 0,9639 & 0,9021 & 0,9320 \\ \hline
+\textbf{Cấp độ 3} & Zone Ensemble (Ngưỡng tĩnh) & Weighted Blending [0,65 XGB + 0,25 LGB + 0,10 Cat] & 0,232 & 0,9519 & 0,9159 & 0,9336 \\ \hline
+\textbf{Cấp độ 4} & \textbf{Zone Ensemble + Dynamic} & \textbf{Blending + 16 Ngưỡng Động} & \textbf{Dynamic} & \textbf{0,9586} & \textbf{0,9169} & \textbf{0,9373} \\ \hline
+\end{tabularx}
+\end{table}
+
+\textit{Ghi chú: Tại Cấp độ 3, khi dùng một ngưỡng tĩnh chung tối ưu $\tau^* = 0{,}232$ cho toàn bộ các khu vực, điểm F1 đạt mức $0{,}9336$. Tuy nhiên, khi chuyển sang Cấp độ 4 bằng thuật toán Ngưỡng Động 16 Khu vực (Hundman et al., 2018), cả Precision ($0{,}9519 \rightarrow \mathbf{0{,}9586}$) và Recall ($0{,}9159 \rightarrow \mathbf{0{,}9169}$) đều đồng thời được cải thiện nhờ loại bỏ báo động giả tại các khu vực ít biến động và tăng độ nhạy tại các khu vực phụ tải phức tạp. Nhờ đó, $F_1$-Score đã bứt phá ngoạn mục lên mốc kỷ lục \textbf{0,9373}, khẳng định tính ưu việt vượt trội của giải pháp phân tán ngưỡng quyết định theo khí hậu từng khu vực.}

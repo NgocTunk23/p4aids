@@ -1,0 +1,38 @@
+{
+    "LightGBM": {
+        "best_f1": 0.924,
+        "best_threshold": 0.3174,
+        "tuning_time_sec": 490.7,
+        "params": {
+            "learning_rate": 0.1576597043447496,
+            "num_leaves": 252,
+            "max_depth": 16,
+            "feature_fraction": 0.5720622388332075,
+            "min_child_samples": 73,
+            "n_estimators": 215
+        }
+    },
+    "XGBoost": {
+        "best_f1": 0.9317,
+        "best_threshold": 0.2631,
+        "tuning_time_sec": 627.0,
+        "params": {
+            "learning_rate": 0.2382238758466043,
+            "max_depth": 16,
+            "subsample": 0.9755387922832883,
+            "colsample_bytree": 0.6088134291940173,
+            "n_estimators": 152
+        }
+    },
+    "CatBoost": {
+        "best_f1": 0.9202,
+        "best_threshold": 0.2929,
+        "tuning_time_sec": 3951.8,
+        "params": {
+            "learning_rate": 0.346734305948443,
+            "depth": 14,
+            "l2_leaf_reg": 2.257276285054781,
+            "iterations": 176
+        }
+    }
+}
