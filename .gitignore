@@ -21,7 +21,7 @@ kaggle/
 # Generated DL artifacts
 model_DL/artifacts/checkpoints/*
 model_DL/artifacts/logs/*
-model_DL/artifacts/predictions/*
+# model_DL/artifacts/predictions/*
 !model_DL/artifacts/checkpoints/.gitkeep
 !model_DL/artifacts/logs/.gitkeep
 !model_DL/artifacts/predictions/.gitkeep
