@@ -19,9 +19,11 @@ energy-anomaly-detection/
 kaggle/
 
 # Generated DL artifacts
-model_DL/artifacts/checkpoints/*
-model_DL/artifacts/logs/*
+# Keep downloaded result archives out of Git history.
+model_DL/artifacts/**/*.zip
+# model_DL/artifacts/checkpoints/*
+# model_DL/artifacts/logs/*
 # model_DL/artifacts/predictions/*
-!model_DL/artifacts/checkpoints/.gitkeep
-!model_DL/artifacts/logs/.gitkeep
-!model_DL/artifacts/predictions/.gitkeep
+# !model_DL/artifacts/checkpoints/.gitkeep
+# !model_DL/artifacts/logs/.gitkeep
+# !model_DL/artifacts/predictions/.gitkeep
