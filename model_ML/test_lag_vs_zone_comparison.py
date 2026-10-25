@@ -32,7 +32,9 @@ DATA_ZONE = BASE_DIR / "data" / "processed" / "train_preprocessedzone.parquet"
 DATA_RAW = BASE_DIR / "data" / "train_features.csv"
 OUT_JSON = BASE_DIR / "model_ML" / "hyperparameters" / "lag_vs_zone_test_results.json"
 
-def find_optimal_threshold(y_true, y_prob):
+from typing import Any
+
+def find_optimal_threshold(y_true, y_prob) -> dict[str, Any]:
     precisions, recalls, thresholds = precision_recall_curve(y_true, y_prob)
     f1_scores = 2 * (precisions * recalls) / (precisions + recalls + 1e-10)
     best_idx = np.argmax(f1_scores)
@@ -177,7 +179,7 @@ def main():
         print(f"-> Huấn luyện [{name}] trên Lag Features...", end=" ", flush=True)
         t_start = time.time()
         clf.fit(X_train_lag, y_train_lag)
-        y_prob = clf.predict_proba(X_val_lag)[:, 1]
+        y_prob = np.asarray(clf.predict_proba(X_val_lag))[:, 1]
         m = find_optimal_threshold(y_val_lag, y_prob)
         m['branch'] = 'Nhánh 1: Lag Features'
         m['model'] = name
@@ -192,7 +194,7 @@ def main():
         print(f"-> Huấn luyện [{name}] trên Zone Features...", end=" ", flush=True)
         t_start = time.time()
         clf.fit(X_train_zone, y_train_zone)
-        y_prob = clf.predict_proba(X_val_zone)[:, 1]
+        y_prob = np.asarray(clf.predict_proba(X_val_zone))[:, 1]
         m = find_optimal_threshold(y_val_zone, y_prob)
         m['branch'] = 'Nhánh 2: Zone Features'
         m['model'] = name

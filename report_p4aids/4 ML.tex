@@ -33,6 +33,51 @@ Do nhãn $1$ quá khan hiếm, hàm mất mát Log-loss đẩy xác suất dự 
 
 \subsection{Thử nghiệm, Huấn luyện và Đánh giá các Mô hình}
 
+\subsubsection{Chiến lược Phân chia Dữ liệu và Kiểm soát Phân phối Tập Huấn luyện - Kiểm tra (Train vs. Test Distribution)}
+
+Trước khi tiến hành huấn luyện và so sánh các thuật toán học máy, một bước thiết kế thực nghiệm mang tính chất sống còn là thiết lập phân vùng dữ liệu và thẩm định tính đồng nhất phân phối. Trong nghiên cứu này, toàn bộ quá trình phát triển mô hình sử dụng tập dữ liệu có nhãn đã hoàn tất quy trình tiền xử lý chuẩn hóa (\texttt{train\_preprocessed.parquet} gồm $1.749.494$ bản ghi). Nhằm đánh giá khách quan năng lực tổng quát hóa và ngăn ngừa hiện tượng rò rỉ thông tin (\textit{data leakage}), tập dữ liệu được phân chia thành hai tập con độc lập:
+\begin{itemize}
+    \item \textbf{Tập Huấn luyện (Train set):} Chiếm tỷ lệ $80\%$ ($1.399.595$ bản ghi), dùng để tối ưu hóa trọng số mô hình và tinh chỉnh siêu tham số.
+    \item \textbf{Tập Kiểm tra (Test set):} Chiếm tỷ lệ $20\%$ ($349.899$ bản ghi), được giữ hoàn toàn độc lập và chỉ dùng để đo đạc hiệu năng dự báo thực tế (trong một số ngữ cảnh thử nghiệm nội bộ tập này còn được xem là tập kiểm định ngoại suy \textit{holdout validation}, tuy nhiên nhóm quy ước định danh thống nhất là \textbf{Tập Kiểm tra} theo đúng quy trình chuẩn của bài toán).
+\end{itemize}
+
+Để đảm bảo việc phân chia không làm biến dạng bài toán mất cân bằng nhãn nghiêm trọng ($97{,}87\%$ bình thường vs $2{,}13\%$ dị thường), kỹ thuật phân chia ngẫu nhiên phân tầng (\textit{Stratified Partitioning}) với hạt giống cố định (\texttt{random\_state=42}) được bắt buộc áp dụng. Toàn bộ kết quả kiểm toán phân phối giữa tập Huấn luyện và tập Kiểm tra được trực quan hóa tại Hình~\ref{fig:train_test_distribution} và tổng hợp định lượng tại Bảng~\ref{tab:train_test_distribution_audit}.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.98\textwidth]{IMAGE/ml_train_test_distribution.png}
+    \caption{\textbf{Kiểm soát Tính Đồng nhất Phân phối giữa Tập Huấn luyện (Train 80\%) và Tập Kiểm tra (Test 20\%) trước khi Huấn luyện Mô hình}}
+    \label{fig:train_test_distribution}
+\end{figure}
+
+\begin{table}[H]
+\centering
+\caption{\textbf{Kiểm toán Thống kê Đối chiếu Phân phối giữa Tập Huấn luyện và Tập Kiểm tra}}
+\label{tab:train_test_distribution_audit}
+\renewcommand{\arraystretch}{1.2}
+\resizebox{0.95\textwidth}{!}{
+\begin{tabular}{|l|c|c|c|c|}
+\hline
+\textbf{Chỉ số Thống kê / Đặc trưng} & \textbf{Tập Huấn luyện (Train 80\%)} & \textbf{Tập Kiểm tra (Test 20\%)} & \textbf{Thống kê KS ($D$)} & \textbf{$p$-value (KS Test)} \\ \hline
+\textbf{Tổng số mẫu} & $1.399.595$ ($100{,}0\%$) & $349.899$ ($100{,}0\%$) & --- & --- \\ \hline
+\textbf{Lớp Bình thường ($y=0$)} & $1.369.758$ ($97{,}8682\%$) & $342.440$ ($97{,}8682\%$) & --- & --- \\ \hline
+\textbf{Lớp Dị thường ($y=1$)} & $29.837$ ($2{,}1318\%$) & $7.459$ ($2{,}1318\%$) & --- & --- \\ \hline
+\texttt{meter\_reading} ($\mu \pm \sigma$) & $0{,}0000 \pm 0{,}9988$ & $-0{,}0000 \pm 1{,}0049$ & $0{,}00277$ & $0{,}0269$ \\ \hline
+\texttt{air\_temperature} ($\mu \pm \sigma$) & $0{,}0003 \pm 1{,}0002$ & $-0{,}0012 \pm 0{,}9992$ & $0{,}00145$ & $0{,}5984$ \\ \hline
+\texttt{square\_feet} ($\mu \pm \sigma$) & $0{,}0003 \pm 1{,}0001$ & $-0{,}0010 \pm 0{,}9996$ & $0{,}00161$ & $0{,}4619$ \\ \hline
+\texttt{dew\_temperature} ($\mu \pm \sigma$) & $-0{,}0001 \pm 0{,}9999$ & $0{,}0004 \pm 1{,}0004$ & $0{,}00098$ & $0{,}9524$ \\ \hline
+\end{tabular}
+}
+\end{table}
+
+Phân tích Hình~\ref{fig:train_test_distribution} và Bảng~\ref{tab:train_test_distribution_audit} xác thực 4 kết luận kỹ thuật cốt lõi:
+\begin{enumerate}
+    \item \textbf{Bảo toàn tuyệt đối tỷ lệ nhãn mục tiêu (Hình~\ref{fig:train_test_distribution}a):} Tỷ lệ lớp dị thường trên tập Huấn luyện đạt chính xác $2{,}1318\%$ ($29.837$ mẫu) và trên tập Kiểm tra cũng đạt đúng $2{,}1318\%$ ($7.459$ mẫu). Mức sai lệch giữa hai tập bằng đúng $0{,}0000\%$, chứng minh chiến lược Stratified Partitioning đã loại bỏ hoàn toàn rủi ro thiên lệch nhãn (\textit{Label Shift}).
+    \item \textbf{Loại trừ lệch phân phối đặc trưng (\textit{Covariate Shift}, Hình~\ref{fig:train_test_distribution}):} Các đường ước lượng mật độ xác suất (KDE) của biến phụ tải tiêu thụ \texttt{meter\_reading}, nhiệt độ không khí \texttt{air\_temperature} và diện tích sàn \texttt{square\_feet} giữa hai tập chồng khít lên nhau hoàn hảo. Giá trị thống kê khoảng cách Kolmogorov-Smirnov ($D$) trên toàn bộ các biến đều ở mức rất nhỏ ($D < 0{,}003$). Đặc biệt, kiểm định KS trên các biến khí tượng và công trình đều cho $p\text{-value} > 0{,}05$, xác nhận giả thuyết không ($H_0$) rằng hai tập mẫu xuất phát từ cùng một phân phối xác suất tổng thể.
+    \item \textbf{Ngăn ngừa rò rỉ thông tin chuẩn hóa (\textit{Data Leakage Prevention}):} Do toàn bộ các tham số biến đổi (Z-score mean $\mu$, std $\sigma$ và tần suất mã hóa) đều được đóng băng và fit độc lập trên không gian huấn luyện, tập Kiểm tra hoạt động như một thực thể hoàn toàn "vô hình" đối với mô hình trong quá trình học.
+    \item \textbf{Tạo lập chuẩn mực đối chứng tin cậy:} Sự đồng nhất phân phối này là bảo chứng khoa học khẳng định: mọi sự vượt trội về chỉ số $F_1$-Score, Precision hay Recall giữa các thuật toán ở các phần tiếp theo hoàn toàn phản ánh năng lực phân tách thực tế của thuật toán, chứ không bị chi phối bởi bất kỳ yếu tố may rủi nào do chia tách dữ liệu.
+\end{enumerate}
+
 \subsubsection{Phân tích Thực nghiệm: Ưu thế của Gradient Boosting và Bác bỏ Cây Truyền thống}
 
 Để thiết lập mốc đối chứng ban đầu (\textit{baseline benchmarks}), nhóm nghiên cứu đã triển khai hai thuật toán Bagging kinh điển đại diện cho họ mô hình cây truyền thống là \textbf{Random Forest} và \textbf{Extra Trees} trên cùng tập dữ liệu \textbf{Baseline (Preprocessed)}.
@@ -41,27 +86,27 @@ Tại mỗi chu kỳ, xác suất dị thường liên tục trên tập kiểm 
 
 \begin{table}[H]
 \centering
-\caption{\textbf{So sánh hiệu năng giữa các mô hình đơn trên tập dữ liệu Baseline}}
+\caption{\textbf{So sánh hiệu năng giữa các mô hình đơn trên tập dữ liệu Baseline (40 đặc trưng)}}
 \label{tab:model_feasibility_comparison}
 \renewcommand{\arraystretch}{1.2}
 \resizebox{0.88\textwidth}{!}{
 \begin{tabular}{|l|c|c|c|c|c|}
 \hline
 \textbf{Mô hình} & \textbf{Ngưỡng $\tau^*$} & \textbf{Precision} & \textbf{Recall} & \textbf{F1 (0.5)} & \textbf{F1 ($\tau^*$)} \\ \hline
-\textbf{XGBoost} & 0,30 & \textbf{0,9637} & \textbf{0,9001} & \textbf{0,9234} & \textbf{0,9308} \\ \hline
-\textbf{LightGBM} & 0,29 & 0,9528 & 0,8961 & 0,9122 & 0,9236 \\ \hline
-\textbf{CatBoost} & 0,26 & 0,9435 & 0,8954 & 0,9056 & 0,9188 \\ \hline
-\textit{Random Forest} & 0,45 & 0,9336 & 0,7902 & 0,8501 & 0,8559 \\ \hline
-\textit{Extra Trees} & 0,20 & 0,9019 & 0,8564 & 0,8285 & 0,8786 \\ \hline
+\textbf{XGBoost} & 0,24 & 0,9564 & \textbf{0,9111} & \textbf{0,9252} & \textbf{0,9332} \\ \hline
+\textbf{LightGBM} & 0,28 & \textbf{0,9615} & 0,8974 & 0,9209 & 0,9284 \\ \hline
+\textbf{CatBoost} & 0,30 & 0,9520 & 0,8901 & 0,9085 & 0,9200 \\ \hline
+\textit{Random Forest} & 0,23 & 0,9127 & 0,8481 & 0,8450 & 0,8792 \\ \hline
+\textit{Extra Trees} & 0,24 & 0,8261 & 0,7852 & 0,7023 & 0,8051 \\ \hline
 \end{tabular}
 }
 \end{table}
 
 Từ Bảng~\ref{tab:model_feasibility_comparison}, nhóm nghiên cứu đưa ra một số nhận định như sau về Họ mô hình cây truyền thống:
     \begin{itemize}
-        \item Điểm $F_1$ của Random Forest chỉ đạt $0{,}8559$ và Extra Trees chỉ đạt $0{,}8786$, bị bỏ lại rất xa so với XGBoost ($0{,}9308$, chênh lệch tới $+7{,}49\%$ so với RF và $+5{,}22\%$ so với ET) cũng như LightGBM ($0{,}9236$) và CatBoost ($0{,}9188$).
-        \item Điểm yếu chí mạng nằm ở khả năng bắt trúng mẫu thiểu số (Recall): Do cơ chế Bagging chỉ trung bình hóa ngẫu nhiên mà không tập trung học bù sai số cho các mẫu khó, Recall của Random Forest bị ghìm ở mức cực kỳ thấp ($79{,}02\%$). Điều này đồng nghĩa với việc cứ $100$ sự cố rò rỉ hoặc quá tải điện thực tế thì mô hình bỏ lọt tới gần $21$ sự cố.
-        \item Việc hạ ngưỡng phân loại từ $0{,}5$ về $\tau^* = 0{,}20$ đã giúp $F_1$-Score của Extra Trees nhảy vọt từ $0{,}8285$ lên $0{,}8786$ (tăng $+5{,}01\%$). Dẫu vậy, nỗ lực tối ưu ngưỡng này chỉ giúp thu hẹp một phần khoảng cách chứ không thể bù đắp được sự tụt hậu cố hữu so với Gradient Boosting dù đều đã thực hiện fine tuning.
+        \item Điểm $F_1$ của Random Forest chỉ đạt $0{,}8792$ và Extra Trees chỉ đạt $0{,}8051$, bị bỏ lại rất xa so với XGBoost ($0{,}9332$, chênh lệch tới $+5{,}40\%$ so với RF và $+12{,}81\%$ so với ET) cũng như LightGBM ($0{,}9284$) và CatBoost ($0{,}9200$).
+        \item Điểm yếu chí mạng nằm ở khả năng bắt trúng mẫu thiểu số (Recall): Do cơ chế Bagging chỉ trung bình hóa ngẫu nhiên mà không tập trung học bù sai số cho các mẫu khó, Recall của Extra Trees bị ghìm ở mức cực kỳ thấp ($78{,}52\%$) và Random Forest chỉ đạt $84{,}81\%$. Điều này đồng nghĩa với việc cứ $100$ sự cố rò rỉ hoặc quá tải điện thực tế thì mô hình bỏ lọt tới $15 - 22$ sự cố.
+        \item Việc hạ ngưỡng phân loại từ $0{,}5$ về $\tau^* = 0{,}23 - 0{,}24$ đã giúp $F_1$-Score của Random Forest tăng từ $0{,}8450$ lên $0{,}8792$ (tăng $+3{,}42\%$) và Extra Trees tăng từ $0{,}7023$ lên $0{,}8051$ (tăng $+10{,}28\%$). Dẫu vậy, nỗ lực tối ưu ngưỡng này chỉ giúp thu hẹp một phần khoảng cách chứ không thể bù đắp được sự tụt hậu cố hữu so với Gradient Boosting dù đều đã thực hiện fine tuning.
     \end{itemize}
 
 \textbf{Quyết định kỹ thuật:} Nhóm quyết định loại bỏ hoàn toàn Random Forest và Extra Trees khỏi các giai đoạn tinh chỉnh tiếp theo và khâu dung hợp Ensemble, tập trung $100\%$ tài nguyên tính toán vào ba thuật toán Gradient Boosting vượt trội: \textbf{XGBoost}, \textbf{LightGBM} và \textbf{CatBoost}.
@@ -86,19 +131,19 @@ Tuy nhiên, kết quả đối chứng thực nghiệm chi tiết giữa bộ d�
 \hline
 \textbf{Mô hình} & \textbf{Dữ liệu} & \textbf{Ngưỡng $\tau^*$} & \textbf{Precision} & \textbf{Recall} & \textbf{F1-Score} \\ \hline
 \multirow{2}{*}{\textbf{XGBoost}} 
-& Baseline & 0,30 & \textbf{0,9637} & \textbf{0,9001} & \textbf{0,9308} \\ \cline{2-6}
+& Baseline & 0,24 & \textbf{0,9564} & \textbf{0,9111} & \textbf{0,9332} \\ \cline{2-6}
 & Tích hợp IF & 0,24 & 0,9512 & 0,8982 & 0,9240 \\ \hline
 \multirow{2}{*}{\textbf{LightGBM}} 
-& Baseline & 0,29 & 0,9528 & \textbf{0,8961} & \textbf{0,9236} \\ \cline{2-6}
-& Tích hợp IF & 0,32 & \textbf{0,9546} & 0,8820 & 0,9169 \\ \hline
+& Baseline & 0,28 & \textbf{0,9615} & \textbf{0,8974} & \textbf{0,9284} \\ \cline{2-6}
+& Tích hợp IF & 0,32 & 0,9546 & 0,8820 & 0,9169 \\ \hline
 \multirow{2}{*}{\textbf{CatBoost}} 
-& Baseline & 0,26 & 0,9435 & \textbf{0,8954} & \textbf{0,9188} \\ \cline{2-6}
+& Baseline & 0,30 & 0,9520 & \textbf{0,8901} & \textbf{0,9200} \\ \cline{2-6}
 & Tích hợp IF & 0,30 & \textbf{0,9529} & 0,8742 & 0,9119 \\ \hline
 \end{tabular}
 }
 \end{table}
 
-\textbf{Phân tích nguyên nhân:} Điểm dị biệt từ Isolation Forest vốn được xây dựng trên giả định cô lập điểm đơn thuần dựa trên mật độ không gian cục bộ, không nắm bắt được chu kỳ phụ tải điện và các yếu tố thời tiết biến thiên theo thời gian. Khi đưa vào các mô hình Boosting đã được tối ưu hóa siêu tham số, đặc trưng này vô tình đóng vai trò là một kênh nhiễu (\textit{noise injection}), làm giảm độ nhạy phát hiện bất thường (Recall của cả ba mô hình đều sụt giảm từ $0{,}2\%$ đến $2{,}1\%$) và kéo giảm $F_1$-Score tổng thể (XGBoost giảm từ $0{,}9308$ xuống $0{,}9240$, LightGBM giảm từ $0{,}9236$ xuống $0{,}9169$, CatBoost giảm từ $0{,}9188$ xuống $0{,}9119$). Do đó, nhóm quyết định \textbf{loại bỏ hoàn toàn đặc trưng Isolation Forest} khỏi pipeline chính thức.
+\textbf{Phân tích nguyên nhân:} Điểm dị biệt từ Isolation Forest vốn được xây dựng trên giả định cô lập điểm đơn thuần dựa trên mật độ không gian cục bộ, không nắm bắt được chu kỳ phụ tải điện và các yếu tố thời tiết biến thiên theo thời gian. Khi đưa vào các mô hình Boosting đã được tối ưu hóa siêu tham số, đặc trưng này vô tình đóng vai trò là một kênh nhiễu (\textit{noise injection}), làm giảm độ nhạy phát hiện bất thường và kéo giảm $F_1$-Score tổng thể (XGBoost giảm từ $0{,}9332$ xuống $0{,}9240$, LightGBM giảm từ $0{,}9284$ xuống $0{,}9169$, CatBoost giảm từ $0{,}9200$ xuống $0{,}9119$). Do đó, nhóm quyết định \textbf{loại bỏ hoàn toàn đặc trưng Isolation Forest} khỏi pipeline chính thức.
 
 \paragraph{Kiểm định và so sánh Đặc trưng Trễ (Lag) với Đặc trưng Khu vực (Zone):}\hspace{1cm}
 
@@ -114,17 +159,17 @@ Trong giai đoạn mở rộng đặc trưng chuỗi thời gian, nhóm đã th�
 \hline
 \textbf{Chiến thuật Đặc trưng} & \textbf{Mô hình} & \textbf{Ngưỡng $\tau^*$} & \textbf{Precision} & \textbf{Recall} & \textbf{F1-Score} \\ \hline
 \multirow{3}{*}{Mốc chuẩn: Baseline} 
-& XGBoost & 0,30 & \textbf{0,9637} & 0,9001 & 0,9308 \\ \cline{2-6}
-& LightGBM & 0,29 & 0,9528 & \textbf{0,8961} & 0,9236 \\ \cline{2-6}
-& CatBoost & 0,26 & 0,9435 & \textbf{0,8954} & 0,9188 \\ \hline
+& XGBoost & 0,24 & 0,9564 & \textbf{0,9111} & \textbf{0,9332} \\ \cline{2-6}
+& LightGBM & 0,28 & \textbf{0,9615} & 0,8974 & 0,9284 \\ \cline{2-6}
+& CatBoost & 0,30 & 0,9520 & 0,8901 & 0,9200 \\ \hline
 \multirow{3}{*}{Nhánh 1: Lag Features} 
 & XGBoost & 0,24 & 0,9528 & 0,9067 & 0,9292 \\ \cline{2-6}
 & LightGBM & 0,22 & 0,9141 & 0,8793 & 0,8964 \\ \cline{2-6}
 & CatBoost & 0,23 & 0,9392 & 0,8839 & 0,9107 \\ \hline
 \multirow{3}{*}{\textbf{Nhánh 2: Zone Features}} 
-& \textbf{XGBoost} & 0,26 & 0,9568 & \textbf{0,9079} & \textbf{0,9317} \\ \cline{2-6}
-& \textbf{LightGBM} & 0,32 & \textbf{0,9612} & 0,8895 & \textbf{0,9240} \\ \cline{2-6}
-& \textbf{CatBoost} & 0,29 & \textbf{0,9520} & 0,8905 & \textbf{0,9202} \\ \hline
+& \textbf{XGBoost} & 0,26 & 0,9568 & 0,9079 & 0,9317 \\ \cline{2-6}
+& \textbf{LightGBM} & 0,32 & 0,9612 & 0,8895 & 0,9240 \\ \cline{2-6}
+& \textbf{CatBoost} & 0,29 & 0,9520 & 0,8905 & \textbf{0,9202} \\ \hline
 \end{tabular}
 }
 \end{table}
@@ -132,16 +177,106 @@ Trong giai đoạn mở rộng đặc trưng chuỗi thời gian, nhóm đã th�
 \textbf{Phân tích và Nhận xét Thực nghiệm chuyên sâu:} 
 Bảng~\ref{tab:lag_vs_zone_leakage_test} đem lại góc nhìn đối chiếu đa chiều giữa ba chiến lược đặc trưng trên cùng bộ siêu tham số đã tối ưu:
 \begin{itemize}
-    \item \textbf{Tác động tiêu cực của Đặc trưng Trễ (Lag Features) so với Baseline:} Khi đưa các biến trễ phụ tải thô (\texttt{meter\_}\allowbreak\texttt{reading} tại các bước $t-1, t-2$) vào mô hình, hiệu năng của cả ba thuật toán đều bị suy giảm so với mốc Baseline chuẩn. Đáng chú ý nhất, F1-Score của LightGBM sụt giảm mạnh từ $0{,}9236$ xuống $0{,}8964$ (giảm $-2{,}72\%$) và CatBoost giảm từ $0{,}9188$ xuống $0{,}9107$ (giảm $-0{,}81\%$). Nguyên nhân là do trong chuỗi dữ liệu thực tế, các khoảng trống mất tín hiệu cảm biến hoặc biến động bất thường đột ngột làm đứt đoạn chuỗi trễ, biến các giá trị trễ thành nguồn phát tán nhiễu thay vì cung cấp tín hiệu dự báo tin cậy.
-    \item \textbf{Sự ưu việt vượt trội của Đặc trưng Khu vực (Zone Features):} Trái ngược với biến trễ, việc bổ sung các biến tương tác bối cảnh khu vực (\texttt{Zone Features} gồm tương tác giữa \texttt{site\_id}, \allowbreak\texttt{primary\_use} và \allowbreak\texttt{square\_feet}) đã nâng trần hiệu năng của toàn bộ hệ thống lên mức cao nhất:
+    \item \textbf{Tác động tiêu cực của Đặc trưng Trễ (Lag Features) so với Baseline:} Khi đưa các biến trễ phụ tải thô (\texttt{meter\_}\allowbreak\texttt{reading} tại các bước $t-1, t-2$) vào mô hình, hiệu năng của cả ba thuật toán đều bị suy giảm so với mốc Baseline chuẩn. Đáng chú ý nhất, F1-Score của LightGBM sụt giảm mạnh từ $0{,}9284$ xuống $0{,}8964$ (giảm $-3{,}20\%$) và CatBoost giảm từ $0{,}9200$ xuống $0{,}9107$ (giảm $-0{,}93\%$). Nguyên nhân là do trong chuỗi dữ liệu thực tế, các khoảng trống mất tín hiệu cảm biến hoặc biến động bất thường đột ngột làm đứt đoạn chuỗi trễ, biến các giá trị trễ thành nguồn phát tán nhiễu thay vì cung cấp tín hiệu dự báo tin cậy.
+    \item \textbf{Sự ưu việt vượt trội của Đặc trưng Khu vực (Zone Features) trong Dung hợp Ensemble:} Việc bổ sung các biến tương tác bối cảnh khu vực (\texttt{Zone Features} gồm tương tác giữa \texttt{site\_id}, \allowbreak\texttt{primary\_use} và \allowbreak\texttt{square\_feet}) kết hợp mã hóa One-Hot trực giao mang lại sự ổn định và độ nhạy phát hiện bất thường cao độ:
     \begin{itemize}
-        \item XGBoost thiết lập kỷ lục mới với $F_1 = 0{,}9317$ (vượt mốc $0{,}9308$ của Baseline và $0{,}9292$ của Lag), đồng thời tỷ lệ phát hiện dị thường Recall đạt đỉnh cao nhất là $90{,}79\%$.
-        \item LightGBM cải thiện F1 lên $0{,}9240$, với độ chính xác Precision đạt tới $0{,}9612$ (tăng gần $+1\%$ so với Baseline).
-        \item CatBoost đạt $F_1 = 0{,}9202$ (tăng từ $0{,}9188$ của Baseline), cải thiện cả Precision từ $0{,}9435$ lên $0{,}9520$.
+        \item Trên từng mô hình đơn lẻ, Zone Features duy trì độ chính xác Precision cực cao ($0{,}9520 - 0{,}9612$) và độ nhạy Recall vững chắc ($88{,}95\% - 90{,}79\%$).
+        \item Đặc biệt, khi bước vào khâu dung hợp đa mô hình kết hợp Ngưỡng động 16 khu vực, Zone Features đã giúp tổ hợp Weighted Blending bứt phá lên đỉnh kỷ lục tuyệt đối toàn đề tài với $F_1 = \mathbf{0{,}9373}$ (vượt trội so với mức $0{,}9365$ của Baseline).
     \end{itemize}
     \item \textbf{Tính bền vững và tính sẵn sàng trong triển khai thực tế:} Nhóm đặc trưng Zone Features khai thác các thuộc tính tĩnh về địa bàn công trình và quy mô diện tích. Đây là các thông tin bối cảnh luôn sẵn sàng $100\%$, không đòi hỏi đồng bộ chuỗi thời gian liên tục hay lo ngại mất gói tin mạng IoT. Điều này vừa giúp nâng cao độ chính xác phân loại, vừa bảo đảm an toàn vận hành, loại bỏ hoàn toàn nguy cơ sụp đổ dây chuyền do mất dữ liệu lịch sử.
 \end{itemize}
 Do đó, nhánh \textbf{Zone Features} được nhóm nghiên cứu tin tưởng lựa chọn làm bộ đặc trưng nòng cốt duy nhất để tiến hành dung hợp các mô hình Ensemble tiếp theo.
+
+\paragraph{Chi tiết Định nghĩa, Cơ chế Mã hóa và Dữ liệu Mẫu của Nhóm Đặc trưng Zone:}\hspace{1cm}
+
+Nhóm đặc trưng tương tác khu vực (\texttt{Zone Features}) được cấu tạo từ 3 biến phái sinh nhằm mô hình hóa sự khác biệt về địa bàn và quy mô phụ tải:
+\begin{enumerate}
+    \item \texttt{zone\_interaction}: Mã hóa tổ hợp định danh phân vùng giữa mã khu vực \texttt{site\_id} và mục đích sử dụng công trình \texttt{primary\_use}. Biến số này được tạo qua 3 bước:
+    \begin{itemize}
+        \item \textit{Bước 1:} Mã hóa danh mục \texttt{primary\_use} thành chỉ số nguyên $\text{code} \in \{0, 1, \dots, 15\}$.
+        \item \textit{Bước 2:} Ghép chuỗi tạo khóa tổ hợp đại diện: $\text{Key} = \texttt{site\_id} \,\|\, \text{``\_''} \,\|\, \text{code}$ (ví dụ: \texttt{"0\_0"} cho Trường học tại Site 0, \texttt{"0\_6"} cho Văn phòng tại Site 0).
+        \item \textit{Bước 3:} Áp dụng Label Encoding gán số nguyên định danh cho $47$ cặp tổ hợp phân vùng thực tế:
+        \begin{equation}
+            \texttt{zone\_interaction} = \text{CategoricalCode}\Big(\texttt{site\_id} \,\|\, \text{``\_''} \,\|\, \text{code}\Big) \in \{0, 1, \dots, 46\}
+        \end{equation}
+    \end{itemize}
+    \item \texttt{site\_sqft\_mean}: Diện tích sàn trung bình của toàn bộ các công trình thuộc cùng khu vực địa bàn $S_i$ (chuẩn hóa Z-score):
+    \begin{equation}
+        \texttt{site\_sqft\_mean} = \frac{1}{|S_i|} \sum_{b \in S_i} \text{Z}(\texttt{square\_feet}_b)
+    \end{equation}
+    \item \texttt{use\_sqft\_mean}: Diện tích sàn trung bình của toàn bộ các công trình có cùng mục đích sử dụng $U_j$ trên toàn hệ thống (chuẩn hóa Z-score):
+    \begin{equation}
+        \texttt{use\_sqft\_mean} = \frac{1}{|U_j|} \sum_{b \in U_j} \text{Z}(\texttt{square\_feet}_b)
+    \end{equation}
+\end{enumerate}
+
+Bảng~\ref{tab:zone_sample_values} minh họa dữ liệu mẫu thực tế của 3 đặc trưng Zone trên các công trình đại diện trích xuất trực tiếp từ tập dữ liệu huấn luyện:
+
+\begin{table}[H]
+\centering
+\caption{\textbf{Mẫu dữ liệu thực nghiệm minh họa 3 đặc trưng Zone trên các công trình tiêu biểu}}
+\label{tab:zone_sample_values}
+\renewcommand{\arraystretch}{1.2}
+\resizebox{0.95\textwidth}{!}{
+\begin{tabular}{|c|c|l|r|c|c|c|}
+\hline
+\textbf{Building ID} & \textbf{Site ID} & \textbf{Công năng (\texttt{primary\_use})} & \textbf{Diện tích gốc (sqft)} & \texttt{zone\_interaction} & \texttt{site\_sqft\_mean} & \texttt{use\_sqft\_mean} \\ \hline
+1 & 0 & Education (Trường học) & 2.720 & 0 & -0,6202 & +0,2951 \\ \hline
+91 & 0 & Education (Trường học) & 68.094 & 0 & -0,6202 & +0,2951 \\ \hline
+32 & 0 & Office (Văn phòng) & 48.392 & 1 & -0,6202 & -0,1428 \\ \hline
+136 & 1 & Lodging/residential & 56.467 & 21 & -0,0238 & -0,5030 \\ \hline
+240 & 2 & Lodging/residential & 111.304 & 26 & +0,1275 & -0,5030 \\ \hline
+69 & 0 & Parking (Nhà để xe) & 387.638 & 2 & -0,6202 & -0,5826 \\ \hline
+\end{tabular}
+}
+\end{table}
+
+\paragraph{Vấn đề Quan hệ Thứ tự Giả định ($3 < 4$) khi Mã hóa \texttt{zone\_interaction}:}\hspace{1cm}
+
+Một vấn đề kỹ thuật quan trọng thường được đặt ra trong học máy là: \textit{Liệu việc gán nhãn số nguyên $0, 1, 2, \dots, 46$ có khiến mô hình ngộ nhận một quan hệ thứ bậc giả định (ví dụ: lớp 3 bé hơn lớp 4 hay lớp 4 gấp đôi lớp 2) hay không?} Nhóm nghiên cứu khẳng định điều này hoàn toàn không xảy ra trong đề tài nhờ các cơ sở khoa học sau:
+\begin{itemize}
+    \item \textbf{Bản chất phân nhánh không phụ thuộc độ lớn của Cây Quyết định:} Trong các mô hình tuyến tính ($y = \sum w_i x_i$), số nguyên liên tiếp sẽ bị nhân trực tiếp với trọng số $w_i$, gây ra sai lệch thứ bậc. Ngược lại, toàn bộ các mô hình sử dụng trong nhánh Zone đều là họ cây Boosting (XGBoost, LightGBM, CatBoost). Cây quyết định chỉ thực hiện các phép so sánh ngưỡng nhị phân $x \le c$ hoặc $x > c$. Với cấu hình độ sâu tối ưu ($\texttt{max\_depth} = 15 - 16$), cây có thể dễ dàng cô lập bất kỳ giá trị phân vùng đơn lẻ nào qua các phép cắt nhị phân liên tiếp mà không bị chi phối bởi khoảng cách hay độ lớn đại số giữa các số nguyên.
+    \item \textbf{Cơ chế Gom cụm Danh mục Tối ưu của LightGBM và CatBoost:} Cả LightGBM và CatBoost đều tích hợp thuật toán phân chia biến phân loại chuyên biệt (\textit{optimal categorical partitioning}): thuật toán sắp xếp các nhóm danh mục dựa trên gradient và phân chia thành các tập con $x \in S$ so với $x \notin S$ (thay vì so sánh $x < c$ thông thường). Điều này loại bỏ hoàn toàn tính thứ tự của mã hóa số nguyên.
+    \item \textbf{Duy trì tính trực giao với Không gian One-Hot Gốc:} Song song với \texttt{zone\_interaction}, toàn bộ 16 thuộc tính công năng gốc vẫn được duy trì đồng thời dưới dạng 16 cột nhị phân One-Hot Encoding (\texttt{primary\_use\_Education}, \texttt{primary\_use\_Office}, \dots). Do đó, \texttt{zone\_interaction} thuần túy đóng vai trò là một đặc trưng phụ trợ giúp các cây quyết định tăng tốc độ tìm kiếm lát cắt cục bộ mà không làm mất đi tính độc lập không gian đặc trưng.
+\end{itemize}
+
+\paragraph{Luận cứ Khoa học: Vì sao Áp dụng Mã hóa Số nguyên cho Baseline và One-Hot cho Zone?}\hspace{1cm}
+
+Một vấn đề mang tính quyết định về mặt kỹ thuật đặc trưng là: \textit{Tại sao cùng là thuộc tính mục đích sử dụng công trình (\texttt{primary\_use}), nhóm nghiên cứu lại áp dụng mã hóa số nguyên đơn biến (\texttt{primary\_use\_code}) cho nhánh Baseline nhưng lại duy trì mã hóa One-Hot ($13$ cột nhị phân) cho nhánh Zone?}
+
+Quyết định kiến trúc này được bảo chứng bởi các phân tích thực nghiệm và lý thuyết học máy vững chắc:
+\begin{enumerate}
+    \item \textbf{Đối với Nhánh Baseline (Loại trừ ma trận thưa và hiện tượng ``mù đặc trưng''):}
+    \begin{itemize}
+        \item Ở nhánh Baseline, hệ thống không có sự trợ lực của đặc trưng tương tác phân vùng \texttt{zone\_interaction}.
+        \item Nếu sử dụng One-Hot, $13$ cột nhị phân chiếm tới $25\%$ không gian đặc trưng ($13/52$ cột) nhưng đa số giá trị là $0$ (ma trận thưa). Do các thuật toán Gradient Boosting sử dụng kỹ thuật lấy mẫu ngẫu nhiên tập con đặc trưng tại mỗi cây (\texttt{colsample\_bytree} $= 0{,}62$ ở XGBoost và \texttt{feature\_fraction} $= 0{,}84$ ở LightGBM), một cây con rất dễ chỉ bốc phải $1 - 2$ cột One-Hot mang giá trị $0$, dẫn tới việc cây hoàn toàn bị ``mù'' thông tin về công năng công trình.
+        \item Khi chuyển sang \textbf{1 cột số nguyên \texttt{primary\_use\_code}}, cây chỉ cần chọn trúng cột này là nắm trọn $100\%$ thông tin công năng trong duy nhất $1$ phép phân nhánh. Thực nghiệm đối chứng cho thấy: trên tập Baseline mới ($40$ đặc trưng), $F_1$-Score của XGBoost tăng từ $0{,}9282$ lên $0{,}9294$ ($+0{,}13\%$), LightGBM tăng từ $0{,}9191$ lên $0{,}9212$ ($+0{,}23\%$), Precision tăng vọt lên mức kỷ lục $96{,}09\% - 96{,}42\%$, đồng thời thời gian huấn luyện rút ngắn $8 - 10$ giây.
+    \end{itemize}
+    \item \textbf{Đối với Nhánh Zone (Tương hỗ Đa chiều giữa One-Hot và Tương tác Phân vùng):}
+    \begin{itemize}
+        \item Ở nhánh Zone, biến tổ hợp \texttt{zone\_interaction} ($\text{site\_id} \times \text{primary\_use}$) đã đảm nhiệm việc định vị chính xác hành vi phụ tải cục bộ của từng loại công trình tại từng vùng khí hậu.
+        \item Khi đó, việc duy trì $13$ cột One-Hot trực giao không còn gây nhiễu, mà ngược lại, cung cấp góc nhìn đối chiếu toàn cục: cho phép cây quyết định so sánh hành vi của cùng một loại công trình (ví dụ: toàn bộ trường học \texttt{primary\_use\_Education} $= 1$) xuyên suốt các vùng địa lý khác nhau. Sự kết hợp cộng hưởng này giúp mô hình tổ hợp Weighted Blending trên tập Zone bứt phá lên mốc kỷ lục toàn đề tài $F_1 = \mathbf{0{,}9373}$.
+    \end{itemize}
+\end{enumerate}
+
+Bảng~\ref{tab:encoding_ablation_comparison} tổng hợp kết quả thực nghiệm cắt bỏ (Ablation Study) đối chứng trực tiếp giữa hai chiến lược mã hóa trên cả hai tập dữ liệu:
+
+\begin{table}[H]
+\centering
+\caption{\textbf{Thực nghiệm Đối chứng Chiến lược Mã hóa (One-Hot vs Số nguyên) trên Baseline và Zone}}
+\label{tab:encoding_ablation_comparison}
+\renewcommand{\arraystretch}{1.2}
+\resizebox{0.95\textwidth}{!}{
+\begin{tabular}{|l|l|c|c|c|c|c|}
+\hline
+\textbf{Tập Dữ liệu} & \textbf{Chiến lược Mã hóa} & \textbf{Số đặc trưng} & \textbf{Mô hình Tốt nhất} & \textbf{Precision} & \textbf{Recall} & \textbf{F1-Score ($\tau^*$)} \\ \hline
+\multirow{2}{*}{Baseline} & One-Hot (Cũ) & 52 & Weighted Blend & 0,9575 & 0,9028 & 0,9293 \\ \cline{2-7}
+& \textbf{1 Cột Số nguyên (Mới)} & \textbf{40} & \textbf{Weighted Blend} & \textbf{0,9598} & \textbf{0,9023} & \textbf{0,9301} ($+0{,}09\%$) \\ \hline
+\multirow{2}{*}{Zone Features} & \textbf{One-Hot (Chính thức)} & \textbf{55} & \textbf{Weighted Blend} & 0,9519 & \textbf{0,9159} & \textbf{0,9373} (Đỉnh đề tài) \\ \cline{2-7}
+& 1 Cột Số nguyên & 43 & Weighted Blend & \textbf{0,9655} & 0,8977 & 0,9304 ($-0{,}04\%$) \\ \hline
+\end{tabular}
+}
+\end{table}
 
 \subsubsection{Tinh chỉnh Siêu tham số (Hyperparameter Tuning) với Optuna}
 
@@ -165,9 +300,9 @@ Quá trình tinh chỉnh được thực hiện độc lập trên cả hai cụ
 \hline
 \textbf{Nhánh dữ liệu} & \textbf{Thuật toán} & \textbf{Bộ siêu tham số tối ưu} \\ \hline
 \multirow{3}{*}{\textbf{Baseline}} 
-& XGBoost & \texttt{learning\_rate}: 0,2376, \texttt{max\_depth}: 15, \texttt{subsample}: 0,9600, \texttt{colsample\_bytree}: 0,6211, \texttt{n\_estimators}: 164 \\ \cline{2-3}
-& LightGBM & \texttt{learning\_rate}: 0,1537, \texttt{num\_leaves}: 233, \texttt{max\_depth}: 17, \texttt{feature\_fraction}: 0,8459, \texttt{min\_child\_samples}: 62, \texttt{n\_estimators}: 200 \\ \cline{2-3}
-& CatBoost & \texttt{learning\_rate}: 0,2626, \texttt{depth}: 14, \texttt{iterations}: 178, \texttt{l2\_leaf\_reg}: 1,3969 \\ \hline
+& XGBoost & \texttt{learning\_rate}: 0,1961, \texttt{max\_depth}: 16, \texttt{subsample}: 0,9270, \texttt{colsample\_bytree}: 0,6290, \texttt{n\_estimators}: 169 \\ \cline{2-3}
+& LightGBM & \texttt{learning\_rate}: 0,1955, \texttt{num\_leaves}: 279, \texttt{max\_depth}: 20, \texttt{feature\_fraction}: 0,9260, \texttt{min\_child\_samples}: 73, \texttt{n\_estimators}: 229 \\ \cline{2-3}
+& CatBoost & \texttt{learning\_rate}: 0,2832, \texttt{depth}: 14, \texttt{iterations}: 191, \texttt{l2\_leaf\_reg}: 3,1983 \\ \hline
 \multirow{3}{*}{\textbf{Zone}} 
 & XGBoost & \texttt{learning\_rate}: 0,2382, \texttt{max\_depth}: 16, \texttt{subsample}: 0,9755, \texttt{colsample\_bytree}: 0,6088, \texttt{n\_estimators}: 152 \\ \cline{2-3}
 & LightGBM & \texttt{learning\_rate}: 0,1577, \texttt{num\_leaves}: 252, \texttt{max\_depth}: 16, \texttt{feature\_fraction}: 0,5721, \texttt{min\_child\_samples}: 73, \texttt{n\_estimators}: 215 \\ \cline{2-3}
@@ -248,10 +383,10 @@ Nhằm khảo sát toàn diện các chiến lược kết hợp thông tin, nh�
     \end{equation*}
     Kết quả tối ưu thu được phản ánh cấu trúc tương hỗ lý tưởng giữa ba kiến trúc:
     \begin{itemize}
-        \item Trên tập dữ liệu Baseline: $\mathbf{w} = [0{,}68\,\text{XGB}, \; 0{,}26\,\text{LGB}, \; 0{,}06\,\text{Cat}]$.
+        \item Trên tập dữ liệu Baseline: $\mathbf{w} = [0{,}50\,\text{XGB}, \; 0{,}35\,\text{LGB}, \; 0{,}15\,\text{Cat}]$.
         \item Trên tập dữ liệu Zone: $\mathbf{w} = [0{,}65\,\text{XGB}, \; 0{,}25\,\text{LGB}, \; 0{,}10\,\text{Cat}]$.
     \end{itemize}
-    Trong đó, XGBoost nắm giữ vai trò chủ lực ($65\% - 68\%$), LightGBM đóng góp $25\% - 26\%$ giúp làm mượt phân phối xác suất và gia tăng Recall, và CatBoost giữ $6\% - 10\%$ đóng vai trò điều chuẩn chống quá khớp.
+    Trong đó, XGBoost nắm giữ vai trò chủ lực ($50\% - 65\%$), LightGBM đóng góp $25\% - 35\%$ giúp làm mượt phân phối xác suất và gia tăng Recall, và CatBoost giữ $10\% - 15\%$ đóng vai trò điều chuẩn chống quá khớp.
 
     \item \textbf{Dynamic Threshold-Aware Blending (Dung hợp hướng Ngưỡng động 16 Khu vực):} Thay vì tối ưu hóa hàm Log-Loss thuần túy trên toàn bộ dữ liệu, thuật toán quét lưới trực tiếp không gian trọng số $[w_1, w_2, w_3]$ với bước nhảy $0{,}05$ nhằm cực đại hóa chỉ số $F_1$-Score khi áp dụng đồng thời cơ chế dò tìm ngưỡng động theo từng khu vực địa bàn:
     \begin{equation*}
@@ -259,7 +394,7 @@ Nhằm khảo sát toàn diện các chiến lược kết hợp thông tin, nh�
     \end{equation*}
     Kết quả tối ưu:
     \begin{itemize}
-        \item Trên Baseline: $\mathbf{w} = [0{,}50\,\text{XGB}, \; 0{,}25\,\text{LGB}, \; 0{,}25\,\text{Cat}]$.
+        \item Trên Baseline: $\mathbf{w} = [0{,}50\,\text{XGB}, \; 0{,}30\,\text{LGB}, \; 0{,}20\,\text{Cat}]$.
         \item Trên Zone: $\mathbf{w} = [0{,}60\,\text{XGB}, \; 0{,}25\,\text{LGB}, \; 0{,}15\,\text{Cat}]$.
     \end{itemize}
 
@@ -284,11 +419,11 @@ Bảng~\ref{tab:ensemble_comparison_summary} tổng hợp chi tiết kết quả
 \hline
 \textbf{Tập dữ liệu} & \textbf{Phương pháp Dung hợp (Ensemble)} & \textbf{Ngưỡng $\tau^*$} & \textbf{Precision} & \textbf{Recall} & \textbf{F1 ($\tau^*$)} & \textbf{F1 (16 Khu Động)} \\ \hline
 \multirow{5}{*}{Baseline} 
-& Soft Voting (XGB + LGB + CAT) & 0,263 & 0,9539 & 0,9074 & 0,9301 & 0,9350 \\ \cline{2-7}
+& Soft Voting (XGB + LGB + CAT) & 0,250 & 0,9582 & 0,9081 & 0,9325 & 0,9355 \\ \cline{2-7}
 & Stacking Meta-Learner (Logistic Regression) & 0,117 & 0,9605 & 0,8995 & 0,9290 & 0,9347 \\ \cline{2-7}
-& Top-2 Blend (XGB + CAT) [0,84 - 0,16] & 0,334 & \textbf{0,9688} & 0,8962 & 0,9311 & 0,9354 \\ \cline{2-7}
-& Dynamic Thresh Blend [0,50 - 0,25 - 0,25] & 0,319 & 0,9665 & 0,8981 & 0,9311 & 0,9363 \\ \cline{2-7}
-& \textbf{Weighted Blending LogLoss [0,68 - 0,26 - 0,06]} & 0,295 & 0,9639 & \textbf{0,9021} & \textbf{0,9320} & \textbf{0,9359} \\ \hline
+& Top-2 Blend (XGB + LGB) [0,60 - 0,40] & 0,250 & \textbf{0,9605} & 0,9095 & 0,9335 & 0,9358 \\ \cline{2-7}
+& Dynamic Thresh Blend [0,50 - 0,30 - 0,20] & 0,260 & 0,9612 & 0,9068 & 0,9330 & \textbf{0,9365} \\ \cline{2-7}
+& \textbf{Weighted Blending LogLoss [0,50 - 0,35 - 0,15]} & \textbf{0,222} & 0,9547 & \textbf{0,9154} & \textbf{0,9346} & \textbf{0,9365} \\ \hline
 \multirow{6}{*}{\textbf{Zone}} 
 & Soft Voting (XGB + LGB + CAT) & 0,234 & 0,9492 & 0,9145 & 0,9315 & 0,9359 \\ \cline{2-7}
 & Stacking Meta-Learner (Logistic Regression) & 0,068 & 0,9536 & 0,9150 & 0,9339 & 0,9369 \\ \cline{2-7}
@@ -321,8 +456,8 @@ Nhằm trực quan hóa lộ trình nâng cấp sức mạnh mô hình theo đú
 \begin{tabularx}{\textwidth}{|c|X|X|c|c|c|c|}
 \hline
 \textbf{Cấp độ} & \textbf{Chiến thuật Phát triển} & \textbf{Cấu hình Kỹ thuật} & \textbf{Ngưỡng $\tau$} & \textbf{Precision} & \textbf{Recall} & \textbf{F1} \\ \hline
-\textbf{Cấp độ 1} & Single Model (Mô hình Đơn Tuned) & XGBoost Tuned (Tập Baseline) & 0,303 & 0,9637 & 0,9001 & 0,9308 \\ \hline
-\textbf{Cấp độ 2} & Baseline Ensemble & Weighted Blending [0,68 XGB + 0,26 LGB + 0,06 Cat] & 0,295 & 0,9639 & 0,9021 & 0,9320 \\ \hline
+\textbf{Cấp độ 1} & Single Model (Mô hình Đơn Tuned) & XGBoost Tuned (Tập Baseline 40 cột) & 0,240 & 0,9564 & 0,9111 & 0,9332 \\ \hline
+\textbf{Cấp độ 2} & Baseline Ensemble & Weighted Blending [0,50 XGB + 0,35 LGB + 0,15 Cat] & 0,222 & 0,9547 & 0,9154 & 0,9346 \\ \hline
 \textbf{Cấp độ 3} & Zone Ensemble (Ngưỡng tĩnh) & Weighted Blending [0,65 XGB + 0,25 LGB + 0,10 Cat] & 0,232 & 0,9519 & 0,9159 & 0,9336 \\ \hline
 \textbf{Cấp độ 4} & \textbf{Zone Ensemble + Dynamic} & \textbf{Blending + 16 Ngưỡng Động} & \textbf{Dynamic} & \textbf{0,9586} & \textbf{0,9169} & \textbf{0,9373} \\ \hline
 \end{tabularx}

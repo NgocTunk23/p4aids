@@ -49,9 +49,9 @@ NEW_MODELS_DIR = script_dir / "saved_new_models"
 SAVED_MODELS_DIR.mkdir(parents=True, exist_ok=True)
 NEW_MODELS_DIR.mkdir(parents=True, exist_ok=True)
 
-ZONE_TUNING_FILE = script_dir / "zone_tuning_best_params.json"
-BASELINE_TUNING_FILE = script_dir / "baseline_tuning_best_params.json"
-REPORT_PATH = script_dir / "final_comprehensive_report_new.md"
+ZONE_TUNING_FILE = script_dir / "hyperparameters" / "zone_tuning_best_params.json"
+BASELINE_TUNING_FILE = script_dir / "hyperparameters" / "baseline_tuning_best_params.json"
+REPORT_PATH = script_dir / "md" / "final_comprehensive_report_new.md"
 
 TARGET = "anomaly"
 N_CORES = os.cpu_count() or 4

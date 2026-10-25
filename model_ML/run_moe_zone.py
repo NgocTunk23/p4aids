@@ -38,9 +38,9 @@ warnings.filterwarnings('ignore')
 script_dir = Path(__file__).resolve().parent
 DATA_ZONE = script_dir.parent / "data" / "processed" / "train_preprocessedzone.parquet"
 NEW_MODELS_DIR = script_dir / "saved_new_models"
-TUNING_FILE = script_dir / "zone_tuning_best_params.json"
-THRESHOLDS_OUTPUT = script_dir / "moe_dynamic_site_thresholds.json"
-REPORT_OUTPUT = script_dir / "moe_zone_report.md"
+TUNING_FILE = script_dir / "hyperparameters" / "zone_tuning_best_params.json"
+THRESHOLDS_OUTPUT = script_dir / "hyperparameters" / "moe_dynamic_site_thresholds.json"
+REPORT_OUTPUT = script_dir / "md" / "moe_zone_report.md"
 
 TARGET = "anomaly"
 

@@ -32,6 +32,7 @@ import warnings
 import numpy as np
 import pandas as pd
 import joblib
+from typing import Any
 from sklearn.metrics import f1_score
 
 # Đảm bảo in ký tự tiếng Việt an toàn trên Windows Console / PowerShell
@@ -159,7 +160,7 @@ def align_features(X: pd.DataFrame, model) -> pd.DataFrame:
     return X
 
 
-def save_submission_csv(test_df: pd.DataFrame, probas: np.ndarray, out_file: Path, binary_pred: np.ndarray = None):
+def save_submission_csv(test_df: pd.DataFrame, probas: np.ndarray, out_file: Path, binary_pred: np.ndarray | None = None):
     """Lưu file submission chuẩn ROC-AUC (xác suất liên tục float [0.0 - 1.0]) và file nhị phân đối chứng kèm theo."""
     # Lấy row_id từ tập test_df hoặc từ sample_submission
     sample_path = ROOT_DIR / "data" / "sample_submission.csv"
@@ -181,8 +182,8 @@ def save_submission_csv(test_df: pd.DataFrame, probas: np.ndarray, out_file: Pat
     total_rows = len(sub_roc_df)
     file_size_mb = out_file.stat().st_size / (1024 * 1024)
     mean_prob = float(sub_roc_df['anomaly'].mean())
-    p95_prob = float(np.percentile(sub_roc_df['anomaly'], 95))
-    p99_prob = float(np.percentile(sub_roc_df['anomaly'], 99))
+    p95_prob = float(sub_roc_df['anomaly'].quantile(0.95))
+    p99_prob = float(sub_roc_df['anomaly'].quantile(0.99))
 
     print(f" -> ĐÃ XUẤT SUBMISSION CHUẨN ROC-AUC: {out_file.name}")
     print(f"    Định dạng: Xác suất liên tục float [0.0 - 1.0] | Tổng dòng: {total_rows:,} | Dung lượng: {file_size_mb:.2f} MB")
@@ -201,7 +202,7 @@ def save_submission_csv(test_df: pd.DataFrame, probas: np.ndarray, out_file: Pat
         print(f"    [Kèm file nhị phân F1]: {bin_file.name} | Dị thường (1): {anom_count:,} ({anom_pct:.2f}%)")
 
 
-def apply_dynamic_thresholds(probas: np.ndarray, site_ids: np.ndarray, site_thresholds: dict, global_th: float) -> np.ndarray:
+def apply_dynamic_thresholds(probas: np.ndarray, site_ids: Any, site_thresholds: dict, global_th: float) -> np.ndarray:
     """Áp dụng ngưỡng động theo từng Site ID cho mảng xác suất."""
     y_pred = np.zeros_like(probas, dtype=int)
     unique_sites = np.unique(site_ids)
@@ -387,15 +388,6 @@ def run_best_model_ensemble_zone(force_retrain: bool = False):
     y_pred = apply_dynamic_thresholds(ensemble_proba, X_test['site_id'].values, site_thresholds, global_th=0.232)
 
     save_submission_csv(df_test, probas=ensemble_proba, out_file=out_csv, binary_pred=y_pred)
-
-    # Tạo thêm alias file để dễ nhận diện
-    alias_csv = SUB_DIR / "submission_highest_performance_ensemble_zone.csv"
-    try:
-        import shutil
-        shutil.copyfile(out_csv, alias_csv)
-    except Exception:
-        pass
-
     return out_csv
 
 

@@ -1,0 +1,49 @@
+{
+    "trained_at": "2026-10-25 02:55:00",
+    "dataset": "train_preprocessed.parquet (40 features)",
+    "results": {
+        "LightGBM": {
+            "optimal_threshold": 0.3475,
+            "f1_optimal": 0.9212,
+            "precision_optimal": 0.9642,
+            "recall_optimal": 0.8819,
+            "f1_05": 0.9116,
+            "precision_05": 0.9774,
+            "recall_05": 0.8541,
+            "fit_time_sec": 7.65,
+            "model_filename": "LightGBM_Baseline.pkl"
+        },
+        "XGBoost": {
+            "optimal_threshold": 0.3241,
+            "f1_optimal": 0.9294,
+            "precision_optimal": 0.9609,
+            "recall_optimal": 0.8999,
+            "f1_05": 0.9241,
+            "precision_05": 0.9767,
+            "recall_05": 0.8768,
+            "fit_time_sec": 12.22,
+            "model_filename": "XGBoost_Baseline_Full.pkl"
+        },
+        "CatBoost": {
+            "optimal_threshold": 0.2774,
+            "f1_optimal": 0.9159,
+            "precision_optimal": 0.9473,
+            "recall_optimal": 0.8864,
+            "f1_05": 0.9047,
+            "precision_05": 0.9768,
+            "recall_05": 0.8425,
+            "fit_time_sec": 121.39,
+            "model_filename": "CatBoost_Baseline.pkl"
+        },
+        "Weighted Blending": {
+            "optimal_threshold": 0.2988,
+            "f1_optimal": 0.9301,
+            "precision_optimal": 0.9598,
+            "recall_optimal": 0.9023,
+            "f1_05": 0.9236,
+            "precision_05": 0.9801,
+            "recall_05": 0.8733,
+            "fit_time_sec": 141.26
+        }
+    }
+}

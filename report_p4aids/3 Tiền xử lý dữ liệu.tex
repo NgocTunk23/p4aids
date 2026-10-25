@@ -24,6 +24,43 @@ Hình~\ref{fig:label_imbalance} trực quan hóa tỷ lệ mất cân bằng ngh
     \item Nếu sử dụng ngưỡng quyết định mặc định $\tau = 0{,}5$, đại đa số các mẫu dị thường có xác suất dự đoán nằm trong khoảng $0{,}1 - 0{,}4$ sẽ bị bỏ sót, khiến chỉ số Recall và F1-Score bị suy giảm nghiêm trọng. Do đó, việc áp dụng kỹ thuật tối ưu hóa ngưỡng cắt xác suất (Threshold Moving) là điều kiện tiên quyết trong các giai đoạn sau.
 \end{enumerate}
 
+\subsubsection{Phân tích Phân phối Tần suất Đặc trưng qua Lược đồ Histogram (Histogram Diagrams)}
+
+Bên cạnh sự mất cân bằng về số lượng bản ghi giữa các nhãn, việc thấu hiểu hình thái phân phối xác suất và mật độ tần suất của các thuộc tính định lượng gốc là yêu cầu mang tính quyết định trong giai đoạn Khám phá Dữ liệu (EDA). Nhóm nghiên cứu đã triển khai hàm phân tích \texttt{plot\_eda\_snapshot()} tại Bước 4 của quy trình để khởi tạo hệ thống lược đồ phân phối tần suất chuyên sâu (Hình~\ref{fig:eda_histogram_distribution}).
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.98\textwidth]{IMAGE/eda_histogram_distribution.png}
+    \caption{\textbf{Lược đồ Phân phối Tần suất Đặc trưng Khám phá Dữ liệu Ban đầu (EDA Histogram Diagrams)}}
+    \label{fig:eda_histogram_distribution}
+\end{figure}
+
+Từ kết quả trực quan hóa tại Hình~\ref{fig:eda_histogram_distribution}, sáu đặc tính phân phối thống kê quan trọng được làm sáng tỏ:
+
+\begin{enumerate}
+    \item \textbf{Phân phối phụ tải gốc mang tính lệch phải cực đoan (Hình~\ref{fig:eda_histogram_distribution}a):}
+    Thuộc tính tiêu thụ điện \texttt{meter\_reading} sở hữu độ lệch dương rất lớn ($\text{Skewness} = +9{,}15$) cùng độ nhọn cao (\textit{Heavy-tailed Leptokurtic}). Giá trị trung vị chỉ đạt $84{,}10\,\text{kWh}$, trong khi giá trị trung bình bị kéo lệch lên tới $179{,}90\,\text{kWh}$ bởi các đỉnh phụ tải đột biến đạt mức tối đa $6.596{,}89\,\text{kWh}$. Phân phối phi chuẩn này khẳng định việc áp dụng trực tiếp các giải thuật giả định phân phối chuẩn (Gaussian Assumptions) như Naive Bayes hay Hồi quy tuyến tính sẽ thất bại hoàn toàn.
+
+    \item \textbf{Tác động phục hồi tính chuẩn tắc của biến đổi Logarithm (Hình~\ref{fig:eda_histogram_distribution}b):}
+    Khi áp dụng hàm nén phi tuyến $f(x) = \ln(1 + x)$, đuôi dài bên phải của phân phối được co cụm đáng kể, đưa độ lệch từ $+9{,}15$ về mức xấp xỉ đối xứng $-0{,}47$. Phân phối chuyển hóa thành hình chuông tựa chuẩn (\textit{quasi-normal distribution}) với kỳ vọng trung bình đạt $4{,}27$. Điều này cung cấp căn cứ toán học vững chắc cho việc sử dụng các mô hình cây quyết định phân nhánh trên thang đo logarit hoặc chuẩn hóa Z-score nhằm ổn định độ dốc gradient.
+
+    \item \textbf{Sự phân hóa phân phối phụ tải theo trạng thái nhãn (Hình~\ref{fig:eda_histogram_distribution}c):}
+    Khi bóc tách phân phối theo điều kiện $P(X \mid y=0)$ và $P(X \mid y=1)$:
+    \begin{itemize}
+        \item Lớp bình thường ($y=0$, màu xanh mòng két) phân bố tập trung dày đặc xung quanh mức tiêu thụ cơ sở ($3{,}5 - 5{,}5$ trên thang log, tương ứng $30 - 250\,\text{kWh}$).
+        \item Ngược lại, lớp dị thường ($y=1$, màu đỏ gạch) thể hiện phương sai cực rộng và xu hướng phân bố phân cực tại hai thái cực: (1) cực trị sụt giảm sâu về cận 0 (tương ứng sự cố mất nguồn hoặc đứt tín hiệu cảm biến) và (2) cực trị tăng vọt ở dải phụ tải đỉnh $> 6{,}5$ (tương ứng sự cố quá tải, chập điện hoặc rò rỉ tải làm mát mùa hè). Sự chồng lấn phân phối này minh chứng rằng không thể dùng bất kỳ ngưỡng cắt tĩnh đơn biến nào để phát hiện dị thường mà bắt buộc phải kết hợp chuỗi đặc trưng đa biến.
+    \end{itemize}
+
+    \item \textbf{Tính chất phân phối lưỡng đỉnh của nhiệt độ môi trường (Hình~\ref{fig:eda_histogram_distribution}d):}
+    Biến thời tiết \texttt{air\_temperature} thể hiện rõ nét hình thái phân phối hai đỉnh (\textit{bimodal distribution}) với kỳ vọng trung bình $16{,}5^\circ\text{C}$. Đỉnh thứ nhất tập trung quanh vùng $8^\circ\text{C} - 12^\circ\text{C}$ (đại diện cho mùa đông và khung giờ ban đêm), trong khi đỉnh thứ hai tập trung quanh $24^\circ\text{C} - 28^\circ\text{C}$ (mùa hè và khung giờ ban ngày). Sự phân hóa lưỡng cực này giải thích vì sao nhu cầu điện làm mát và sưởi ấm biến động theo mùa, tạo động lực cho việc xây dựng các biến chu kỳ tuần hoàn ($\sin/\cos$) ở Bước 2 tiền xử lý.
+
+    \item \textbf{Sự phân tầng quy mô công trình đô thị (Hình~\ref{fig:eda_histogram_distribution}e):}
+    Phân phối diện tích sàn \texttt{square\_feet} thể hiện tính phân tầng rõ rệt: giá trị trung vị đạt $71.000\,\text{ft}^2$, trong khi trung bình là $107.000\,\text{ft}^2$. Đại đa số công trình tập trung ở quy mô vừa và nhỏ ($< 150.000\,\text{ft}^2$, chủ yếu là văn phòng và trường học), trong khi một tỷ lệ nhỏ các công trình công cộng và trung tâm dữ liệu có diện tích vượt mức $400.000\,\text{ft}^2$, tạo ra tải nền tiêu thụ liên tục suốt ngày đêm.
+
+    \item \textbf{Tính toàn vẹn của các thuộc tính khí tượng bổ trợ (Hình~\ref{fig:eda_histogram_distribution}f):}
+    Phân phối của điểm sương \texttt{dew\_temperature} (trung bình $8{,}8^\circ\text{C}$) và tốc độ gió \texttt{wind\_speed} (trung bình $3{,}2\,\text{m/s}$) đạt độ toàn vẹn $100\%$ ($0$ giá trị khuyết), cho thấy dữ liệu khí tượng có tính ổn định cao, sẵn sàng làm nguồn tham chiếu môi trường đáng tin cậy cho bài toán phân loại.
+\end{enumerate}
+
 \subsubsection{Toàn cảnh Lịch sử Phụ tải và Phân bố Dị thường theo Thời gian}
 Nhằm nắm bắt toàn diện hành vi phụ tải ở cấp độ vĩ mô và sự phân bố của các biến cố dị thường xuyên suốt 366 ngày trong năm 2016 (năm nhuận), nhóm nghiên cứu xây dựng lược đồ lịch sử vận hành trên toàn bộ 200 tòa nhà thuộc tập huấn luyện (Hình~\ref{fig:eda_history_diagram}). Biểu đồ này được trích xuất trực tiếp từ hàm phân tích thời gian \texttt{plot\_eda\_snapshot()} tại Bước 4 của quy trình thực nghiệm.
 
@@ -166,7 +203,11 @@ Quá trình kiểm tra ràng buộc nghiêm ngặt (\texttt{assert}) trên hai t
 \begin{enumerate}
     \item \textbf{Bảo toàn tuyệt đối số lượng mẫu:} Tập huấn luyện giữ nguyên chính xác $1.749.494$ dòng, tập kiểm tra giữ nguyên $1.800.567$ dòng. Không có bất kỳ bản ghi nào bị xóa bỏ ngoài ý muốn.
     \item \textbf{Triệt tiêu hoàn toàn giá trị thiếu:} Toàn bộ các thuộc tính đạt tỷ lệ hoàn chỉnh $100\%$ ($0$ giá trị \texttt{NaN}).
-    \item \textbf{Đồng nhất không gian đặc trưng:} Hai tập huấn luyện và kiểm tra sở hữu không gian đặc trưng hoàn toàn trùng khớp, với tổng cộng 53 thuộc tính sẵn sàng cho mô hình hóa.
+    \item \textbf{Đồng nhất không gian đặc trưng giữa Train và Test:} Hai tập huấn luyện và kiểm tra sở hữu không gian đặc trưng hoàn toàn trùng khớp ở cả hai nhánh xuất bản:
+    \begin{itemize}
+        \item \textit{Nhánh Baseline (Preprocessed):} Gồm đúng \textbf{40 đặc trưng cốt lõi} (41 cột tính cả nhãn mục tiêu \texttt{anomaly}), trong đó mục đích sử dụng công trình được mã hóa số nguyên đơn biến \texttt{primary\_use\_code} $\in \{0, 1, \dots, 11\}$ thay vì One-Hot, giúp tinh giản $23\%$ số chiều và loại bỏ các cột nhị phân thưa.
+        \item \textit{Nhánh Mở rộng Khu vực (Zone Features):} Gồm đúng \textbf{55 đặc trưng} (56 cột tính cả nhãn \texttt{anomaly}), kế thừa toàn bộ các biến nền tảng, duy trì $13$ cột One-Hot \texttt{primary\_use\_*} kết hợp $3$ đặc trưng tương tác phân vùng (\texttt{zone\_interaction}, \texttt{site\_sqft\_mean}, \texttt{use\_sqft\_mean}) nhằm phục vụ các mô hình dung hợp Ensemble bậc cao.
+    \end{itemize}
 \end{enumerate}
 
 Bảng~\ref{tab:final_feature_summary} tổng hợp chi tiết cấu trúc các nhóm đặc trưng còn giữ lại trong không gian biểu diễn cuối cùng.

@@ -1,80 +1,72 @@
 \section{Kết luận và Hướng phát triển tương lai}
 
-% \subsection{Kết luận}
+\subsection{Kết luận}
 
-% Đề tài nghiên cứu đã giải quyết thành công bài toán phát hiện dị thường trong dữ liệu tiêu thụ điện năng quy mô lớn (\textit{Large-scale Energy Anomaly Detection - LEAD}) thông qua việc xây dựng một hệ thống học máy tích hợp toàn diện từ tiền xử lý, trích xuất đặc trưng đa chiều, tối ưu hóa siêu tham số đến kỹ thuật dung hợp mô hình tiên tiến. Dưới đây là những đóng góp và kết quả cốt lõi mà nhóm đã đạt được:
+Đề tài nghiên cứu đã giải quyết thành công bài toán phát hiện dị thường trong dữ liệu tiêu thụ điện năng quy mô lớn (\textit{Large-scale Energy Anomaly Detection - LEAD}) thông qua việc xây dựng một hệ thống học máy tích hợp toàn diện từ tiền xử lý, trích xuất đặc trưng đa chiều, tối ưu hóa siêu tham số đến kỹ thuật dung hợp mô hình tiên tiến. Dưới đây là những đóng góp và kết quả cốt lõi mà nhóm đã đạt được:
 
-% \begin{enumerate}
-%     \item \textbf{Chuẩn hóa Quy trình Tiền xử lý 17 bước và Trích xuất Đặc trưng:} Xử lý triệt để $107.653$ bản ghi bị khuyết phụ tải ($6{,}15\%$) bằng phương pháp nội suy chuỗi thời gian nội bộ từng tòa nhà; mã hóa các chu kỳ tuần hoàn tự nhiên (giờ, ngày, tháng) bằng biến đổi lượng giác $\sin/\cos$; và gắn cờ nhị phân \texttt{meter\_reading\_was\_missing} giúp bảo toàn toàn bộ $1.749.494$ quan trắc gốc mà không gây rò rỉ thông tin.
+\begin{enumerate}
+    \item \textbf{Chuẩn hóa Quy trình Tiền xử lý 17 bước và Trích xuất Đặc trưng:} Xử lý triệt để $107.653$ bản ghi bị khuyết phụ tải ($6{,}15\%$) bằng phương pháp nội suy chuỗi thời gian nội bộ từng tòa nhà; mã hóa các chu kỳ tuần hoàn tự nhiên (giờ, ngày, tháng) bằng biến đổi lượng giác $\sin/\cos$; và gắn cờ nhị phân \texttt{meter\_reading\_was\_missing} giúp bảo toàn toàn bộ $1.749.494$ quan trắc gốc mà không gây rò rỉ thông tin.
     
-% % [CŨ]: \item \textbf{Đột phá với Đặc trưng Tương tác Khu vực (Zone Interaction):} Bằng việc nhận diện sự khác biệt sâu sắc về điều kiện vi khí hậu và hành vi tiêu dùng giữa $16$ khu vực địa lý (\texttt{site\_id}), nhóm đã xây dựng các đặc trưng tương tác khu vực (\texttt{zone\_interaction}, \texttt{site\_sqft\_mean}, \texttt{use\_sqft\_mean}). Cải tiến này giúp mô hình phân hóa được các bất thường cục bộ, nâng F1-Score của LightGBM từ $0{,}8855$ lên $0{,}9054$ (tăng hơn $2{,}1\%$).
-% % [LÝ DO SỬA]: Cập nhật theo kết quả tuning 50 trials: LightGBM trên tập Zone Features đạt F1 = 0,9240 và khi kết hợp ngưỡng động 16 khu vực đạt tới 0,9287 (vượt trội hơn hẳn so với mức 0,9260 của Baseline).
-%     \item \textbf{Đột phá với Đặc trưng Tương tác Khu vực (Zone Interaction):} Bằng việc nhận diện sự khác biệt sâu sắc về điều kiện vi khí hậu và hành vi tiêu dùng giữa $16$ khu vực địa lý (\texttt{site\_id}), nhóm đã xây dựng các đặc trưng tương tác khu vực (\texttt{zone\_interaction}, \texttt{site\_sqft\_mean}, \texttt{use\_sqft\_mean}). Cải tiến này giúp mô hình phân hóa được các bất thường cục bộ, nâng F1-Score của LightGBM lên $0{,}9240$ và đạt đỉnh $0{,}9287$ với ngưỡng động (vượt trội so với $0{,}9260$ của Baseline).
+    \item \textbf{Đột phá với Đặc trưng Tương tác Khu vực (Zone Interaction):} Bằng việc nhận diện sự khác biệt sâu sắc về điều kiện vi khí hậu và hành vi tiêu dùng giữa $16$ khu vực địa lý (\texttt{site\_id}), nhóm đã xây dựng các đặc trưng tương tác khu vực (\texttt{zone\_interaction}, \texttt{site\_sqft\_mean}, \texttt{use\_sqft\_mean}). Cải tiến này giúp mô hình phân hóa được các bất thường cục bộ, nâng F1-Score của LightGBM lên $0{,}9240$ và đạt đỉnh $0{,}9287$ với ngưỡng động. Đồng thời, nghiên cứu chứng minh tính chất cộng hưởng giữa mã hóa One-Hot trực giao và biến tương tác khu vực trên tập Zone.
 
-%     \item \textbf{Tối ưu hóa Siêu tham số với Optuna:} Ứng dụng thuật toán Bayes TPE qua 50 vòng lặp toàn diện tìm kiếm cấu hình tham số tối ưu độc lập cho từng thuật toán Boosting trên cả hai nhánh dữ liệu Baseline và Zone, tối đa hóa chỉ số F1-Score thông qua dò tìm ngưỡng cắt tối ưu thay vì dùng ngưỡng cứng $0{,}5$.
+    \item \textbf{Tối ưu hóa Siêu tham số với Optuna trên nhánh Baseline Mới (40 đặc trưng):} Ứng dụng thuật toán Bayes TPE qua 50 vòng lặp toàn diện tìm kiếm cấu hình tham số tối ưu độc lập cho từng thuật toán Boosting. Trên nhánh Baseline mới loại bỏ One-Hot để tránh ma trận thưa, các mô hình đã bứt phá ngoạn mục: XGBoost đạt $F_1 = \mathbf{0{,}9332}$ (tại ngưỡng $\tau^* = 0{,}24$), LightGBM đạt $F_1 = \mathbf{0{,}9284}$ (tại ngưỡng $\tau^* = 0{,}28$) và CatBoost đạt $F_1 = \mathbf{0{,}9200}$ (tại ngưỡng $\tau^* = 0{,}30$).
 
-% % [CŨ]: \item \textbf{Chiến lược Dung hợp Mô hình (Weighted Blending):} Dựa trên cơ sở lý thuyết của Caruana et al. (2004), nhóm kết hợp ba kiến trúc Boosting đa dạng (XGBoost, LightGBM, CatBoost) với bộ trọng số tối ưu hóa $[0{,}81\,\text{XGB}, \, 0{,}04\,\text{LGB}, \, 0{,}15\,\text{Cat}]$. Tổ hợp này tận dụng độ chính xác cao của XGBoost, khả năng kháng overfit và xử lý biến phân loại của CatBoost, cùng tốc độ làm mịn biên của LightGBM.
-% % [LÝ DO SỬA]: Trọng số tối ưu thực tế từ Weighted Blending LogLoss sau 50 trials là [0.65 XGB, 0.25 LGB, 0.10 Cat], trong đó LightGBM đóng góp tới 25% tỷ trọng thay vì chỉ 4% như bản thử nghiệm cũ.
-%     \item \textbf{Chiến lược Dung hợp Mô hình (Weighted Blending):} Dựa trên cơ sở lý thuyết của Caruana et al. (2004), nhóm kết hợp ba kiến trúc Boosting đa dạng (XGBoost, LightGBM, CatBoost) với bộ trọng số tối ưu hóa $[0{,}65\,\text{XGB}, \, 0{,}25\,\text{LGB}, \, 0{,}10\,\text{Cat}]$. Tổ hợp này tận dụng độ chính xác cao của XGBoost ($65\%$), tốc độ làm mịn biên xác suất và gia tăng Recall của LightGBM ($25\%$), cùng khả năng kháng overfit của CatBoost ($10\%$).
+    \item \textbf{Chiến lược Dung hợp Mô hình (Weighted Blending):} Dựa trên cơ sở lý thuyết của Caruana et al. (2004), nhóm kết hợp ba kiến trúc Boosting đa dạng (XGBoost, LightGBM, CatBoost) với bộ trọng số tối ưu hóa $[0{,}65\,\text{XGB}, \, 0{,}25\,\text{LGB}, \, 0{,}10\,\text{Cat}]$. Tổ hợp này tận dụng độ chính xác cao của XGBoost ($65\%$), tốc độ làm mịn biên xác suất và gia tăng Recall của LightGBM ($25\%$), cùng khả năng kháng overfit của CatBoost ($10\%$).
 
-% % [CŨ]: \item \textbf{Kỹ thuật Ngưỡng Động 16 Khu vực (Dynamic Threshold per Zone):} Kế thừa nguyên lý của Hundman et al. (2018) kết hợp phân tầng Stratified 5-Fold OOF. Khi áp dụng bộ 16 ngưỡng động riêng biệt cho từng khu vực, F1-Score của toàn hệ thống đã bứt phá ngoạn mục lên mốc kỷ lục \textbf{0,9346} (Precision: $0{,}9568$, Recall: $0{,}9135$).
-% % [LÝ DO SỬA]: Mốc kỷ lục F1 thực tế sau 50 trials và kỹ thuật ngưỡng động 16 khu vực là 0,9373 (Precision: 0,9519, Recall: 0,9159) thay vì 0,9346 cũ.
-%     \item \textbf{Kỹ thuật Ngưỡng Động 16 Khu vực (Dynamic Threshold per Zone):} Kế thừa nguyên lý của Hundman et al. (2018) kết hợp phân tầng Stratified 5-Fold OOF. Khi áp dụng bộ 16 ngưỡng động riêng biệt cho từng khu vực, F1-Score của toàn hệ thống đã bứt phá ngoạn mục lên mốc kỷ lục \textbf{0,9373} (Precision: $0{,}9519$, Recall: $0{,}9159$).
-% \end{enumerate}
+    \item \textbf{Kỹ thuật Ngưỡng Động 16 Khu vực (Dynamic Threshold per Zone):} Kế thừa nguyên lý của Hundman et al. (2018) kết hợp phân tầng Stratified 5-Fold OOF. Khi áp dụng bộ 16 ngưỡng động riêng biệt cho từng khu vực, F1-Score của toàn hệ thống đã bứt phá ngoạn mục lên mốc kỷ lục \textbf{0,9373} (Precision: $0{,}9519$, Recall: $0{,}9159$).
+\end{enumerate}
 
-% \subsection{Hạn chế của Đề tài}
+\subsection{Hạn chế của Đề tài}
 
-% Bên cạnh những kết quả nổi bật, nghiên cứu vẫn còn một số điểm hạn chế cần được nhìn nhận khách quan:
-% \begin{itemize}
-%     \item \textbf{Hiện tượng mất cân bằng lớp cực đoan:} Tỷ lệ dị thường chỉ chiếm khoảng $2{,}13\%$ dẫn đến nguy cơ các mô hình phụ thuộc nhiều vào phân phối xác suất dự đoán; việc xác định ngưỡng động đòi hỏi tập dữ liệu kiểm định OOF phải đủ lớn để tránh quá khớp cục bộ.
-%     \item \textbf{Khả năng thích ứng với khu vực mới (Unseen Sites / Cold-Start):} Do mô hình tận dụng sâu các đặc trưng tương tác Zone và bộ 16 ngưỡng động theo \texttt{site\_id}, khi đưa vào vận hành tại một khu vực hoàn toàn mới chưa từng xuất hiện trong tập huấn luyện, hệ thống bắt buộc phải chuyển sang cơ chế dự phòng (\textit{fallback}) bằng cách áp dụng ngưỡng tối ưu toàn cục của nhánh Baseline ($\tau^* \approx 0{,}24$).
-% \end{itemize}
+Bên cạnh những kết quả nổi bật, nghiên cứu vẫn còn một số điểm hạn chế cần được nhìn nhận khách quan:
+\begin{itemize}
+    \item \textbf{Hiện tượng mất cân bằng lớp cực đoan:} Tỷ lệ dị thường chỉ chiếm khoảng $2{,}13\%$ dẫn đến nguy cơ các mô hình phụ thuộc nhiều vào phân phối xác suất dự đoán; việc xác định ngưỡng động đòi hỏi tập dữ liệu kiểm định OOF phải đủ lớn để tránh quá khớp cục bộ.
+    \item \textbf{Khả năng thích ứng với khu vực mới (Unseen Sites / Cold-Start):} Do mô hình tận dụng sâu các đặc trưng tương tác Zone và bộ 16 ngưỡng động theo \texttt{site\_id}, khi đưa vào vận hành tại một khu vực hoàn toàn mới chưa từng xuất hiện trong tập huấn luyện, hệ thống bắt buộc phải chuyển sang cơ chế dự phòng (\textit{fallback}) bằng cách áp dụng ngưỡng tối ưu toàn cục của nhánh Baseline ($\tau^* \approx 0{,}24$).
+\end{itemize}
 
-% \subsection{Hướng phát triển Tương lai}
+\subsection{Hướng phát triển Tương lai}
 
-% Để hoàn thiện và nâng cao tính ứng dụng của giải pháp trong thực tế, nhóm định hướng các bước phát triển tiếp theo:
-% \begin{itemize}
-%     \item \textbf{Xây dựng Ứng dụng Giám sát Trực quan (Web Dashboard Demo):} Triển khai hệ thống phát hiện bất thường phụ tải trên giao diện Web thời gian thực (sử dụng Streamlit hoặc Vite/React kết hợp FastAPI), cho phép kỹ sư vận hành tải lên dữ liệu công tơ, theo dõi biểu đồ phụ tải trực quan và nhận cảnh báo sớm khi chỉ số rủi ro vượt ngưỡng an toàn.
-%     \item \textbf{Mô hình hóa Đồ thị Không gian - Thời gian (Spatio-Temporal Graph):} Áp dụng mạng nơ-ron đồ thị chú ý (\textit{Graph Attention Networks - GAT}, theo định hướng của Zhang et al., 2023) để mô hình hóa mối tương quan phụ tải và ảnh hưởng lan truyền giữa các tòa nhà nằm liền kề trong cùng một khuôn viên đô thị.
-%     \item \textbf{Tích hợp Mô hình Lai (Hybrid Deep-Tree Ensembling):} Bổ sung sai số tái tạo từ các kiến trúc Học sâu không giám sát (như LSTM-Autoencoder) làm đặc trưng đầu vào bổ trợ cho các bộ cây GBDT nhằm gia tăng khả năng phát hiện các dị thường chuỗi phức tạp.
-% \end{itemize}
+Để hoàn thiện và nâng cao tính ứng dụng của giải pháp trong thực tế, nhóm định hướng các bước phát triển tiếp theo:
+\begin{itemize}
+    \item \textbf{Xây dựng Ứng dụng Giám sát Trực quan (Web Dashboard Demo):} Triển khai hệ thống phát hiện bất thường phụ tải trên giao diện Web thời gian thực (sử dụng Streamlit hoặc Vite/React kết hợp FastAPI), cho phép kỹ sư vận hành tải lên dữ liệu công tơ, theo dõi biểu đồ phụ tải trực quan và nhận cảnh báo sớm khi chỉ số rủi ro vượt ngưỡng an toàn.
+    \item \textbf{Mô hình hóa Đồ thị Không gian - Thời gian (Spatio-Temporal Graph):} Áp dụng mạng nơ-ron đồ thị chú ý (\textit{Graph Attention Networks - GAT}, theo định hướng của Zhang et al., 2023) để mô hình hóa mối tương quan phụ tải và ảnh hưởng lan truyền giữa các tòa nhà nằm liền kề trong cùng một khuôn viên đô thị.
+    \item \textbf{Tích hợp Mô hình Lai (Hybrid Deep-Tree Ensembling):} Bổ sung sai số tái tạo từ các kiến trúc Học sâu không giám sát (như LSTM-Autoencoder) làm đặc trưng đầu vào bổ trợ cho các bộ cây GBDT nhằm gia tăng khả năng phát hiện các dị thường chuỗi phức tạp.
+\end{itemize}
 
 \newpage
 \addcontentsline{toc}{section}{TÀI LIỆU THAM KHẢO}
 \section*{TÀI LIỆU THAM KHẢO}
 
-\begingroup
-\renewcommand{\section}[2]{} % Vô hiệu hóa lệnh tạo tiêu đề của bibliography
-\begin{thebibliography}{99}
+\begin{enumerate}
+    \item \textbf{XGBoost:} Chen, T., \& Guestrin, C. (2016). XGBoost: A scalable tree boosting system. \textit{Proceedings of the 22nd ACM SIGKDD International Conference on Knowledge Discovery and Data Mining}, 785--794.
+    \item \textbf{LightGBM:} Ke, G., Meng, Q., Finley, T., Wang, T., Chen, W., Ma, W., Ye, Q., \& Liu, T. Y. (2017). LightGBM: A highly efficient gradient boosting decision tree. \textit{Advances in Neural Information Processing Systems}, 30, 3146--3154.
+    \item \textbf{CatBoost:} Prokhorenkova, L., Gusev, G., Vorobev, A., Dorogush, A. V., \& Gulin, A. (2018). CatBoost: unbiased boosting with categorical features. \textit{Advances in Neural Information Processing Systems}, 31, 6638--6648.
+    \item \textbf{Ngưỡng động phi tham số:} Hundman, K., Constantinou, V., Laporte, C., Ho, I., \& Chu, T. (2018). Detecting spacecraft anomalies using LSTMs and nonparametric dynamic thresholding. \textit{Proceedings of the 24th ACM SIGKDD International Conference on Knowledge Discovery \& Data Mining}, 387--395.
+    \item \textbf{Bộ dữ liệu BDG2:} Miller, C., Kathirgamanathan, A., Picchetti, P., Arjunan, P., Park, J. Y., Nagy, Z., \& Schiavon, S. (2020). The Building Data Genome Project 2, a open database of energy meter data from 3,053 non-residential buildings. \textit{Scientific Data}, 7(1), 368.
+    \item \textbf{Lựa chọn tổ hợp Ensemble:} Caruana, R., Niculescu-Mizil, A., Crew, G., \& Ksikes, A. (2004). Ensemble selection from libraries of models. \textit{Proceedings of the twenty-first international conference on Machine learning}, 18.
 
-\bibitem{gulati2022}\textbf{Dữ liệu LEAD1.0:} Gulati, M., \& Arjunan, P. (2022). LEAD1.0: A Large-scale Annotated Dataset for Energy Anomaly Detection in Commercial Buildings. \textit{The Thirteenth ACM International Conference on Future Energy Systems (e-Energy '22)}, 485--488. DOI: \url{https://doi.org/10.1145/3538637.3539761}
-\bibitem{miller2020ashrae}\textbf{Dữ liệu ASHRAE:} Miller, C., et al. (2020). The ASHRAE Great Energy Predictor III competition: Overview and results. \textit{Science and Technology for the Built Environment}. DOI: \url{https://doi.org/10.1080/23744731.2020.1795514}
-\bibitem{chen2016xgboost} \textbf{XGBoost:} Chen, T., \& Guestrin, C. (2016). XGBoost: A Scalable Tree Boosting System. \textit{KDD '16}. DOI: \url{https://doi.org/10.1145/2939672.2939785}
-\bibitem{ke2017lightgbm}\textbf{LightGBM:} Ke, G., Meng, Q., Finley, T., et al. (2017). LightGBM: A Highly Efficient Gradient Boosting Decision Tree. \textit{NeurIPS 2017}. URL: \url{https://papers.nips.cc/paper/6907-lightgbm-a-highly-efficient-gradient-boosting-decision-tree.pdf}
-\bibitem{breiman2001randomforest} \textbf{Random Forest:} Breiman, L. (2001). Random Forests. \textit{Machine Learning}, 45(1), 5--32. DOI: \url{https://doi.org/10.1023/A:1010933404324}
-\bibitem{geurts2006extratrees}\textbf{Extra Trees:} Geurts, P., Ernst, D., \& Wehenkel, L. (2006). Extremely randomized trees. \textit{Machine Learning}, 63(1), 3--42. DOI: \url{https://doi.org/10.1007/s10994-006-6226-1}
-\bibitem{chawla2002smote} \textbf{SMOTE:} Chawla, N. V., et al. (2002). SMOTE: Synthetic Minority Over-sampling Technique. \textit{JAIR}, 16, 321--357. DOI: \url{https://doi.org/10.1613/jair.953}
-\bibitem{akiba2019optuna}\textbf{Optuna:} Akiba, T., et al. (2019). Optuna: A Next-generation Hyperparameter Optimization Framework. \textit{KDD '19}. DOI: \url{https://doi.org/10.1145/3292500.3330701}
-\bibitem{buaprakhong2026}\textbf{Học máy và Feature Engineering:} Buaprakhong, T., et al. (2026). An Integrated Framework of Feature Engineering and Machine Learning for Large-Scale Energy Anomaly Detection. \textit{Energy Engineering}. DOI: \url{https://doi.org/10.32604/ee.2026.069004}
-\bibitem{zhang2023}\textbf{Phát hiện bất thường (GAT):} Zhang, Z., et al. (2023). Anomaly detection method for building energy consumption in multivariate time series based on graph attention mechanism. \textit{PLOS ONE}. DOI: \url{https://doi.org/10.1371/journal.pone.0286770}
-\bibitem{orvatinia2026ganlstm} \textbf{GAN-LSTM trên LEAD:} Orvati Nia, F., Salehi, S., \& Peeples, J. (2026). Evaluating GAN-LSTM for Smart Meter Anomaly Detection in Power Systems. \textit{IEEE Texas Power and Energy Conference (TPEC) 2026}. arXiv: \url{https://arxiv.org/abs/2601.09701}
-\bibitem{handigol2025gan} \textbf{GAN không giám sát trên dữ liệu năng lượng:} Handigol, P. P., \& Arjunan, P. (2025). Generative Adversarial Networks for Unsupervised Anomaly Detection in Energy Time series data. \textit{Hội thảo Tackling Climate Change with Machine Learning, ICLR 2025 (Climate Change AI)}. URL: \url{https://www.climatechange.ai/papers/iclr2025/18}
-\bibitem{prabhu2024softdtw} \textbf{Soft-DTW và tái tạo song song:} Prabhu, H., Valadi, J., \& Arjunan, P. (2024). Generative Adversarial Network with Soft-Dynamic Time Warping and Parallel Reconstruction for Energy Time Series Anomaly Detection. \textit{AI4TS Workshop, AAAI 2024}. arXiv: \url{https://arxiv.org/abs/2402.14384}
-\bibitem{cansever2026clustering} \textbf{Phân cụm toà nhà:} Cansever, B. N., \& Konyar, M. Z. (2026). A clustering-based supervised approach for anomaly detection in building energy consumption. \textit{E3S Web of Conferences}, 727, 02012. DOI: \url{https://doi.org/10.1051/e3sconf/202672702012}
-\bibitem{malhotra2016encdec} \textbf{LSTM-AE (EncDec-AD):} Malhotra, P., Ramakrishnan, A., Anand, G., Vig, L., Agarwal, P., \& Shroff, G. (2016). LSTM-based Encoder-Decoder for Multi-sensor Anomaly Detection. \textit{ICML 2016 Anomaly Detection Workshop}. arXiv: \url{https://arxiv.org/abs/1607.00148}
-\bibitem{malhotra2015lstm} \textbf{LSTM cho phát hiện bất thường:} Malhotra, P., Vig, L., Shroff, G., \& Agarwal, P. (2015). Long Short Term Memory Networks for Anomaly Detection in Time Series. \textit{ESANN 2015}.
-\bibitem{audibert2020usad} \textbf{USAD:} Audibert, J., Michiardi, P., Guyard, F., Marti, S., \& Zuluaga, M. A. (2020). USAD: UnSupervised Anomaly Detection on Multivariate Time Series. \textit{KDD '20}. DOI: \url{https://doi.org/10.1145/3394486.3403392}
-\bibitem{bai2018tcn} \textbf{TCN:} Bai, S., Kolter, J. Z., \& Koltun, V. (2018). An Empirical Evaluation of Generic Convolutional and Recurrent Networks for Sequence Modeling. arXiv: \url{https://arxiv.org/abs/1803.01271}
-\bibitem{xu2022anomalytransformer} \textbf{Anomaly Transformer:} Xu, J., Wu, H., Wang, J., \& Long, M. (2022). Anomaly Transformer: Time Series Anomaly Detection with Association Discrepancy. \textit{ICLR 2022}. arXiv: \url{https://arxiv.org/abs/2110.02642}
-\bibitem{tuli2022tranad} \textbf{TranAD:} Tuli, S., Casale, G., \& Jennings, N. R. (2022). TranAD: Deep Transformer Networks for Anomaly Detection in Multivariate Time Series Data. \textit{PVLDB}, 15(6), 1201--1214. arXiv: \url{https://arxiv.org/abs/2201.07284}
-\bibitem{schlegl2017anogan} \textbf{AnoGAN:} Schlegl, T., Seeb{\"o}ck, P., Waldstein, S. M., Schmidt-Erfurth, U., \& Langs, G. (2017). Unsupervised Anomaly Detection with Generative Adversarial Networks to Guide Marker Discovery. \textit{IPMI 2017}, 146--157.
-\bibitem{bashar2020tanogan} \textbf{TAnoGAN:} Bashar, M. A., \& Nayak, R. (2020). TAnoGAN: Time Series Anomaly Detection with Generative Adversarial Networks. \textit{IEEE SSCI 2020}. arXiv: \url{https://arxiv.org/abs/2008.09567}
-\bibitem{kingma2014vae} \textbf{VAE:} Kingma, D. P., \& Welling, M. (2014). Auto-Encoding Variational Bayes. \textit{ICLR 2014}. arXiv: \url{https://arxiv.org/abs/1312.6114}
-\bibitem{schmidl2022evaluation} \textbf{Đánh giá thuật toán chuỗi thời gian:} Schmidl, S., Wenig, P., \& Papenbrock, T. (2022). Anomaly Detection in Time Series: A Comprehensive Evaluation. \textit{PVLDB}, 15(9), 1779--1797.
-\bibitem{hochreiter1997lstm} \textbf{LSTM:} Hochreiter, S., \& Schmidhuber, J. (1997). Long Short-Term Memory. \textit{Neural Computation}, 9(8), 1735--1780. DOI: \url{https://doi.org/10.1162/neco.1997.9.8.1735}
-\bibitem{cho2014gru} \textbf{GRU:} Cho, K., et al. (2014). Learning Phrase Representations using RNN Encoder-Decoder for Statistical Machine Translation. \textit{EMNLP 2014}. DOI: \url{https://doi.org/10.3115/v1/D14-1179}
-\bibitem{schuster1997birnn} \textbf{RNN hai chiều:} Schuster, M., \& Paliwal, K. K. (1997). Bidirectional recurrent neural networks. \textit{IEEE Transactions on Signal Processing}, 45(11), 2673--2681.
-\bibitem{vaswani2017transformer} \textbf{Transformer:} Vaswani, A., et al. (2017). Attention Is All You Need. \textit{NeurIPS 2017}. arXiv: \url{https://arxiv.org/abs/1706.03762}
-\bibitem{lin2017focal} \textbf{Focal Loss:} Lin, T.-Y., Goyal, P., Girshick, R., He, K., \& Doll{\'a}r, P. (2017). Focal Loss for Dense Object Detection. \textit{ICCV 2017}. arXiv: \url{https://arxiv.org/abs/1708.02002}
-\end{thebibliography}
-\endgroup
+    \item \textbf{Bộ dữ liệu LEAD1.0:} Gulati, M., \& Arjunan, P. (2022). LEAD1.0: A Large-scale Annotated Dataset for Energy Anomaly Detection in Commercial Buildings. \textit{e-Energy '22}, 485--488. arXiv: \url{https://arxiv.org/abs/2203.17256}
+    \item \textbf{GAN-LSTM trên LEAD:} Orvati Nia, F., Salehi, S., \& Peeples, J. (2026). Evaluating GAN-LSTM for Smart Meter Anomaly Detection in Power Systems. \textit{IEEE Texas Power and Energy Conference (TPEC) 2026}. arXiv: \url{https://arxiv.org/abs/2601.09701}
+    \item \textbf{GAN không giám sát trên dữ liệu năng lượng:} Handigol, P. P., \& Arjunan, P. (2025). Generative Adversarial Networks for Unsupervised Anomaly Detection in Energy Time series data. \textit{Hội thảo Tackling Climate Change with Machine Learning, ICLR 2025 (Climate Change AI)}. URL: \url{https://www.climatechange.ai/papers/iclr2025/18}
+    \item \textbf{Soft-DTW và tái tạo song song:} Prabhu, H., Valadi, J., \& Arjunan, P. (2024). Generative Adversarial Network with Soft-Dynamic Time Warping and Parallel Reconstruction for Energy Time Series Anomaly Detection. \textit{AI4TS Workshop, AAAI 2024}. arXiv: \url{https://arxiv.org/abs/2402.14384}
+    \item \textbf{Phân cụm toà nhà:} Cansever, B. N., \& Konyar, M. Z. (2026). A clustering-based supervised approach for anomaly detection in building energy consumption. \textit{E3S Web of Conferences}, 727, 02012. DOI: \url{https://doi.org/10.1051/e3sconf/202672702012}
+    \item \textbf{LSTM-AE (EncDec-AD):} Malhotra, P., Ramakrishnan, A., Anand, G., Vig, L., Agarwal, P., \& Shroff, G. (2016). LSTM-based Encoder-Decoder for Multi-sensor Anomaly Detection. \textit{ICML 2016 Anomaly Detection Workshop}. arXiv: \url{https://arxiv.org/abs/1607.00148}
+    \item \textbf{LSTM cho phát hiện bất thường:} Malhotra, P., Vig, L., Shroff, G., \& Agarwal, P. (2015). Long Short Term Memory Networks for Anomaly Detection in Time Series. \textit{ESANN 2015}.
+    \item \textbf{USAD:} Audibert, J., Michiardi, P., Guyard, F., Marti, S., \& Zuluaga, M. A. (2020). USAD: UnSupervised Anomaly Detection on Multivariate Time Series. \textit{KDD '20}. DOI: \url{https://doi.org/10.1145/3394486.3403392}
+    \item \textbf{TCN:} Bai, S., Kolter, J. Z., \& Koltun, V. (2018). An Empirical Evaluation of Generic Convolutional and Recurrent Networks for Sequence Modeling. arXiv: \url{https://arxiv.org/abs/1803.01271}
+    \item \textbf{Anomaly Transformer:} Xu, J., Wu, H., Wang, J., \& Long, M. (2022). Anomaly Transformer: Time Series Anomaly Detection with Association Discrepancy. \textit{ICLR 2022}. arXiv: \url{https://arxiv.org/abs/2110.02642}
+    \item \textbf{TranAD:} Tuli, S., Casale, G., \& Jennings, N. R. (2022). TranAD: Deep Transformer Networks for Anomaly Detection in Multivariate Time Series Data. \textit{PVLDB}, 15(6), 1201--1214. arXiv: \url{https://arxiv.org/abs/2201.07284}
+    \item \textbf{AnoGAN:} Schlegl, T., Seeb{\"o}ck, P., Waldstein, S. M., Schmidt-Erfurth, U., \& Langs, G. (2017). Unsupervised Anomaly Detection with Generative Adversarial Networks to Guide Marker Discovery. \textit{IPMI 2017}, 146--157.
+    \item \textbf{TAnoGAN:} Bashar, M. A., \& Nayak, R. (2020). TAnoGAN: Time Series Anomaly Detection with Generative Adversarial Networks. \textit{IEEE SSCI 2020}. arXiv: \url{https://arxiv.org/abs/2008.09567}
+    \item \textbf{VAE:} Kingma, D. P., \& Welling, M. (2014). Auto-Encoding Variational Bayes. \textit{ICLR 2014}. arXiv: \url{https://arxiv.org/abs/1312.6114}
+    \item \textbf{Đánh giá thuật toán chuỗi thời gian:} Schmidl, S., Wenig, P., \& Papenbrock, T. (2022). Anomaly Detection in Time Series: A Comprehensive Evaluation. \textit{PVLDB}, 15(9), 1779--1797.
+    \item \textbf{Optuna:} Akiba, T., et al. (2019). Optuna: A Next-generation Hyperparameter Optimization Framework. \textit{KDD '19}. DOI: \url{https://doi.org/10.1145/3292500.3330701}
+    \item \textbf{Dữ liệu ASHRAE:} Miller, C., et al. (2020). The ASHRAE Great Energy Predictor III competition: Overview and results. \textit{Science and Technology for the Built Environment}. DOI: \url{https://doi.org/10.1080/23744731.2020.1795514}
+    % --- Các tài liệu kinh điển dưới đây dựa trên kiến thức nền, cần đối chiếu lại DOI/số trang trước khi nộp ---
+    \item \textbf{LSTM:} Hochreiter, S., \& Schmidhuber, J. (1997). Long Short-Term Memory. \textit{Neural Computation}, 9(8), 1735--1780. DOI: \url{https://doi.org/10.1162/neco.1997.9.8.1735}
+    \item \textbf{GRU:} Cho, K., et al. (2014). Learning Phrase Representations using RNN Encoder-Decoder for Statistical Machine Translation. \textit{EMNLP 2014}. DOI: \url{https://doi.org/10.3115/v1/D14-1179}
+    \item \textbf{RNN hai chiều:} Schuster, M., \& Paliwal, K. K. (1997). Bidirectional recurrent neural networks. \textit{IEEE Transactions on Signal Processing}, 45(11), 2673--2681.
+    \item \textbf{Transformer:} Vaswani, A., et al. (2017). Attention Is All You Need. \textit{NeurIPS 2017}. arXiv: \url{https://arxiv.org/abs/1706.03762}
+    \item \textbf{Focal Loss:} Lin, T.-Y., Goyal, P., Girshick, R., He, K., \& Doll{\'a}r, P. (2017). Focal Loss for Dense Object Detection. \textit{ICCV 2017}. arXiv: \url{https://arxiv.org/abs/1708.02002}
+    % TODO: bài báo mô tả lời giải nhất cuộc thi LEAD ("Trimming outliers using trees: winning solution of the large-scale energy anomaly detection (LEAD) competition") chưa tra cứu được nơi xuất bản và tác giả; bổ sung khi có.
+\end{enumerate}

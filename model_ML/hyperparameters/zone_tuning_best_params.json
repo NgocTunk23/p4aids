@@ -13,15 +13,22 @@
         }
     },
     "XGBoost": {
-        "best_f1": 0.9317,
-        "best_threshold": 0.2631,
-        "tuning_time_sec": 627.0,
+        "best_threshold": 0.262,
+        "best_f1": 0.9329,
+        "precision_opt": 0.9608,
+        "recall_opt": 0.9066,
+        "f1_05": 0.925,
+        "precision_05": 0.9815,
+        "recall_05": 0.8746,
+        "train_time_sec": 18.98,
+        "inference_time_sec": 0.55,
+        "tuning_time_sec": 88.1,
         "params": {
-            "learning_rate": 0.2382238758466043,
-            "max_depth": 16,
-            "subsample": 0.9755387922832883,
-            "colsample_bytree": 0.6088134291940173,
-            "n_estimators": 152
+            "learning_rate": 0.18745401188473626,
+            "max_depth": 17,
+            "subsample": 0.9597990912717107,
+            "colsample_bytree": 0.6397316968394073,
+            "n_estimators": 169
         }
     },
     "CatBoost": {

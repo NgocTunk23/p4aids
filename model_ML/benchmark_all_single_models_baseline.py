@@ -4,6 +4,7 @@ import time
 import json
 import warnings
 from pathlib import Path
+from typing import Any, Dict
 
 # Đảm bảo UTF-8 cho Windows Console
 if sys.platform == "win32":
@@ -50,7 +51,7 @@ def print_banner():
     print(f"-> Mục tiêu: Đo đạc chính xác thời gian fit và F1 (ngưỡng 0.5 vs ngưỡng tối ưu tau*) trên cùng môi trường")
     print("=" * 90, flush=True)
 
-def find_optimal_threshold(y_true, y_prob):
+def find_optimal_threshold(y_true, y_prob) -> Dict[str, Any]:
     precisions, recalls, thresholds = precision_recall_curve(y_true, y_prob)
     f1_scores = 2 * (precisions * recalls) / (precisions + recalls + 1e-10)
     best_idx = np.argmax(f1_scores)
@@ -93,6 +94,11 @@ def main():
         X, y, test_size=0.2, random_state=42, stratify=y
     )
     print(f"   Train: {X_train.shape[0]:,} dòng | Val: {X_val.shape[0]:,} dòng")
+    print(f"   -> Kiểm toán phân phối nhãn (Stratified Audit):")
+    print(f"      Train y=1: {(y_train == 1).sum():,} ({(y_train == 1).mean()*100:.4f}%) | Val/Test y=1: {(y_val == 1).sum():,} ({(y_val == 1).mean()*100:.4f}%)")
+    if "--plot-distribution" in sys.argv:
+        from generate_distribution_diagrams import generate_train_test_distribution_diagram
+        generate_train_test_distribution_diagram()
     print("-" * 90)
     
     # 2. Định nghĩa danh sách mô hình kèm Siêu tham số đã tối ưu bởi Optuna
@@ -162,8 +168,9 @@ def main():
         print(f"Xong trong {fit_time:5.2f}s.", flush=True)
         
         # Dự đoán
-        y_prob = model.predict_proba(X_val)[:, 1]
-        metrics = find_optimal_threshold(y_val, y_prob)
+        raw_prob = model.predict_proba(X_val)
+        y_prob = np.asarray(raw_prob)[:, 1]
+        metrics: Dict[str, Any] = find_optimal_threshold(y_val, y_prob)
         metrics['model'] = name
         metrics['fit_time_sec'] = round(fit_time, 2)
         results.append(metrics)

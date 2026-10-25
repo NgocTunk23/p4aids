@@ -12,10 +12,10 @@ p4aids/
 │   ├── train_features.csv                  # Dữ liệu gốc huấn luyện (1,75 triệu dòng)
 │   ├── test_features.csv                   # Dữ liệu gốc kiểm tra (1,84 triệu dòng)
 │   ├── processed/                          # Dữ liệu đã qua tiền xử lý cho Machine Learning
-│   │   ├── train_preprocessed.parquet      # Tập train Baseline sau 17 bước làm sạch chuẩn hóa
-│   │   ├── test_preprocessed.parquet       # Tập test Baseline
-│   │   ├── train_preprocessedzone.parquet  # Tập train mở rộng tích hợp Đặc trưng Tương tác Zone
-│   │   ├── test_preprocessedzone.parquet   # Tập test tích hợp Đặc trưng Tương tác Zone
+│   │   ├── train_preprocessed.parquet      # Tập train Baseline (40 đặc trưng cốt lõi, primary_use_code dạng số)
+│   │   ├── test_preprocessed.parquet       # Tập test Baseline (40 đặc trưng cốt lõi)
+│   │   ├── train_preprocessedzone.parquet  # Tập train mở rộng tích hợp Đặc trưng Tương tác Zone (55 đặc trưng, One-Hot)
+│   │   ├── test_preprocessedzone.parquet   # Tập test tích hợp Đặc trưng Tương tác Zone (55 đặc trưng, One-Hot)
 │   │   └── preprocessing_step_log.csv      # Bảng ghi vết (audit log) 17 bước tiền xử lý
 │   └── processed_DL/                       # Dữ liệu định dạng chuỗi tuần tự cho Deep Learning
 │       ├── train_processed_dl.parquet      # Tập train chuỗi tuần tự theo giờ (hourly grid)
@@ -26,6 +26,7 @@ p4aids/
 │
 ├── model_ML/                               # Phân hệ Học máy (Machine Learning Pipeline)
 │   ├── model_classes.py                    # Khung bao bọc mô hình chuẩn hóa (XGBoost, LightGBM, CatBoost, RF, ET)
+│   ├── generate_distribution_diagrams.py   # Tự động xuất biểu đồ phân phối EDA (Histogram) & Train vs Test audit
 │   ├── run_tuning_pipeline.py              # Script Optuna tuning 50 trials cho nhánh dữ liệu Baseline
 │   ├── tune_zone_optuna.py                 # Script Optuna tuning 50 trials cho nhánh dữ liệu Zone Features
 │   ├── test_isolation_forest_comparison.py # Kiểm định thực nghiệm đối chứng & bác bỏ Isolation Forest
@@ -35,6 +36,13 @@ p4aids/
 │   ├── run_moe_zone.py                     # Huấn luyện mô hình Context-Aware MoE (LightGBM Meta-Learner)
 │   ├── run_final_comprehensive_new.py      # Chạy đánh giá toàn diện tất cả mô hình đơn & 6 kỹ thuật Ensemble
 │   ├── pipeline_full_train_and_submit.py   # Huấn luyện trên 100% dữ liệu và suy luận tạo file nộp bài
+│   ├── export_fe_pipeline.py               # Kịch bản xuất và đóng gói mô hình toàn diện phục vụ Front-End
+│   ├── exported_pipeline/                  # Gói mô hình & Engine suy luận độc lập cho Front-End / Web App
+│   │   ├── fe_inference_engine.py          # Class LeadInferenceEngine hỗ trợ suy luận đơn & batch
+│   │   ├── demo_fe_usage.py                # Script chạy demo kiểm thử nhanh cho Front-End Developer
+│   │   ├── ensemble_metadata.json          # Metadata kiến trúc, 16 ngưỡng động từng site & F1-score
+│   │   ├── README_FE.md                    # Tài liệu hướng dẫn tích hợp (FastAPI / Streamlit boilerplate)
+│   │   └── models/                         # Thư mục chứa toàn bộ 7 mô hình đơn & MoE (.pkl)
 │   ├── hyperparameters/                    # Thư mục lưu siêu tham số tối ưu & kết quả thực nghiệm (.json)
 │   │   ├── baseline_tuning_best_params.json         # Siêu tham số tối ưu Optuna cho Baseline
 │   │   ├── zone_tuning_best_params.json             # Siêu tham số tối ưu Optuna cho Zone Features
@@ -45,7 +53,9 @@ p4aids/
 │   │   ├── moe_dynamic_site_thresholds.json         # Bộ 16 ngưỡng động tối ưu của Context-Aware MoE
 │   │   └── final_comprehensive_dynamic_thresholds.json # Bộ 16 ngưỡng động cho tất cả các mô hình
 │   ├── saved_new_models/                   # Lưu trữ checkpoint mô hình đã huấn luyện (.pkl)
-│   │   ├── XGBoost_Baseline_Full.pkl       # Mô hình XGBoost Baseline
+│   │   ├── XGBoost_Baseline_Full.pkl       # Mô hình XGBoost Baseline (Tuned, 40 đặc trưng)
+│   │   ├── LightGBM_Baseline.pkl           # Mô hình LightGBM Baseline (Tuned, 40 đặc trưng)
+│   │   ├── CatBoost_Baseline.pkl           # Mô hình CatBoost Baseline (Tuned, 40 đặc trưng)
 │   │   ├── XGBoost_Zone.pkl                # Mô hình XGBoost Zone
 │   │   ├── LightGBM_Zone.pkl               # Mô hình LightGBM Zone
 │   │   ├── CatBoost_Zone.pkl               # Mô hình CatBoost Zone
@@ -124,6 +134,14 @@ pip install -r requirements.txt
 ---
 
 ### Giai đoạn 2: Các Thực nghiệm Kiểm định Độc lập & Bác bỏ Kỹ thuật
+
+0. **Xuất Lược đồ Phân phối Tần suất EDA (Histogram) và Kiểm toán Phân phối Train vs Test:**
+   ```powershell
+   .\.venv\Scripts\python.exe model_ML/generate_distribution_diagrams.py
+   ```
+   *Tự động trích xuất dữ liệu, kiểm toán thống kê (độ lệch Skewness, kiểm định Kolmogorov-Smirnov), và xuất 2 hình ảnh phân giải cao (300 DPI) vào `report_p4aids/IMAGE/` phục vụ báo cáo đồ án:*
+   - *`eda_histogram_distribution.png`: 6 biểu đồ phân phối tần suất đặc trưng EDA (phụ tải gốc, log1p, phụ tải theo nhãn 0 vs 1, nhiệt độ bimodal, diện tích sàn, thời tiết).*
+   - *`ml_train_test_distribution.png`: Kiểm soát tính đồng nhất phân phối giữa Tập Huấn luyện (80%) và Tập Kiểm tra (20%) trước khi huấn luyện AI.*
 
 1. **Kiểm định và bác bỏ đặc trưng Isolation Forest (Unsupervised Meta-Feature):**
    ```powershell
@@ -241,3 +259,45 @@ Chạy script tạo các file dự đoán trên toàn bộ tập kiểm tra (`te
    cd ..
    ```
 *File kết quả xuất ra ngay tại thư mục:* **`report_p4aids/main.pdf`** *(Báo cáo đồ án khoa học hoàn chỉnh 52 trang chất lượng cao)*.
+
+---
+
+### Giai đoạn 7: Đóng gói Mô hình & Sử dụng Engine Suy luận cho Front-End (Web UI / API Service)
+
+Dành cho các thành viên phụ trách xây dựng giao diện người dùng (Streamlit, React, Vue, FastAPI backend):
+
+1. **Chạy kịch bản tự động đóng gói toàn bộ mô hình đơn & ensemble:**
+   ```powershell
+   .\.venv\Scripts\python.exe model_ML/export_fe_pipeline.py
+   ```
+   *Kịch bản sẽ tự động sao chép các mô hình `.pkl` và xuất file `ensemble_metadata.json` (chứa 16 ngưỡng động từng site, thông tin siêu tham số và chỉ số F1).*
+
+2. **Chạy demo kiểm thử nhanh:**
+   ```powershell
+   .\.venv\Scripts\python.exe model_ML/exported_pipeline/demo_fe_usage.py
+   ```
+
+3. **Tích hợp nhanh vào code Front-End (3 dòng code):**
+   ```python
+   from model_ML.exported_pipeline.fe_inference_engine import LeadInferenceEngine
+
+   # 1. Khởi tạo Engine (mặc định nạp mô hình Champion: Zone Weighted Blend F1 = 0.9373)
+   engine = LeadInferenceEngine()
+
+   # 2. Suy luận từ Dictionary / JSON nhận từ giao diện:
+   result = engine.predict_single({
+       "building_id": 105,
+       "site_id": 1,
+       "primary_use": "Education",
+       "meter_reading": 345.8,
+       "air_temperature": 28.5,
+       # ... các trường thông tin cảm biến khác
+   })
+
+   print(result["is_anomaly"])       # 0 (Bình thường) hoặc 1 (Bất thường)
+   print(result["probability"])      # Xác suất bất thường (vd: 0.892)
+   print(result["risk_level"])       # AN TOÀN, CHÚ Ý, CẢNH BÁO, NGUY HIỂM
+   print(result["explanation"])      # Giải thích tự động cho người dùng
+   ```
+   *Xem tài liệu chi tiết và code mẫu FastAPI / Streamlit tại [README_FE.md](file:///d:/CODE/p4aids/model_ML/exported_pipeline/README_FE.md).*
+

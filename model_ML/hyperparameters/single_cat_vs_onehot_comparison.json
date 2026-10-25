@@ -1,0 +1,120 @@
+{
+    "generated_at": "2026-10-25 02:30:31",
+    "category_mapping": {
+        "Education": 0,
+        "Office": 1,
+        "Parking": 2,
+        "Lodging/residential": 3,
+        "Entertainment/public assembly": 4,
+        "Public services": 5,
+        "Manufacturing/industrial": 6,
+        "Services": 7,
+        "Other": 8,
+        "Healthcare": 9,
+        "Food sales and service": 10,
+        "Religious worship": 11,
+        "__UNKNOWN__": 12
+    },
+    "comparison": [
+        {
+            "model": "XGBoost",
+            "one_hot_55": {
+                "optimal_threshold": 0.2355,
+                "f1_optimal": 0.9294,
+                "precision_optimal": 0.9515,
+                "recall_optimal": 0.9083,
+                "f1_05": 0.9236,
+                "precision_05": 0.9797,
+                "recall_05": 0.8736,
+                "fit_time_sec": 13.07
+            },
+            "single_cat_43": {
+                "optimal_threshold": 0.2442,
+                "f1_optimal": 0.9285,
+                "precision_optimal": 0.9517,
+                "recall_optimal": 0.9064,
+                "f1_05": 0.9227,
+                "precision_05": 0.9781,
+                "recall_05": 0.8732,
+                "fit_time_sec": 11.38
+            },
+            "delta_f1": -0.0009,
+            "delta_f1_pct": -0.1
+        },
+        {
+            "model": "LightGBM",
+            "one_hot_55": {
+                "optimal_threshold": 0.283,
+                "f1_optimal": 0.9211,
+                "precision_optimal": 0.9525,
+                "recall_optimal": 0.8917,
+                "f1_05": 0.9129,
+                "precision_05": 0.9785,
+                "recall_05": 0.8555,
+                "fit_time_sec": 8.92
+            },
+            "single_cat_43": {
+                "optimal_threshold": 0.3187,
+                "f1_optimal": 0.9195,
+                "precision_optimal": 0.9587,
+                "recall_optimal": 0.8834,
+                "f1_05": 0.9108,
+                "precision_05": 0.977,
+                "recall_05": 0.8531,
+                "fit_time_sec": 9.63
+            },
+            "delta_f1": -0.0016,
+            "delta_f1_pct": -0.17
+        },
+        {
+            "model": "CatBoost",
+            "one_hot_55": {
+                "optimal_threshold": 0.2929,
+                "f1_optimal": 0.9202,
+                "precision_optimal": 0.952,
+                "recall_optimal": 0.8905,
+                "f1_05": 0.9101,
+                "precision_05": 0.9766,
+                "recall_05": 0.852,
+                "fit_time_sec": 115.01
+            },
+            "single_cat_43": {
+                "optimal_threshold": 0.2655,
+                "f1_optimal": 0.9156,
+                "precision_optimal": 0.946,
+                "recall_optimal": 0.8871,
+                "f1_05": 0.9059,
+                "precision_05": 0.9763,
+                "recall_05": 0.845,
+                "fit_time_sec": 103.94
+            },
+            "delta_f1": -0.0046,
+            "delta_f1_pct": -0.5
+        },
+        {
+            "model": "Weighted Blending",
+            "one_hot_55": {
+                "optimal_threshold": 0.275,
+                "f1_optimal": 0.9308,
+                "precision_optimal": 0.9584,
+                "recall_optimal": 0.9047,
+                "f1_05": 0.9222,
+                "precision_05": 0.9805,
+                "recall_05": 0.8705,
+                "fit_time_sec": 137.0
+            },
+            "single_cat_43": {
+                "optimal_threshold": 0.3161,
+                "f1_optimal": 0.9304,
+                "precision_optimal": 0.9655,
+                "recall_optimal": 0.8977,
+                "f1_05": 0.9214,
+                "precision_05": 0.9809,
+                "recall_05": 0.8687,
+                "fit_time_sec": 124.95
+            },
+            "delta_f1": -0.0004,
+            "delta_f1_pct": -0.04
+        }
+    ]
+}

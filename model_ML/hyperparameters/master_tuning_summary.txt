@@ -1,0 +1,5 @@
+MASTER TUNING BENCHMARK REPORT (BASELINE VS ZONE - NO ONE-HOT)
+================================================================================
+Zone_XGBoost: F1=0.9344 | Precision=0.9554 | Recall=0.9143 | Threshold=0.2059
+Zone_LightGBM: F1=0.929 | Precision=0.9617 | Recall=0.8985 | Threshold=0.2988
+Zone_Blend: F1=0.9354 | Precision=0.9584 | Recall=0.9135 | Threshold=0.2371
