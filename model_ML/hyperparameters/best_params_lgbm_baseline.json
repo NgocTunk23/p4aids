@@ -1,0 +1,22 @@
+{
+  "model": "LGBM",
+  "dataset": "baseline",
+  "best_pr_auc": 0.6398750171761124,
+  "roc_auc": 0.8628584012163876,
+  "best_f1": 0.7063008825340357,
+  "best_threshold": 0.7236577015762747,
+  "total_trials": 50,
+  "total_time_sec": 607.17,
+  "best_params": {
+    "n_estimators": 350,
+    "learning_rate": 0.01857810770321288,
+    "num_leaves": 137,
+    "max_depth": 9,
+    "min_child_samples": 70,
+    "subsample": 0.9638207757406156,
+    "colsample_bytree": 0.7677856369785042,
+    "scale_pos_weight": 26.206351678068927,
+    "reg_alpha": 0.0006629292366572627,
+    "reg_lambda": 0.06508489842349421
+  }
+}

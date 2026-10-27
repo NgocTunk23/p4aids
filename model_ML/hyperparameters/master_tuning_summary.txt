@@ -1,5 +1,354 @@
-MASTER TUNING BENCHMARK REPORT (BASELINE VS ZONE - NO ONE-HOT)
+Zone_LGBM: PR-AUC=0.6418 | ROC-AUC=0.8658 | F1=0.6999 | Threshold=0.7213
+Baseline_LGBM: PR-AUC=0.6361 | ROC-AUC=0.8579 | F1=0.7020 | Threshold=0.7939
+Zone_XGB: PR-AUC=0.6370 | ROC-AUC=0.8592 | F1=0.7082 | Threshold=0.8429
+Baseline_XGB: PR-AUC=0.6383 | ROC-AUC=0.8594 | F1=0.7025 | Threshold=0.7035
+Zone_CAT: PR-AUC=0.6331 | ROC-AUC=0.8451 | F1=0.7075 | Threshold=0.7003
+Baseline_CAT: PR-AUC=0.6367 | ROC-AUC=0.8522 | F1=0.7057 | Threshold=0.7178
+
 ================================================================================
-Zone_XGBoost: F1=0.9344 | Precision=0.9554 | Recall=0.9143 | Threshold=0.2059
-Zone_LightGBM: F1=0.929 | Precision=0.9617 | Recall=0.8985 | Threshold=0.2988
-Zone_Blend: F1=0.9354 | Precision=0.9584 | Recall=0.9135 | Threshold=0.2371
+DUNG HOP (ENSEMBLE) CAC MO HINH TOI UU TREN TAP KIEM DINH TEST (T_OUT)
+================================================================================
+Ensemble_Rank_Top2: PR-AUC=0.6447 | ROC-AUC=0.8654 | F1=0.7043 | Threshold=0.9834
+Ensemble_Rank_Top3: PR-AUC=0.6436 | ROC-AUC=0.8648 | F1=0.7038 | Threshold=0.9848
+Ensemble_Rank_Zone_All3: PR-AUC=0.6427 | ROC-AUC=0.8605 | F1=0.7119 | Threshold=0.9833
+Ensemble_Rank_Baseline_All3: PR-AUC=0.6448 | ROC-AUC=0.8611 | F1=0.7109 | Threshold=0.9845
+Ensemble_Rank_All6: PR-AUC=0.6448 | ROC-AUC=0.8616 | F1=0.7147 | Threshold=0.9845
+Ensemble_Prob_Top2: PR-AUC=0.6434 | ROC-AUC=0.8670 | F1=0.7055 | Threshold=0.5714
+Ensemble_Prob_Top3: PR-AUC=0.6434 | ROC-AUC=0.8670 | F1=0.7051 | Threshold=0.7121
+Ensemble_Prob_Zone_All3: PR-AUC=0.6434 | ROC-AUC=0.8588 | F1=0.7120 | Threshold=0.7010
+Ensemble_Prob_All6: PR-AUC=0.6437 | ROC-AUC=0.8594 | F1=0.7111 | Threshold=0.6877
+Zone_LGBM: PR-AUC=0.6437 | ROC-AUC=0.8635 | F1=0.7028 | Threshold=0.7328
+Baseline_LGBM: PR-AUC=0.6399 | ROC-AUC=0.8629 | F1=0.7063 | Threshold=0.7237
+Zone_XGB: PR-AUC=0.6459 | ROC-AUC=0.8615 | F1=0.7088 | Threshold=0.5453
+Baseline_XGB: PR-AUC=0.6390 | ROC-AUC=0.8581 | F1=0.7097 | Threshold=0.8502
+Zone_CAT: PR-AUC=0.6379 | ROC-AUC=0.8469 | F1=0.7057 | Threshold=0.7555
+Baseline_CAT: PR-AUC=0.6381 | ROC-AUC=0.8560 | F1=0.7092 | Threshold=0.6095
+
+================================================================================
+DUNG HOP (ENSEMBLE) CAC MO HINH TOI UU TREN TAP KIEM DINH TEST (T_OUT)
+================================================================================
+Ensemble_Rank_Top2: PR-AUC=0.6486 | ROC-AUC=0.8645 | F1=0.7099 | Threshold=0.9848
+Ensemble_Rank_Top3: PR-AUC=0.6486 | ROC-AUC=0.8654 | F1=0.7113 | Threshold=0.9848
+Ensemble_Rank_Zone_All3: PR-AUC=0.6474 | ROC-AUC=0.8604 | F1=0.7144 | Threshold=0.9841
+Ensemble_Rank_Baseline_All3: PR-AUC=0.6464 | ROC-AUC=0.8635 | F1=0.7141 | Threshold=0.9848
+Ensemble_Rank_All6: PR-AUC=0.6479 | ROC-AUC=0.8626 | F1=0.7151 | Threshold=0.9852
+Ensemble_Prob_Top2: PR-AUC=0.6484 | ROC-AUC=0.8647 | F1=0.7109 | Threshold=0.6030
+Ensemble_Prob_Top3: PR-AUC=0.6473 | ROC-AUC=0.8655 | F1=0.7107 | Threshold=0.6636
+Ensemble_Prob_Zone_All3: PR-AUC=0.6475 | ROC-AUC=0.8586 | F1=0.7144 | Threshold=0.6123
+Ensemble_Prob_All6: PR-AUC=0.6466 | ROC-AUC=0.8622 | F1=0.7145 | Threshold=0.7083
+
+================================================================================
+DUNG HOP (ENSEMBLE) CAC MO HINH TOI UU TREN TAP KIEM DINH TEST (T_OUT)
+================================================================================
+Ensemble_Rank_Top2: PR-AUC=0.6486 | ROC-AUC=0.8645 | F1=0.7099 | Threshold=0.9848
+Ensemble_Rank_Top3: PR-AUC=0.6486 | ROC-AUC=0.8654 | F1=0.7113 | Threshold=0.9848
+Ensemble_Rank_Zone_All3: PR-AUC=0.6474 | ROC-AUC=0.8604 | F1=0.7144 | Threshold=0.9841
+Ensemble_Rank_Baseline_All3: PR-AUC=0.6464 | ROC-AUC=0.8635 | F1=0.7141 | Threshold=0.9848
+Ensemble_Rank_All6: PR-AUC=0.6479 | ROC-AUC=0.8626 | F1=0.7151 | Threshold=0.9852
+Ensemble_Prob_Top2: PR-AUC=0.6484 | ROC-AUC=0.8647 | F1=0.7109 | Threshold=0.6030
+Ensemble_Prob_Top3: PR-AUC=0.6473 | ROC-AUC=0.8655 | F1=0.7107 | Threshold=0.6636
+Ensemble_Prob_Zone_All3: PR-AUC=0.6475 | ROC-AUC=0.8586 | F1=0.7144 | Threshold=0.6123
+Ensemble_Prob_All6: PR-AUC=0.6466 | ROC-AUC=0.8622 | F1=0.7145 | Threshold=0.7083
+Zone_LGBM: PR-AUC=0.6443 | ROC-AUC=0.8625 | F1=0.7082 | Threshold=0.8280
+Baseline_XGB: PR-AUC=0.6417 | ROC-AUC=0.8608 | F1=0.7101 | Threshold=0.7117
+
+================================================================================
+DUNG HOP (ENSEMBLE) CAC MO HINH TOI UU TREN TAP KIEM DINH TEST (T_OUT)
+================================================================================
+Ensemble_Rank_Top2: PR-AUC=0.6506 | ROC-AUC=0.8645 | F1=0.7131 | Threshold=0.9849
+Ensemble_Rank_Top3: PR-AUC=0.6503 | ROC-AUC=0.8647 | F1=0.7129 | Threshold=0.9849
+Ensemble_Rank_Top4: PR-AUC=0.6493 | ROC-AUC=0.8654 | F1=0.7125 | Threshold=0.9852
+Ensemble_Rank_Fast4 (XGB+LGBM): PR-AUC=0.6493 | ROC-AUC=0.8654 | F1=0.7125 | Threshold=0.9852
+Ensemble_Rank_Zone_All3: PR-AUC=0.6480 | ROC-AUC=0.8607 | F1=0.7152 | Threshold=0.9842
+Ensemble_Rank_Baseline_All3: PR-AUC=0.6476 | ROC-AUC=0.8646 | F1=0.7159 | Threshold=0.9852
+Ensemble_Rank_All6: PR-AUC=0.6487 | ROC-AUC=0.8632 | F1=0.7159 | Threshold=0.9839
+Ensemble_Prob_Top2: PR-AUC=0.6486 | ROC-AUC=0.8635 | F1=0.7131 | Threshold=0.6030
+Ensemble_Prob_Top3: PR-AUC=0.6487 | ROC-AUC=0.8641 | F1=0.7126 | Threshold=0.5729
+Ensemble_Prob_Top4: PR-AUC=0.6475 | ROC-AUC=0.8649 | F1=0.7134 | Threshold=0.6130
+Ensemble_Prob_Fast4 (XGB+LGBM): PR-AUC=0.6475 | ROC-AUC=0.8649 | F1=0.7134 | Threshold=0.6130
+Ensemble_Prob_Zone_All3: PR-AUC=0.6480 | ROC-AUC=0.8604 | F1=0.7159 | Threshold=0.6913
+Ensemble_Prob_All6: PR-AUC=0.6475 | ROC-AUC=0.8625 | F1=0.7158 | Threshold=0.6446
+Baseline_CAT: PR-AUC=0.6383 | ROC-AUC=0.8543 | F1=0.7012 | Threshold=0.6394
+
+================================================================================
+DUNG HOP (ENSEMBLE) CAC MO HINH TOI UU TREN TAP KIEM DINH TEST (T_OUT)
+================================================================================
+Ensemble_Rank_Top2: PR-AUC=0.6506 | ROC-AUC=0.8645 | F1=0.7131 | Threshold=0.9849
+Ensemble_Rank_Top3: PR-AUC=0.6503 | ROC-AUC=0.8647 | F1=0.7129 | Threshold=0.9849
+Ensemble_Rank_Top4: PR-AUC=0.6493 | ROC-AUC=0.8654 | F1=0.7125 | Threshold=0.9852
+Ensemble_Rank_Fast4 (XGB+LGBM): PR-AUC=0.6493 | ROC-AUC=0.8654 | F1=0.7125 | Threshold=0.9852
+Ensemble_Rank_Zone_All3: PR-AUC=0.6480 | ROC-AUC=0.8607 | F1=0.7152 | Threshold=0.9842
+Ensemble_Rank_Baseline_All3: PR-AUC=0.6478 | ROC-AUC=0.8638 | F1=0.7124 | Threshold=0.9847
+Ensemble_Rank_All6: PR-AUC=0.6486 | ROC-AUC=0.8629 | F1=0.7145 | Threshold=0.9835
+Ensemble_Prob_Top2: PR-AUC=0.6486 | ROC-AUC=0.8635 | F1=0.7131 | Threshold=0.6030
+Ensemble_Prob_Top3: PR-AUC=0.6487 | ROC-AUC=0.8641 | F1=0.7126 | Threshold=0.5729
+Ensemble_Prob_Top4: PR-AUC=0.6475 | ROC-AUC=0.8649 | F1=0.7134 | Threshold=0.6130
+Ensemble_Prob_Fast4 (XGB+LGBM): PR-AUC=0.6475 | ROC-AUC=0.8649 | F1=0.7134 | Threshold=0.6130
+Ensemble_Prob_Zone_All3: PR-AUC=0.6480 | ROC-AUC=0.8604 | F1=0.7159 | Threshold=0.6913
+Ensemble_Prob_All6: PR-AUC=0.6480 | ROC-AUC=0.8622 | F1=0.7146 | Threshold=0.6425
+
+==========================================================================================
+KET QUA THUC NGHIEM: ISOLATION FOREST HO TRO & NGUONG DONG 16 KHU VUC (ZERO LEAKAGE)
+==========================================================================================
+Isolation_Forest (Unsupervised) | PR-AUC=0.0234 | ROC-AUC=0.4520 | F1_Static=0.0479 | F1_Dynamic=nan
+XGB_Zone_Original              | PR-AUC=0.6459 | ROC-AUC=0.8615 | F1_Static=0.7088 | F1_Dynamic=0.7052
+XGB_Zone_With_IF               | PR-AUC=0.6414 | ROC-AUC=0.8580 | F1_Static=0.7063 | F1_Dynamic=0.7030
+LGBM_Zone_Original             | PR-AUC=0.6443 | ROC-AUC=0.8625 | F1_Static=0.7082 | F1_Dynamic=0.7032
+LGBM_Zone_With_IF              | PR-AUC=0.6413 | ROC-AUC=0.8660 | F1_Static=0.7071 | F1_Dynamic=0.7016
+Ensemble_Top2_With_IF          | PR-AUC=0.6477 | ROC-AUC=0.8646 | F1_Static=0.7100 | F1_Dynamic=0.6882
+
+====================================================================================================
+KET QUA THUC NGHIEM: CAC KY THUAT NANG CAO (TECH 1, 2, 3, 4, 5) - 100% ZERO LEAKAGE
+====================================================================================================
+Top-1 Single: XGB_Zone Champion                         | PR-AUC=0.6459 | ROC-AUC=0.8615 | F1=0.7088 | Gain PR=+0.00% | Gain F1=+0.00%
+Ensemble Rank Top-2 (Equal 50-50)                       | PR-AUC=0.6506 | ROC-AUC=0.8645 | F1=0.7131 | Gain PR=+0.47% | Gain F1=+0.43%
+Ensemble Rank All-6 (Equal 1/6)                         | PR-AUC=0.6486 | ROC-AUC=0.8629 | F1=0.7145 | Gain PR=+0.27% | Gain F1=+0.58%
+Tech 1: Weighted Top-2 (w=[0.50, 0.50])                 | PR-AUC=0.6506 | ROC-AUC=0.8645 | F1=0.7131 | Gain PR=+0.47% | Gain F1=+0.43%
+Tech 1: Weighted Top-3 (w=[0.33, 0.33, 0.33])           | PR-AUC=0.6503 | ROC-AUC=0.8647 | F1=0.7129 | Gain PR=+0.44% | Gain F1=+0.42%
+Tech 1: Weighted All-6 (SLSQP)                          | PR-AUC=0.6487 | ROC-AUC=0.8629 | F1=0.7145 | Gain PR=+0.28% | Gain F1=+0.58%
+Tech 2: Causal EWMA Smoothing (alpha=0.15)              | PR-AUC=0.6067 | ROC-AUC=0.8584 | F1=0.6546 | Gain PR=-3.92% | Gain F1=-5.41%
+Tech 3: Bayesian Shrunk Dynamic TH (N0=5000)            | PR-AUC=0.6067 | ROC-AUC=0.8584 | F1=0.6457 | Gain PR=-3.92% | Gain F1=-6.31%
+Tech 4: XGB_Zone + z_meter_local                        | PR-AUC=0.6616 | ROC-AUC=0.8836 | F1=0.7072 | Gain PR=+1.57% | Gain F1=-0.15%
+Grand SOTA: Weighted + Causal EWMA (Static TH)          | PR-AUC=0.6124 | ROC-AUC=0.8711 | F1=0.6528 | Gain PR=-3.35% | Gain F1=-5.60%
+Grand SOTA: Weighted + Causal EWMA + Bayesian Shrunk TH | PR-AUC=0.6124 | ROC-AUC=0.8711 | F1=0.6488 | Gain PR=-3.35% | Gain F1=-6.00%
+
+====================================================================================================
+KET QUA THUC NGHIEM: CAC KY THUAT NANG CAO (TECH 1, 2, 3, 4, 5) - 100% ZERO LEAKAGE
+====================================================================================================
+Top-1 Single: XGB_Zone Champion                         | PR-AUC=0.6459 | ROC-AUC=0.8615 | F1=0.7088 | Gain PR=+0.00% | Gain F1=+0.00%
+Ensemble Rank Top-2 (Equal 50-50)                       | PR-AUC=0.6506 | ROC-AUC=0.8645 | F1=0.7131 | Gain PR=+0.47% | Gain F1=+0.43%
+Ensemble Rank All-6 (Equal 1/6)                         | PR-AUC=0.6486 | ROC-AUC=0.8629 | F1=0.7145 | Gain PR=+0.27% | Gain F1=+0.58%
+Tech 1: Weighted Top-2 (w=[0.50, 0.50])                 | PR-AUC=0.6506 | ROC-AUC=0.8645 | F1=0.7131 | Gain PR=+0.47% | Gain F1=+0.43%
+Tech 1: Weighted Top-3 (w=[0.33, 0.33, 0.33])           | PR-AUC=0.6503 | ROC-AUC=0.8647 | F1=0.7129 | Gain PR=+0.44% | Gain F1=+0.42%
+Tech 1: Weighted All-6 (SLSQP)                          | PR-AUC=0.6487 | ROC-AUC=0.8629 | F1=0.7145 | Gain PR=+0.28% | Gain F1=+0.58%
+Tech 2: Causal EWMA Smoothing (alpha=0.15)              | PR-AUC=0.6067 | ROC-AUC=0.8584 | F1=0.6546 | Gain PR=-3.92% | Gain F1=-5.41%
+Tech 3: Bayesian Shrunk Dynamic TH (N0=5000)            | PR-AUC=0.6067 | ROC-AUC=0.8584 | F1=0.6457 | Gain PR=-3.92% | Gain F1=-6.31%
+Tech 4: XGB_Zone + z_meter_local                        | PR-AUC=0.6616 | ROC-AUC=0.8836 | F1=0.7072 | Gain PR=+1.57% | Gain F1=-0.15%
+Tech 4: LGBM_Zone + z_meter_local                       | PR-AUC=0.6631 | ROC-AUC=0.8865 | F1=0.7073 | Gain PR=+1.72% | Gain F1=-0.15%
+Grand SOTA: Rank Top-2 (XGB+LGBM with z_local)          | PR-AUC=0.6708 | ROC-AUC=0.8882 | F1=0.7069 | Gain PR=+2.49% | Gain F1=-0.18%
+Grand SOTA: Weighted (w=[0.50, 0.50])                   | PR-AUC=0.6708 | ROC-AUC=0.8882 | F1=0.7069 | Gain PR=+2.49% | Gain F1=-0.18%
+Grand SOTA: Equal Rank + Bayesian Shrunk TH             | PR-AUC=0.6708 | ROC-AUC=0.8882 | F1=0.6891 | Gain PR=+2.49% | Gain F1=-1.97%
+
+====================================================================================================
+KET QUA THUC NGHIEM: CAC KY THUAT NANG CAO (TECH 1, 2, 3, 4, 5) - 100% ZERO LEAKAGE
+====================================================================================================
+Top-1 Single: XGB_Zone Champion                         | PR-AUC=0.6459 | ROC-AUC=0.8615 | F1=0.7088 | Gain PR=+0.00% | Gain F1=+0.00%
+Ensemble Rank Top-2 (Equal 50-50)                       | PR-AUC=0.6506 | ROC-AUC=0.8645 | F1=0.7131 | Gain PR=+0.47% | Gain F1=+0.43%
+Ensemble Rank All-6 (Equal 1/6)                         | PR-AUC=0.6486 | ROC-AUC=0.8629 | F1=0.7145 | Gain PR=+0.27% | Gain F1=+0.58%
+Tech 1: Weighted Top-2 (w=[0.50, 0.50])                 | PR-AUC=0.6506 | ROC-AUC=0.8645 | F1=0.7131 | Gain PR=+0.47% | Gain F1=+0.43%
+Tech 1: Weighted Top-3 (w=[0.33, 0.33, 0.33])           | PR-AUC=0.6503 | ROC-AUC=0.8647 | F1=0.7129 | Gain PR=+0.44% | Gain F1=+0.42%
+Tech 1: Weighted All-6 (SLSQP)                          | PR-AUC=0.6487 | ROC-AUC=0.8629 | F1=0.7145 | Gain PR=+0.28% | Gain F1=+0.58%
+Tech 2: Causal EWMA Smoothing (alpha=0.15)              | PR-AUC=0.6067 | ROC-AUC=0.8584 | F1=0.6546 | Gain PR=-3.92% | Gain F1=-5.41%
+Tech 3: Bayesian Shrunk Dynamic TH (N0=5000)            | PR-AUC=0.6067 | ROC-AUC=0.8584 | F1=0.6457 | Gain PR=-3.92% | Gain F1=-6.31%
+Tech 4: XGB_Zone + z_meter_local                        | PR-AUC=0.6616 | ROC-AUC=0.8836 | F1=0.7072 | Gain PR=+1.57% | Gain F1=-0.15%
+Tech 4: LGBM_Zone + z_meter_local                       | PR-AUC=0.6631 | ROC-AUC=0.8865 | F1=0.7073 | Gain PR=+1.72% | Gain F1=-0.15%
+Grand SOTA: Rank Top-2 (XGB+LGBM with z_local)          | PR-AUC=0.6708 | ROC-AUC=0.8882 | F1=0.7069 | Gain PR=+2.49% | Gain F1=-0.18%
+Grand SOTA: Weighted (w=[0.50, 0.50])                   | PR-AUC=0.6708 | ROC-AUC=0.8882 | F1=0.7069 | Gain PR=+2.49% | Gain F1=-0.18%
+Grand SOTA: Equal Rank + Bayesian Shrunk TH             | PR-AUC=0.6708 | ROC-AUC=0.8882 | F1=0.6891 | Gain PR=+2.49% | Gain F1=-1.97%
+
+====================================================================================================
+KET QUA THUC NGHIEM: CAC KY THUAT NANG CAO (TECH 1, 2, 3, 4, 5) - 100% ZERO LEAKAGE
+====================================================================================================
+Top-1 Single: XGB_Zone Champion                         | PR-AUC=0.6459 | ROC-AUC=0.8615 | F1=0.7088 | Gain PR=+0.00% | Gain F1=+0.00%
+Ensemble Rank Top-2 (Equal 50-50)                       | PR-AUC=0.6506 | ROC-AUC=0.8645 | F1=0.7131 | Gain PR=+0.47% | Gain F1=+0.43%
+Ensemble Rank All-6 (Equal 1/6)                         | PR-AUC=0.6486 | ROC-AUC=0.8629 | F1=0.7145 | Gain PR=+0.27% | Gain F1=+0.58%
+Tech 1: Weighted Top-2 (w=[0.50, 0.50])                 | PR-AUC=0.6506 | ROC-AUC=0.8645 | F1=0.7131 | Gain PR=+0.47% | Gain F1=+0.43%
+Tech 1: Weighted Top-3 (w=[0.33, 0.33, 0.33])           | PR-AUC=0.6503 | ROC-AUC=0.8647 | F1=0.7129 | Gain PR=+0.44% | Gain F1=+0.42%
+Tech 1: Weighted All-6 (SLSQP)                          | PR-AUC=0.6487 | ROC-AUC=0.8629 | F1=0.7145 | Gain PR=+0.28% | Gain F1=+0.58%
+Tech 2: Causal EWMA Smoothing (alpha=0.15)              | PR-AUC=0.6067 | ROC-AUC=0.8584 | F1=0.6546 | Gain PR=-3.92% | Gain F1=-5.41%
+Tech 3: Bayesian Shrunk Dynamic TH (N0=5000)            | PR-AUC=0.6067 | ROC-AUC=0.8584 | F1=0.6457 | Gain PR=-3.92% | Gain F1=-6.31%
+Tech 4: XGB_Zone + z_meter_local                        | PR-AUC=0.6616 | ROC-AUC=0.8836 | F1=0.7072 | Gain PR=+1.57% | Gain F1=-0.15%
+Tech 4: LGBM_Zone + z_meter_local                       | PR-AUC=0.6631 | ROC-AUC=0.8865 | F1=0.7073 | Gain PR=+1.72% | Gain F1=-0.15%
+Grand SOTA: Rank Top-2 (XGB+LGBM with z_local)          | PR-AUC=0.6708 | ROC-AUC=0.8882 | F1=0.7069 | Gain PR=+2.49% | Gain F1=-0.18%
+Grand SOTA: Weighted (w=[0.50, 0.50])                   | PR-AUC=0.6708 | ROC-AUC=0.8882 | F1=0.7069 | Gain PR=+2.49% | Gain F1=-0.18%
+Grand SOTA: Equal Rank + Bayesian Shrunk TH             | PR-AUC=0.6708 | ROC-AUC=0.8882 | F1=0.6891 | Gain PR=+2.49% | Gain F1=-1.97%
+
+====================================================================================================
+KET QUA THUC NGHIEM: CAC KY THUAT NANG CAO (TECH 1, 2, 3, 4, 5) - 100% ZERO LEAKAGE
+====================================================================================================
+Top-1 Single: XGB_Zone Champion                         | PR-AUC=0.6459 | ROC-AUC=0.8615 | F1=0.7088 | Gain PR=+0.00% | Gain F1=+0.00%
+Ensemble Rank Top-2 (Equal 50-50)                       | PR-AUC=0.6506 | ROC-AUC=0.8645 | F1=0.7131 | Gain PR=+0.47% | Gain F1=+0.43%
+Ensemble Rank All-6 (Equal 1/6)                         | PR-AUC=0.6486 | ROC-AUC=0.8629 | F1=0.7145 | Gain PR=+0.27% | Gain F1=+0.58%
+Tech 1: Weighted Top-2 (w=[0.50, 0.50])                 | PR-AUC=0.6506 | ROC-AUC=0.8645 | F1=0.7131 | Gain PR=+0.47% | Gain F1=+0.43%
+Tech 1: Weighted Top-3 (w=[0.33, 0.33, 0.33])           | PR-AUC=0.6503 | ROC-AUC=0.8647 | F1=0.7129 | Gain PR=+0.44% | Gain F1=+0.42%
+Tech 1: Weighted All-6 (SLSQP)                          | PR-AUC=0.6487 | ROC-AUC=0.8629 | F1=0.7145 | Gain PR=+0.28% | Gain F1=+0.58%
+Tech 2: Causal EWMA Smoothing (alpha=0.15)              | PR-AUC=0.6067 | ROC-AUC=0.8584 | F1=0.6546 | Gain PR=-3.92% | Gain F1=-5.41%
+Tech 3: Bayesian Shrunk Dynamic TH (N0=5000)            | PR-AUC=0.6067 | ROC-AUC=0.8584 | F1=0.6457 | Gain PR=-3.92% | Gain F1=-6.31%
+Tech 4: XGB_Zone + z_meter_local                        | PR-AUC=0.6616 | ROC-AUC=0.8836 | F1=0.7072 | Gain PR=+1.57% | Gain F1=-0.15%
+Tech 4: LGBM_Zone + z_meter_local                       | PR-AUC=0.6631 | ROC-AUC=0.8865 | F1=0.7073 | Gain PR=+1.72% | Gain F1=-0.15%
+Grand SOTA: Rank Top-2 (XGB+LGBM with z_local)          | PR-AUC=0.6708 | ROC-AUC=0.8882 | F1=0.7069 | Gain PR=+2.49% | Gain F1=-0.18%
+Grand SOTA: Weighted (w=[0.50, 0.50])                   | PR-AUC=0.6708 | ROC-AUC=0.8882 | F1=0.7069 | Gain PR=+2.49% | Gain F1=-0.18%
+Grand SOTA: Equal Rank + Bayesian Shrunk TH             | PR-AUC=0.6708 | ROC-AUC=0.8882 | F1=0.6891 | Gain PR=+2.49% | Gain F1=-1.97%
+
+===================================================================================================================
+BANG KET QUA TOAN DIEN: BO BA TAM MA (LGBM + XGB + CATBOOST) TREN FULL CONTEXT (100% ZERO LEAKAGE)
+===================================================================================================================
+Single: LGBM_Context           | Direct Probability     | N/A                       | PR-AUC=0.6739 | ROC-AUC=0.8911 | F1=0.7085 | Gain=+2.80%
+Single: XGB_Context            | Direct Probability     | N/A                       | PR-AUC=0.6719 | ROC-AUC=0.8837 | F1=0.7096 | Gain=+2.60%
+Single: CAT_Context            | Direct Probability     | N/A                       | PR-AUC=0.6652 | ROC-AUC=0.8810 | F1=0.6965 | Gain=+1.93%
+Pair: XGB + LGBM               | Equal Rank Averaging   | Equal 1/2                 | PR-AUC=0.6810 | ROC-AUC=0.8904 | F1=0.7109 | Gain=+3.51%
+Pair: XGB + LGBM               | SLSQP Weighted Rank    | [XGB:0.50, LGBM:0.50]     | PR-AUC=0.6810 | ROC-AUC=0.8904 | F1=0.7110 | Gain=+3.51%
+Pair: XGB + LGBM               | Soft Voting (Prob)     | Equal 1/2                 | PR-AUC=0.6800 | ROC-AUC=0.8918 | F1=0.7115 | Gain=+3.41%
+Pair: CAT + XGB                | Equal Rank Averaging   | Equal 1/2                 | PR-AUC=0.6741 | ROC-AUC=0.8853 | F1=0.7103 | Gain=+2.82%
+Pair: CAT + XGB                | SLSQP Weighted Rank    | [CAT:0.50, XGB:0.50]      | PR-AUC=0.6741 | ROC-AUC=0.8853 | F1=0.7103 | Gain=+2.82%
+Pair: CAT + XGB                | Soft Voting (Prob)     | Equal 1/2                 | PR-AUC=0.6737 | ROC-AUC=0.8845 | F1=0.7124 | Gain=+2.78%
+Pair: CAT + LGBM               | Equal Rank Averaging   | Equal 1/2                 | PR-AUC=0.6796 | ROC-AUC=0.8894 | F1=0.7048 | Gain=+3.37%
+Pair: CAT + LGBM               | SLSQP Weighted Rank    | [CAT:0.50, LGBM:0.50]     | PR-AUC=0.6796 | ROC-AUC=0.8894 | F1=0.7048 | Gain=+3.37%
+Pair: CAT + LGBM               | Soft Voting (Prob)     | Equal 1/2                 | PR-AUC=0.6796 | ROC-AUC=0.8894 | F1=0.7047 | Gain=+3.37%
+Triplet: CAT + XGB + LGBM      | Equal Rank Averaging   | Equal 1/3                 | PR-AUC=0.6827 | ROC-AUC=0.8896 | F1=0.7102 | Gain=+3.68%
+Triplet: CAT + XGB + LGBM      | SLSQP Weighted Rank    | [CAT:0.33, XGB:0.33, LGBM:0.33] | PR-AUC=0.6827 | ROC-AUC=0.8896 | F1=0.7102 | Gain=+3.68%
+Triplet: CAT + XGB + LGBM      | Soft Voting (Prob)     | Equal 1/3                 | PR-AUC=0.6812 | ROC-AUC=0.8900 | F1=0.7117 | Gain=+3.53%
+
+===============================================================================================
+DUNG HOP (ENSEMBLE) TOAN DIEN CAC MO HINH TOI UU TREN TAP KIEM DINH TEST (T_OUT)
+===============================================================================================
+Ensemble_Rank_Context_All3 (CAT+XGB+LGBM): PR-AUC=0.6827 | ROC-AUC=0.8896 | F1=0.7102 | Precision=0.9068 | Recall=0.5837 | Threshold=0.9821
+Ensemble_Prob_Context_All3 (CAT+XGB+LGBM): PR-AUC=0.6812 | ROC-AUC=0.8900 | F1=0.7117 | Precision=0.8889 | Recall=0.5934 | Threshold=0.6016
+Ensemble_Rank_Context_Pair (XGB+LGBM): PR-AUC=0.6810 | ROC-AUC=0.8904 | F1=0.7110 | Precision=0.9273 | Recall=0.5765 | Threshold=0.9840
+Ensemble_Prob_Context_Pair (XGB+LGBM): PR-AUC=0.6800 | ROC-AUC=0.8918 | F1=0.7115 | Precision=0.9408 | Recall=0.5721 | Threshold=0.7160
+Ensemble_Rank_Context_Pair (CAT+LGBM): PR-AUC=0.6796 | ROC-AUC=0.8894 | F1=0.7048 | Precision=0.9394 | Recall=0.5639 | Threshold=0.9843
+Ensemble_Prob_Context_Pair (CAT+LGBM): PR-AUC=0.6796 | ROC-AUC=0.8894 | F1=0.7047 | Precision=0.9399 | Recall=0.5637 | Threshold=0.7967
+Ensemble_Rank_Context_Pair (CAT+XGB): PR-AUC=0.6741 | ROC-AUC=0.8853 | F1=0.7103 | Precision=0.9338 | Recall=0.5731 | Threshold=0.9840
+Ensemble_Prob_Context_Pair (CAT+XGB): PR-AUC=0.6737 | ROC-AUC=0.8845 | F1=0.7124 | Precision=0.9303 | Recall=0.5772 | Threshold=0.6562
+Ensemble_Rank_Zone_All3: PR-AUC=0.6480 | ROC-AUC=0.8607 | F1=0.7152 | Precision=0.9594 | Recall=0.5700 | Threshold=0.9842
+Ensemble_Prob_Zone_All3: PR-AUC=0.6480 | ROC-AUC=0.8604 | F1=0.7159 | Precision=0.9843 | Recall=0.5625 | Threshold=0.6913
+Ensemble_Rank_Baseline_All3: PR-AUC=0.6478 | ROC-AUC=0.8638 | F1=0.7124 | Precision=0.9629 | Recall=0.5653 | Threshold=0.9847
+Ensemble_Prob_Baseline_All3: PR-AUC=0.6464 | ROC-AUC=0.8631 | F1=0.7139 | Precision=0.9708 | Recall=0.5646 | Threshold=0.6185
+Ensemble_Rank_Top2: PR-AUC=0.6810 | ROC-AUC=0.8904 | F1=0.7110 | Precision=0.9273 | Recall=0.5765 | Threshold=0.9840
+Ensemble_Prob_Top2: PR-AUC=0.6800 | ROC-AUC=0.8918 | F1=0.7115 | Precision=0.9408 | Recall=0.5721 | Threshold=0.7160
+Ensemble_Rank_Top3: PR-AUC=0.6827 | ROC-AUC=0.8896 | F1=0.7102 | Precision=0.9068 | Recall=0.5837 | Threshold=0.9821
+Ensemble_Prob_Top3: PR-AUC=0.6812 | ROC-AUC=0.8900 | F1=0.7117 | Precision=0.8889 | Recall=0.5934 | Threshold=0.6016
+Ensemble_Rank_Top4: PR-AUC=0.6654 | ROC-AUC=0.8858 | F1=0.7110 | Precision=0.9555 | Recall=0.5662 | Threshold=0.9828
+Ensemble_Prob_Top4: PR-AUC=0.6820 | ROC-AUC=0.8905 | F1=0.7149 | Precision=0.9507 | Recall=0.5728 | Threshold=0.6287
+Ensemble_Rank_Fast4: PR-AUC=0.6577 | ROC-AUC=0.8804 | F1=0.7097 | Precision=0.9735 | Recall=0.5584 | Threshold=0.9840
+Ensemble_Prob_Fast4: PR-AUC=0.6771 | ROC-AUC=0.8897 | F1=0.7127 | Precision=0.9729 | Recall=0.5624 | Threshold=0.6509
+Ensemble_Rank_All9: PR-AUC=0.6538 | ROC-AUC=0.8745 | F1=0.7151 | Precision=0.9557 | Recall=0.5712 | Threshold=0.9825
+Ensemble_Prob_All9: PR-AUC=0.6687 | ROC-AUC=0.8858 | F1=0.7171 | Precision=0.9724 | Recall=0.5680 | Threshold=0.6251
+
+===============================================================================================
+DUNG HOP (ENSEMBLE) TOAN DIEN CAC MO HINH TOI UU TREN TAP KIEM DINH TEST (T_OUT)
+===============================================================================================
+Ensemble_Rank_Context_All3 (CAT+XGB+LGBM): PR-AUC=0.4211 | ROC-AUC=0.8530 | F1=0.5124 | Precision=0.6370 | Recall=0.4285 | Threshold=0.9793
+Ensemble_Prob_Context_All3 (CAT+XGB+LGBM): PR-AUC=0.4199 | ROC-AUC=0.8500 | F1=0.5146 | Precision=0.6655 | Recall=0.4196 | Threshold=0.3271
+Ensemble_Rank_Context_Pair (XGB+LGBM): PR-AUC=0.4366 | ROC-AUC=0.8500 | F1=0.5023 | Precision=0.6168 | Recall=0.4237 | Threshold=0.9809
+Ensemble_Prob_Context_Pair (XGB+LGBM): PR-AUC=0.4312 | ROC-AUC=0.8453 | F1=0.5076 | Precision=0.6223 | Recall=0.4285 | Threshold=0.2932
+Ensemble_Rank_Context_Pair (CAT+LGBM): PR-AUC=0.4093 | ROC-AUC=0.8493 | F1=0.5135 | Precision=0.6425 | Recall=0.4277 | Threshold=0.9810
+Ensemble_Prob_Context_Pair (CAT+LGBM): PR-AUC=0.4130 | ROC-AUC=0.8489 | F1=0.5164 | Precision=0.6481 | Recall=0.4292 | Threshold=0.4216
+Ensemble_Rank_Context_Pair (CAT+XGB): PR-AUC=0.3803 | ROC-AUC=0.8495 | F1=0.4895 | Precision=0.5763 | Recall=0.4254 | Threshold=0.9782
+Ensemble_Prob_Context_Pair (CAT+XGB): PR-AUC=0.3747 | ROC-AUC=0.8445 | F1=0.4816 | Precision=0.5406 | Recall=0.4341 | Threshold=0.1806
+Ensemble_Rank_Zone_All3: PR-AUC=0.0307 | ROC-AUC=0.5526 | F1=0.0568 | Precision=0.0362 | Recall=0.1313 | Threshold=0.8573
+Ensemble_Prob_Zone_All3: PR-AUC=0.0319 | ROC-AUC=0.5432 | F1=0.0596 | Precision=0.0514 | Recall=0.0710 | Threshold=0.0816
+Ensemble_Rank_Top2: PR-AUC=0.4366 | ROC-AUC=0.8500 | F1=0.5023 | Precision=0.6168 | Recall=0.4237 | Threshold=0.9809
+Ensemble_Prob_Top2: PR-AUC=0.4312 | ROC-AUC=0.8453 | F1=0.5076 | Precision=0.6223 | Recall=0.4285 | Threshold=0.2932
+Ensemble_Rank_Top3: PR-AUC=0.4211 | ROC-AUC=0.8530 | F1=0.5124 | Precision=0.6370 | Recall=0.4285 | Threshold=0.9793
+Ensemble_Prob_Top3: PR-AUC=0.4199 | ROC-AUC=0.8500 | F1=0.5146 | Precision=0.6655 | Recall=0.4196 | Threshold=0.3271
+Ensemble_Rank_Top4: PR-AUC=0.2249 | ROC-AUC=0.8307 | F1=0.2859 | Precision=0.2407 | Recall=0.3520 | Threshold=0.9132
+Ensemble_Prob_Top4: PR-AUC=0.4089 | ROC-AUC=0.8434 | F1=0.5030 | Precision=0.6391 | Recall=0.4146 | Threshold=0.2710
+Ensemble_Rank_All9: PR-AUC=0.0579 | ROC-AUC=0.7046 | F1=0.0933 | Precision=0.0588 | Recall=0.2249 | Threshold=0.8185
+Ensemble_Prob_All9: PR-AUC=0.2565 | ROC-AUC=0.8218 | F1=0.4086 | Precision=0.4302 | Recall=0.3891 | Threshold=0.1571
+Context_LGBM: PR-AUC=0.6853 | ROC-AUC=0.8965 | F1=0.7153 | Threshold=0.8273
+Context_XGB: PR-AUC=0.6896 | ROC-AUC=0.8965 | F1=0.7239 | Threshold=0.6175
+
+===============================================================================================
+DUNG HOP (ENSEMBLE) TOAN DIEN CAC MO HINH TOI UU TREN TAP KIEM DINH TEST (T_OUT)
+===============================================================================================
+Ensemble_Rank_Context_All3 (CAT+XGB+LGBM): PR-AUC=0.5986 | ROC-AUC=0.8899 | F1=0.6037 | Precision=0.7453 | Recall=0.5073 | Threshold=0.9752
+Ensemble_Prob_Context_All3 (CAT+XGB+LGBM): PR-AUC=0.6780 | ROC-AUC=0.8975 | F1=0.7119 | Precision=0.9006 | Recall=0.5885 | Threshold=0.5180
+Ensemble_Rank_Context_Pair (XGB+LGBM): PR-AUC=0.6964 | ROC-AUC=0.8991 | F1=0.7211 | Precision=0.9430 | Recall=0.5837 | Threshold=0.9841
+Ensemble_Prob_Context_Pair (XGB+LGBM): PR-AUC=0.6938 | ROC-AUC=0.8976 | F1=0.7230 | Precision=0.9413 | Recall=0.5869 | Threshold=0.6495
+Ensemble_Rank_Context_Pair (CAT+LGBM): PR-AUC=0.5497 | ROC-AUC=0.8799 | F1=0.5740 | Precision=0.7289 | Recall=0.4734 | Threshold=0.9789
+Ensemble_Prob_Context_Pair (CAT+LGBM): PR-AUC=0.5886 | ROC-AUC=0.8956 | F1=0.6596 | Precision=0.7250 | Recall=0.6051 | Threshold=0.4543
+Ensemble_Rank_Context_Pair (CAT+XGB): PR-AUC=0.5581 | ROC-AUC=0.8803 | F1=0.5797 | Precision=0.7574 | Recall=0.4695 | Threshold=0.9787
+Ensemble_Prob_Context_Pair (CAT+XGB): PR-AUC=0.6557 | ROC-AUC=0.8916 | F1=0.7050 | Precision=0.9226 | Recall=0.5705 | Threshold=0.4718
+Ensemble_Rank_Zone_All3: PR-AUC=0.0307 | ROC-AUC=0.5526 | F1=0.0568 | Precision=0.0362 | Recall=0.1313 | Threshold=0.8573
+Ensemble_Prob_Zone_All3: PR-AUC=0.0319 | ROC-AUC=0.5432 | F1=0.0596 | Precision=0.0514 | Recall=0.0710 | Threshold=0.0816
+Ensemble_Rank_Top2: PR-AUC=0.6964 | ROC-AUC=0.8991 | F1=0.7211 | Precision=0.9430 | Recall=0.5837 | Threshold=0.9841
+Ensemble_Prob_Top2: PR-AUC=0.6938 | ROC-AUC=0.8976 | F1=0.7230 | Precision=0.9413 | Recall=0.5869 | Threshold=0.6495
+Ensemble_Rank_Top3: PR-AUC=0.5986 | ROC-AUC=0.8899 | F1=0.6037 | Precision=0.7453 | Recall=0.5073 | Threshold=0.9752
+Ensemble_Prob_Top3: PR-AUC=0.6780 | ROC-AUC=0.8975 | F1=0.7119 | Precision=0.9006 | Recall=0.5885 | Threshold=0.5180
+Ensemble_Rank_Top4: PR-AUC=0.2716 | ROC-AUC=0.8573 | F1=0.2926 | Precision=0.2595 | Recall=0.3353 | Threshold=0.9280
+Ensemble_Prob_Top4: PR-AUC=0.6622 | ROC-AUC=0.8936 | F1=0.7025 | Precision=0.9089 | Recall=0.5724 | Threshold=0.4646
+Ensemble_Rank_All9: PR-AUC=0.0620 | ROC-AUC=0.7191 | F1=0.0975 | Precision=0.0643 | Recall=0.2022 | Threshold=0.8403
+Ensemble_Prob_All9: PR-AUC=0.4463 | ROC-AUC=0.8830 | F1=0.6252 | Precision=0.6629 | Recall=0.5916 | Threshold=0.2183
+Context_CAT: PR-AUC=0.6828 | ROC-AUC=0.8924 | F1=0.7113 | Threshold=0.7545
+
+===============================================================================================
+DUNG HOP (ENSEMBLE) TOAN DIEN CAC MO HINH TOI UU TREN TAP KIEM DINH TEST (T_OUT)
+===============================================================================================
+Ensemble_Rank_Context_All3 (CAT+XGB+LGBM): PR-AUC=0.6977 | ROC-AUC=0.8989 | F1=0.7254 | Precision=0.9322 | Recall=0.5937 | Threshold=0.9826
+Ensemble_Prob_Context_All3 (CAT+XGB+LGBM): PR-AUC=0.6953 | ROC-AUC=0.8977 | F1=0.7267 | Precision=0.9552 | Recall=0.5865 | Threshold=0.6748
+Ensemble_Rank_Context_Pair (XGB+LGBM): PR-AUC=0.6964 | ROC-AUC=0.8991 | F1=0.7211 | Precision=0.9430 | Recall=0.5837 | Threshold=0.9841
+Ensemble_Prob_Context_Pair (XGB+LGBM): PR-AUC=0.6938 | ROC-AUC=0.8976 | F1=0.7230 | Precision=0.9413 | Recall=0.5869 | Threshold=0.6495
+Ensemble_Rank_Context_Pair (CAT+LGBM): PR-AUC=0.6943 | ROC-AUC=0.8974 | F1=0.7224 | Precision=0.9339 | Recall=0.5891 | Threshold=0.9832
+Ensemble_Prob_Context_Pair (CAT+LGBM): PR-AUC=0.6929 | ROC-AUC=0.8971 | F1=0.7217 | Precision=0.9231 | Recall=0.5925 | Threshold=0.7044
+Ensemble_Rank_Context_Pair (CAT+XGB): PR-AUC=0.6921 | ROC-AUC=0.8972 | F1=0.7248 | Precision=0.9506 | Recall=0.5857 | Threshold=0.9841
+Ensemble_Prob_Context_Pair (CAT+XGB): PR-AUC=0.6905 | ROC-AUC=0.8959 | F1=0.7271 | Precision=0.9578 | Recall=0.5859 | Threshold=0.6406
+Ensemble_Rank_Zone_All3: PR-AUC=0.0307 | ROC-AUC=0.5526 | F1=0.0568 | Precision=0.0362 | Recall=0.1313 | Threshold=0.8573
+Ensemble_Prob_Zone_All3: PR-AUC=0.0319 | ROC-AUC=0.5432 | F1=0.0596 | Precision=0.0514 | Recall=0.0710 | Threshold=0.0816
+Ensemble_Rank_Top2: PR-AUC=0.6964 | ROC-AUC=0.8991 | F1=0.7211 | Precision=0.9430 | Recall=0.5837 | Threshold=0.9841
+Ensemble_Prob_Top2: PR-AUC=0.6938 | ROC-AUC=0.8976 | F1=0.7230 | Precision=0.9413 | Recall=0.5869 | Threshold=0.6495
+Ensemble_Rank_Top3: PR-AUC=0.6977 | ROC-AUC=0.8989 | F1=0.7254 | Precision=0.9322 | Recall=0.5937 | Threshold=0.9826
+Ensemble_Prob_Top3: PR-AUC=0.6953 | ROC-AUC=0.8977 | F1=0.7267 | Precision=0.9552 | Recall=0.5865 | Threshold=0.6748
+Ensemble_Rank_Top4: PR-AUC=0.2898 | ROC-AUC=0.8625 | F1=0.2963 | Precision=0.2835 | Recall=0.3103 | Threshold=0.9419
+Ensemble_Prob_Top4: PR-AUC=0.6849 | ROC-AUC=0.8942 | F1=0.7203 | Precision=0.9308 | Recall=0.5874 | Threshold=0.5410
+Ensemble_Rank_All9: PR-AUC=0.0665 | ROC-AUC=0.7228 | F1=0.0981 | Precision=0.0686 | Recall=0.1721 | Threshold=0.8657
+Ensemble_Prob_All9: PR-AUC=0.5287 | ROC-AUC=0.8858 | F1=0.6699 | Precision=0.8101 | Recall=0.5710 | Threshold=0.3108
+Context_LGBM: PR-AUC=0.6863 | ROC-AUC=0.8988 | F1=0.7089 | Threshold=0.8454
+Context_XGB: PR-AUC=0.6915 | ROC-AUC=0.8969 | F1=0.7225 | Threshold=0.6229
+
+===============================================================================================
+DUNG HOP (ENSEMBLE) TOAN DIEN CAC MO HINH TOI UU TREN TAP KIEM DINH TEST (T_OUT)
+===============================================================================================
+Ensemble_Rank_Context_All3 (CAT+XGB+LGBM): PR-AUC=0.6953 | ROC-AUC=0.8972 | F1=0.7203 | Precision=0.9698 | Recall=0.5729 | Threshold=0.9843
+Ensemble_Prob_Context_All3 (CAT+XGB+LGBM): PR-AUC=0.6931 | ROC-AUC=0.8965 | F1=0.7215 | Precision=0.9612 | Recall=0.5775 | Threshold=0.6945
+Ensemble_Rank_Context_Pair (XGB+LGBM): PR-AUC=0.6938 | ROC-AUC=0.8976 | F1=0.7171 | Precision=0.9650 | Recall=0.5706 | Threshold=0.9850
+Ensemble_Prob_Context_Pair (XGB+LGBM): PR-AUC=0.6925 | ROC-AUC=0.8987 | F1=0.7179 | Precision=0.9604 | Recall=0.5732 | Threshold=0.7304
+Ensemble_Rank_Context_Pair (CAT+LGBM): PR-AUC=0.6926 | ROC-AUC=0.8970 | F1=0.7175 | Precision=0.9554 | Recall=0.5745 | Threshold=0.9841
+Ensemble_Prob_Context_Pair (CAT+LGBM): PR-AUC=0.6906 | ROC-AUC=0.8962 | F1=0.7174 | Precision=0.9578 | Recall=0.5735 | Threshold=0.7508
+Ensemble_Rank_Context_Pair (CAT+XGB): PR-AUC=0.6915 | ROC-AUC=0.8943 | F1=0.7229 | Precision=0.9447 | Recall=0.5855 | Threshold=0.9838
+Ensemble_Prob_Context_Pair (CAT+XGB): PR-AUC=0.6892 | ROC-AUC=0.8934 | F1=0.7252 | Precision=0.9500 | Recall=0.5865 | Threshold=0.6346
+Ensemble_Rank_Zone_All3: PR-AUC=0.0307 | ROC-AUC=0.5523 | F1=0.0567 | Precision=0.0362 | Recall=0.1311 | Threshold=0.8572
+Ensemble_Prob_Zone_All3: PR-AUC=0.0319 | ROC-AUC=0.5432 | F1=0.0596 | Precision=0.0514 | Recall=0.0710 | Threshold=0.0816
+Ensemble_Rank_Top2: PR-AUC=0.6938 | ROC-AUC=0.8976 | F1=0.7171 | Precision=0.9650 | Recall=0.5706 | Threshold=0.9850
+Ensemble_Prob_Top2: PR-AUC=0.6925 | ROC-AUC=0.8987 | F1=0.7179 | Precision=0.9604 | Recall=0.5732 | Threshold=0.7304
+Ensemble_Rank_Top3: PR-AUC=0.6953 | ROC-AUC=0.8972 | F1=0.7203 | Precision=0.9698 | Recall=0.5729 | Threshold=0.9843
+Ensemble_Prob_Top3: PR-AUC=0.6931 | ROC-AUC=0.8965 | F1=0.7215 | Precision=0.9612 | Recall=0.5775 | Threshold=0.6945
+Ensemble_Rank_Top4: PR-AUC=0.2823 | ROC-AUC=0.8603 | F1=0.2844 | Precision=0.2596 | Recall=0.3143 | Threshold=0.9407
+Ensemble_Prob_Top4: PR-AUC=0.6819 | ROC-AUC=0.8919 | F1=0.7134 | Precision=0.9484 | Recall=0.5718 | Threshold=0.5894
+Ensemble_Rank_All9: PR-AUC=0.0659 | ROC-AUC=0.7213 | F1=0.0980 | Precision=0.0683 | Recall=0.1736 | Threshold=0.8653
+Ensemble_Prob_All9: PR-AUC=0.5263 | ROC-AUC=0.8837 | F1=0.6694 | Precision=0.8055 | Recall=0.5727 | Threshold=0.3079
+Context_RF: PR-AUC=0.6694 | ROC-AUC=0.8819 | F1=0.7181 | Threshold=0.5538
+Context_ET: PR-AUC=0.6049 | ROC-AUC=0.8875 | F1=0.6257 | Threshold=0.6131
+Baseline_RF: PR-AUC=0.6319 | ROC-AUC=0.8654 | F1=0.7076 | Threshold=0.7318
+Zone_RF: PR-AUC=0.6295 | ROC-AUC=0.8620 | F1=0.7083 | Threshold=0.5909
+
+===============================================================================================
+DUNG HOP (ENSEMBLE) TOAN DIEN CAC MO HINH TOI UU TREN TAP KIEM DINH TEST (T_OUT)
+===============================================================================================
+Ensemble_Rank_Context_All3 (CAT+XGB+LGBM): PR-AUC=0.6953 | ROC-AUC=0.8972 | F1=0.7203 | Precision=0.9698 | Recall=0.5729 | Threshold=0.9843
+Ensemble_Prob_Context_All3 (CAT+XGB+LGBM): PR-AUC=0.6931 | ROC-AUC=0.8965 | F1=0.7215 | Precision=0.9612 | Recall=0.5775 | Threshold=0.6945
+Ensemble_Rank_Context_Pair (XGB+LGBM): PR-AUC=0.6938 | ROC-AUC=0.8976 | F1=0.7171 | Precision=0.9650 | Recall=0.5706 | Threshold=0.9850
+Ensemble_Prob_Context_Pair (XGB+LGBM): PR-AUC=0.6925 | ROC-AUC=0.8987 | F1=0.7179 | Precision=0.9604 | Recall=0.5732 | Threshold=0.7304
+Ensemble_Rank_Context_Pair (CAT+LGBM): PR-AUC=0.6926 | ROC-AUC=0.8970 | F1=0.7175 | Precision=0.9554 | Recall=0.5745 | Threshold=0.9841
+Ensemble_Prob_Context_Pair (CAT+LGBM): PR-AUC=0.6906 | ROC-AUC=0.8962 | F1=0.7174 | Precision=0.9578 | Recall=0.5735 | Threshold=0.7508
+Ensemble_Rank_Context_Pair (CAT+XGB): PR-AUC=0.6915 | ROC-AUC=0.8943 | F1=0.7229 | Precision=0.9447 | Recall=0.5855 | Threshold=0.9838
+Ensemble_Prob_Context_Pair (CAT+XGB): PR-AUC=0.6892 | ROC-AUC=0.8934 | F1=0.7252 | Precision=0.9500 | Recall=0.5865 | Threshold=0.6346
+Ensemble_Rank_Context_All5_Pentad (CAT+XGB+LGBM+RF+ET): PR-AUC=0.6855 | ROC-AUC=0.8989 | F1=0.7004 | Precision=0.8886 | Recall=0.5780 | Threshold=0.9783
+Ensemble_Prob_Context_All5_Pentad (CAT+XGB+LGBM+RF+ET): PR-AUC=0.6919 | ROC-AUC=0.8968 | F1=0.7224 | Precision=0.9291 | Recall=0.5910 | Threshold=0.5379
+Ensemble_Rank_Context_Quad (CAT+XGB+LGBM+RF): PR-AUC=0.6960 | ROC-AUC=0.8969 | F1=0.7203 | Precision=0.9192 | Recall=0.5922 | Threshold=0.9814
+Ensemble_Prob_Context_Quad (CAT+XGB+LGBM+RF): PR-AUC=0.6933 | ROC-AUC=0.8951 | F1=0.7261 | Precision=0.9567 | Recall=0.5851 | Threshold=0.6280
+Ensemble_Prob_Context_Pair (RF+XGB): PR-AUC=0.6862 | ROC-AUC=0.8886 | F1=0.7226 | Precision=0.9712 | Recall=0.5753 | Threshold=0.6184
+Ensemble_Rank_Context_Pair (RF+XGB): PR-AUC=0.6866 | ROC-AUC=0.8923 | F1=0.7218 | Precision=0.9713 | Recall=0.5743 | Threshold=0.9851
+Ensemble_Prob_Context_Pair (RF+CAT): PR-AUC=0.6845 | ROC-AUC=0.8892 | F1=0.7241 | Precision=0.9423 | Recall=0.5880 | Threshold=0.5722
+Ensemble_Rank_Context_Pair (RF+CAT): PR-AUC=0.6863 | ROC-AUC=0.8910 | F1=0.7256 | Precision=0.9620 | Recall=0.5824 | Threshold=0.9836
+Ensemble_Rank_Zone_All3: PR-AUC=0.0307 | ROC-AUC=0.5523 | F1=0.0567 | Precision=0.0362 | Recall=0.1311 | Threshold=0.8572
+Ensemble_Prob_Zone_All3: PR-AUC=0.0319 | ROC-AUC=0.5432 | F1=0.0596 | Precision=0.0514 | Recall=0.0710 | Threshold=0.0816
+Ensemble_Rank_Top2: PR-AUC=0.6938 | ROC-AUC=0.8976 | F1=0.7171 | Precision=0.9650 | Recall=0.5706 | Threshold=0.9850
+Ensemble_Prob_Top2: PR-AUC=0.6925 | ROC-AUC=0.8987 | F1=0.7179 | Precision=0.9604 | Recall=0.5732 | Threshold=0.7304
+Ensemble_Rank_Top3: PR-AUC=0.6953 | ROC-AUC=0.8972 | F1=0.7203 | Precision=0.9698 | Recall=0.5729 | Threshold=0.9843
+Ensemble_Prob_Top3: PR-AUC=0.6931 | ROC-AUC=0.8965 | F1=0.7215 | Precision=0.9612 | Recall=0.5775 | Threshold=0.6945
+Ensemble_Rank_Top4: PR-AUC=0.6960 | ROC-AUC=0.8969 | F1=0.7203 | Precision=0.9192 | Recall=0.5922 | Threshold=0.9814
+Ensemble_Prob_Top4: PR-AUC=0.6933 | ROC-AUC=0.8951 | F1=0.7261 | Precision=0.9567 | Recall=0.5851 | Threshold=0.6280
+Ensemble_Rank_All15: PR-AUC=0.1024 | ROC-AUC=0.8095 | F1=0.1555 | Precision=0.0933 | Recall=0.4671 | Threshold=0.7697
+Ensemble_Prob_All15: PR-AUC=0.6556 | ROC-AUC=0.8866 | F1=0.6990 | Precision=0.9267 | Recall=0.5611 | Threshold=0.3392
+Baseline_ET: PR-AUC=0.2364 | ROC-AUC=0.8117 | F1=0.3893 | Threshold=0.2449

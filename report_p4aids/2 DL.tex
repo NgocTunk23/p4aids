@@ -49,7 +49,6 @@ LSTM đưa vào trạng thái ô nhớ $\mathbf{c}_t$ cùng ba cổng điều kh
 \end{equation*}
 trong đó $\mathbf{f}_t$, $\mathbf{i}_t$, $\mathbf{o}_t$ lần lượt là cổng quên, cổng vào và cổng ra, $\sigma$ là hàm sigmoid và $\odot$ là phép nhân từng phần tử.\\
 
-\pagebreak
 \textbf{Ưu điểm:}
 \begin{itemize}
     \item \textbf{Học phụ thuộc dài hạn:} đường truyền gradient qua ô nhớ $\mathbf{c}_t$ giảm hiện tượng triệt tiêu gradient, phù hợp với chu kỳ ngày ($24$ giờ) và chu kỳ tuần ($168$ giờ) của dữ liệu tiêu thụ điện.
@@ -157,7 +156,9 @@ Với chuỗi đơn biến ($d = 1$), điểm này rút gọn thành sai số b�
     \item \textbf{Bắt tốt bất thường làm gãy mẫu hình tuần hoàn:} bất thường khác biệt rõ so với dạng ngày/tuần bình thường sẽ có sai số tái tạo lớn.
     \item \textbf{Tạo được điểm số liên tục:} có thể đưa sai số tái tạo vào mô hình Học máy làm đặc trưng bổ sung (tương tự vai trò của điểm Isolation Forest ở phần Học máy).
 \end{itemize}
+
 \pagebreak
+
 \textbf{Nhược điểm:}
 \begin{itemize}
     \item \textbf{Bỏ phí nhãn sẵn có:} khi bộ dữ liệu đã có nhãn, huấn luyện không giám sát thường kém mô hình có giám sát cùng ngân sách tính toán.
@@ -250,6 +251,7 @@ Transformer dùng cơ chế tự chú ý (self-attention) để mọi vị trí 
 Chi phí tính toán của một tầng chú ý là $\mathcal{O}(w^2 d)$ theo độ dài cửa sổ $w$. Anomaly Transformer đề xuất tiêu chí \textit{Association Discrepancy}: do bất thường hiếm nên khó xây dựng liên kết mạnh với toàn chuỗi và liên kết của nó tập trung vào các điểm lân cận, vì vậy sự khác biệt giữa liên kết tiên nghiệm và liên kết chuỗi được dùng để phân biệt bất thường (Xu et al., 2022). TranAD dùng bộ mã hoá chú ý với tự điều kiện hoá theo điểm tập trung (focus score), huấn luyện đối kháng và học meta (MAML) để huấn luyện được với dữ liệu hạn chế (Tuli et al., 2022).\\
 
 \pagebreak
+
 \textbf{Ưu điểm:}
 \begin{itemize}
     \item \textbf{Mô hình hoá quan hệ xa không phụ thuộc khoảng cách:} bất kỳ hai giờ nào trong cửa sổ cũng liên hệ trực tiếp, phù hợp chu kỳ ngày/tuần.
@@ -274,9 +276,7 @@ Với tỷ lệ bất thường khoảng $2{,}1\%$, mô hình Học sâu có gi�
     \mathcal{L}_{\text{WBCE}} = -\frac{1}{N}\sum_{i=1}^{N}\left[ w_{+}\, y_i \log \hat{p}_i + (1 - y_i)\log\left(1 - \hat{p}_i\right)\right], \qquad w_{+} \approx \frac{N_{-}}{N_{+}} \approx 45
 \end{equation*}
 
-\textbf{Ưu điểm:} đơn giản, một siêu tham số $w_{+}$ và tương ứng trực tiếp với \texttt{scale\_pos\_weight} đã dùng ở phần Học máy. 
-
-\textbf{Nhược điểm:} đặt $w_{+}$ bằng đúng tỷ lệ lớp có thể làm xác suất đầu ra lệch mạnh về phía lớp $1$, nên ngưỡng quyết định phải được tối ưu lại và độ tin cậy xác suất giảm.\\
+\textbf{Ưu điểm:} đơn giản, một siêu tham số $w_{+}$ và tương ứng trực tiếp với \texttt{scale\_pos\_weight} đã dùng ở phần Học máy. \textbf{Nhược điểm:} đặt $w_{+}$ bằng đúng tỷ lệ lớp có thể làm xác suất đầu ra lệch mạnh về phía lớp $1$, nên ngưỡng quyết định phải được tối ưu lại và độ tin cậy xác suất giảm.\\
 
 \paragraph{Focal Loss}\hspace{1cm}
 
@@ -286,9 +286,7 @@ Focal loss giảm trọng số của các mẫu dễ phân loại để tập tr
 \end{equation*}
 trong đó $p_t$ là xác suất mô hình gán cho lớp đúng, $\gamma \geq 0$ là hệ số tập trung và $\alpha_t$ là trọng số lớp.
 
-\textbf{Ưu điểm:} hàng triệu điểm bình thường dễ phân loại sẽ không chi phối gradient, phù hợp khi bất thường có hai loại dễ và khó. 
-
-\textbf{Nhược điểm:} thêm hai siêu tham số $(\alpha, \gamma)$ cần tinh chỉnh và xác suất đầu ra cũng cần hiệu chỉnh lại.
+\textbf{Ưu điểm:} hàng triệu điểm bình thường dễ phân loại sẽ không chi phối gradient, phù hợp khi bất thường có hai loại dễ và khó. \textbf{Nhược điểm:} thêm hai siêu tham số $(\alpha, \gamma)$ cần tinh chỉnh và xác suất đầu ra cũng cần hiệu chỉnh lại.
 
 \subsubsection{Các nghiên cứu liên quan trên chính bộ dữ liệu LEAD}
 Bảng dưới tóm tắt các nghiên cứu sử dụng LEAD mà nhóm đã tham khảo, kèm lưu ý về khả năng so sánh. Các con số là do chính tác giả bài báo báo cáo; nhóm không tự chạy lại.
@@ -301,12 +299,12 @@ Bảng dưới tóm tắt các nghiên cứu sử dụng LEAD mà nhóm đã tha
 \end{itemize}
 Các nghiên cứu trên khác nhau về tập toà nhà ($15$, $200$ hoặc $406$ toà), về đơn vị đánh giá (cửa sổ hoặc từng giờ) và về việc có dùng nhãn hay không. Vì vậy nhóm sẽ dùng chúng làm cơ sở ý tưởng chứ không đặt trực tiếp kết quả cạnh nhau. Ngoài ra, bảng đánh giá của Schmidl et al. (2022) trên $71$ thuật toán và $976$ tập chuỗi thời gian cho thấy việc chọn thuật toán phụ thuộc mạnh vào từng bài toán, nên cần đối chiếu thực nghiệm thay vì dựa vào kết quả công bố ở bộ dữ liệu khác.
 
+\pagebreak
+
 \subsubsection{Tổng hợp so sánh các họ mô hình Học sâu}
 \begin{center}
 \small
-\setlength{\extrarowheight}{3.5pt}
-\renewcommand{\arraystretch}{1.25}
-\begin{tabularx}{\textwidth}{|>{\centering\arraybackslash}m{2.6cm}|>{\centering\arraybackslash}m{1.8cm}|>{\centering\arraybackslash}m{1.5cm}|>{\centering\arraybackslash}X|>{\centering\arraybackslash}m{2.2cm}|>{\centering\arraybackslash}m{2.2cm}|}
+\begin{tabular}{|p{2.9cm}|p{1.9cm}|p{1.6cm}|p{2.3cm}|p{2.3cm}|p{2.5cm}|}
 \hline
 \textbf{Họ mô hình} & \textbf{Hệ hình} & \textbf{Dùng nhãn} & \textbf{Ngữ cảnh thời gian} & \textbf{Chi phí} & \textbf{Phù hợp LEAD} \\
 \hline
@@ -324,6 +322,6 @@ GAN-LSTM / TAnoGAN & Sinh đối kháng & Không & Trong cửa sổ & Rất cao 
 \hline
 Transformer / TranAD & Tái tạo hoặc gán nhãn & Tuỳ biến thể & Toàn cửa sổ & Bậc hai theo $w$ & Thấp đến trung bình \\
 \hline
-\end{tabularx}
+\end{tabular}
 \end{center}
 Cột ``Phù hợp LEAD'' là đánh giá của nhóm dựa trên các tiêu chí: tận dụng được nhãn sẵn có, khả năng chấm điểm từng giờ trên khoảng $1{,}75$ triệu quan trắc, và rủi ro quá khớp với chỉ $200$ chuỗi. Đánh giá này sẽ được kiểm chứng bằng thực nghiệm ở phần triển khai.

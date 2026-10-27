@@ -1,96 +1,138 @@
-\section{Đánh giá, So sánh và Phân tích kết quả, hiệu năng}
+\section{So sánh Học Máy và Học Sâu: Thế mạnh và Điểm yếu}
 
-Chương này tổng kết toàn bộ kết quả thực nghiệm đạt được trong quá trình nghiên cứu, đối chiếu hiệu năng giữa các thuật toán, phân tích sự tăng tiến qua từng giai đoạn cải tiến kỹ thuật, và đánh giá tính khả thi khi triển khai trong các hệ thống giám sát phụ tải điện thông minh.
+% Mục này so sánh hai hướng tiếp cận đã triển khai ở các mục trước: nhóm mô hình Học máy dựa trên cây tăng cường gradient (XGBoost, LightGBM, CatBoost) và nhóm mô hình Học sâu (MLP, TCN, BiGRU, BiLSTM, LSTM Autoencoder). Phần phân tích chủ yếu dựa trên đặc điểm lý thuyết của từng hệ hình, đối chiếu với các kết quả đã có. Do hai phần dùng giao thức đánh giá khác nhau, các con số của hai phần được nêu riêng ở mục~6.5 và \textbf{chưa dùng để xếp hạng trực tiếp}; việc so sánh định lượng công bằng thuộc hướng hoàn thiện ở mục~6.6.
 
-\subsection{Bảng Tổng hợp Kết quả Thực nghiệm Toàn diện của Họ Mô hình Học Máy}
+% \subsection{Khác biệt về Cách tiếp cận}
 
-Bảng~\ref{tab:comprehensive_ml_benchmark} tổng hợp toàn diện kết quả thực nghiệm của các mô hình Học máy, từ các mô hình cây kinh điển đến các mô hình Boosting sau khi được tối ưu hóa siêu tham số độc lập trên cả hai nhánh dữ liệu Baseline ($40$ đặc trưng) và Zone Features ($55$ đặc trưng), kết hợp cơ chế dung hợp Ensemble và tối ưu ngưỡng động.
+% \begin{table}[H]
+% \centering
+% \caption{\textbf{Khác biệt về cách tiếp cận giữa nhóm Học máy và nhóm Học sâu trong đề tài}}
+% \label{tab:ml_dl_approach}
+% \renewcommand{\arraystretch}{1.2}
+% \resizebox{\textwidth}{!}{
+% \begin{tabular}{|l|p{5.4cm}|p{5.4cm}|}
+% \hline
+% \textbf{Khía cạnh} & \textbf{Học máy (Boosting)} & \textbf{Học sâu (mô hình chuỗi)} \\ \hline
+% Đơn vị dự đoán & Từng dòng (một giờ của một toà nhà) & Từng giờ trong đoạn dài $168$ giờ, kèm $252$ giờ ngữ cảnh \\ \hline
+% Cách có được ngữ cảnh thời gian & Qua đặc trưng thiết kế thủ công (mã hoá chu kỳ, đặc trưng trễ, tương tác khu vực) & Mạng tự học từ chuỗi thô, có hỗ trợ thêm các đặc trưng nhân quả \\ \hline
+% Tận dụng nhãn & Có giám sát & Có giám sát (MLP, TCN, BiGRU, BiLSTM) và không giám sát (LSTM-AE) \\ \hline
+% Xử lý mất cân bằng lớp & Điều chỉnh ngưỡng quyết định, tối ưu siêu tham số & Hàm mất mát có trọng số lớp ($w_{+}=20$) \\ \hline
+% Đầu ra & Xác suất bất thường theo dòng & Điểm bất thường liên tục theo giờ \\ \hline
+% Dung hợp & Percentile Rank Averaging, Soft Voting, SLSQP & Trung bình hạng phần trăm \\ \hline
+% \end{tabular}
+% }
+% \end{table}
 
-\begin{table}[H]
-\centering
-\caption{\textbf{Bảng tổng hợp kết quả hiệu năng và chi phí tính toán qua các giai đoạn cải tiến}}
-\label{tab:comprehensive_ml_benchmark}
-\renewcommand{\arraystretch}{1.2}
-\resizebox{\textwidth}{!}{
-\begin{tabular}{|l|l|l|c|c|c|c|c|c|r|}
-\hline
-\textbf{Nhóm Thực nghiệm} & \textbf{Mô hình / Phương pháp} & \textbf{Bộ dữ liệu} & \textbf{Ngưỡng $\tau^*$} & \textbf{F1 (0.5)} & \textbf{F1 ($\tau^*$)} & \textbf{F1 (Động)} & \textbf{Precision} & \textbf{Recall} & \textbf{Thời gian} \\ \hline
-\multirow{2}{*}{\textbf{Cây Cổ điển (Mốc đối chứng)}} 
-& Extra Trees (90 cây, d=22) & Baseline (40 cột) & 0,240 & 0,7023 & 0,8051 & - & 0,8261 & 0,7852 & 51,7 s \\ \cline{2-10}
-& Random Forest (90 cây, d=22) & Baseline (40 cột) & 0,230 & 0,8450 & 0,8792 & - & 0,9127 & 0,8481 & 116,9 s \\ \hline
-\multirow{3}{*}{\textbf{1. Baseline Đơn (Optuna 50 trials)}} 
-& CatBoost Tuned & Baseline (40 cột) & 0,298 & 0,9065 & 0,9200 & 0,9225 & 0,9561 & 0,8866 & 185,5 s \\ \cline{2-10}
-& LightGBM Tuned & Baseline (40 cột) & 0,280 & 0,9209 & 0,9284 & 0,9295 & \textbf{0,9615} & 0,8974 & \textbf{8,8 s} \\ \cline{2-10}
-& XGBoost Tuned & Baseline (40 cột) & 0,240 & 0,9252 & \textbf{0,9332} & 0,9352 & 0,9564 & 0,9111 & 12,5 s \\ \hline
-\multirow{3}{*}{\textbf{2. Zone Features Đơn (50 trials)}} 
-& CatBoost Tuned & Zone (55 cột) & 0,293 & 0,9101 & 0,9202 & 0,9220 & 0,9520 & 0,8905 & 111,5 s \\ \cline{2-10}
-& LightGBM Tuned & Zone (55 cột) & 0,317 & 0,9134 & 0,9240 & 0,9287 & 0,9612 & 0,8895 & 9,2 s \\ \cline{2-10}
-& XGBoost Tuned & Zone (55 cột) & 0,263 & 0,9238 & 0,9317 & 0,9341 & 0,9568 & 0,9079 & 10,9 s \\ \hline
-\multirow{4}{*}{\textbf{3. Ensemble (Baseline)}} 
-& Soft Voting (XGB + LGB + CAT) & Baseline & 0,250 & 0,9235 & 0,9325 & 0,9355 & 0,9582 & 0,9081 & $<0{,}1$ s \\ \cline{2-10}
-& Top-2 Blend (XGB+LGB) & Baseline & 0,250 & 0,9245 & 0,9335 & 0,9358 & 0,9605 & 0,9095 & $<0{,}1$ s \\ \cline{2-10}
-& Dynamic Thresh Blend & Baseline & 0,260 & 0,9245 & 0,9330 & 0,9365 & 0,9612 & 0,9068 & $<0{,}1$ s \\ \cline{2-10}
-& Weighted Blending LogLoss & Baseline & 0,222 & 0,9252 & 0,9346 & 0,9365 & 0,9547 & 0,9154 & $<0{,}1$ s \\ \hline
-\multirow{5}{*}{\textbf{4. Ensemble (Zone Features)}} 
-& Soft Voting (XGB + LGB + CAT) & Zone & 0,234 & 0,9219 & 0,9315 & 0,9359 & 0,9492 & 0,9145 & $<0{,}1$ s \\ \cline{2-10}
-& Context-Aware MoE (LightGBM Meta-Learner) & Zone & 0,294 & \textbf{0,9304} & 0,9320 & 0,9354 & 0,9532 & 0,9118 & 3,3 s \\ \cline{2-10}
-& Top-2 Blend (XGB+CAT) [0,80 - 0,20] & Zone & 0,251 & 0,9230 & 0,9330 & 0,9348 & 0,9560 & 0,9111 & $<0{,}1$ s \\ \cline{2-10}
-& Dynamic Thresh Blend [0,60 - 0,25 - 0,15] & Zone & 0,234 & 0,9244 & 0,9335 & 0,9372 & 0,9524 & 0,9153 & $<0{,}1$ s \\ \cline{2-10}
-& \textbf{Weighted Blending LogLoss [0,65 - 0,25 - 0,10]} & \textbf{Zone} & \textbf{0,232} & 0,9241 & \textbf{0,9336} & \textbf{0,9373} & 0,9519 & \textbf{0,9159} & $<0{,}1$ s \\ \hline
-\end{tabular}
-}
-\end{table}
+% \subsection{Thế mạnh và Điểm yếu của Học Máy}
 
-\subsection{Phân tích Tiến trình Cải tiến Hiệu năng (Performance Progression)}
+% \paragraph{Thế mạnh:}\hspace{1cm}
+% \begin{itemize}
+%     \item \textbf{Phù hợp với dữ liệu dạng bảng.} Dữ liệu LEAD gồm biến liên tục, biến phân loại và đặc trưng thời gian; cây quyết định xử lý tự nhiên các tương tác phi tuyến và các ngưỡng cứng, ví dụ giá trị đo bằng đúng $1{,}0$.
+%     \item \textbf{Huấn luyện nhanh, tài nguyên thấp.} Theo Bảng~\ref{tab:model_feasibility_comparison}, các thuật toán Boosting chỉ mất từ $3$ đến $13$ giây để huấn luyện xong hơn $1{,}14$ triệu dòng ($T_{\text{in}}$) trên CPU thông thường, không cần GPU.
+%     \item \textbf{Ít nhạy với thang đo và giá trị khuyết.} Mô hình cây không đòi hỏi chuẩn hoá cẩn thận và xử lý giá trị khuyết sẵn có.
+%     \item \textbf{Dễ giải thích.} Có thể xem độ quan trọng của đặc trưng và phân tích vì sao một mẫu bị gán nhãn bất thường.
+%     \item \textbf{Ít siêu tham số nhạy.} Kết quả sau tinh chỉnh bằng Optuna chỉ thay đổi nhỏ so với cấu hình mặc định (Bảng~\ref{tab:tuned_hyperparameters}), cho thấy mô hình ổn định với cấu hình hợp lý.
+% \end{itemize}
 
-Từ kết quả thực nghiệm tại Bảng~\ref{tab:comprehensive_ml_benchmark}, nhóm nghiên cứu ghi nhận sự tăng tiến rõ rệt của chỉ số F1-Score qua bốn đòn bẩy kỹ thuật chủ chốt:
+% \paragraph{Điểm yếu:}\hspace{1cm}
+% \begin{itemize}
+%     \item \textbf{Phụ thuộc vào đặc trưng thiết kế thủ công.} Ngữ cảnh thời gian chỉ đi vào mô hình qua các đặc trưng người thiết kế chọn; nếu thiết kế chưa đủ (hoặc xây sai) thì mô hình không tự bù. Kết quả tiến trình không gian đặc trưng ở Bảng~\ref{tab:lag_vs_zone_leakage_test} cho thấy chất lượng đặc trưng quyết định rất lớn đến hiệu năng (tăng từ $0{,}64$ lên hơn $0{,}69$).
+%     \item \textbf{Mỗi dòng được xét độc lập.} Mô hình không biết trực tiếp một giá trị đã lặp bao lâu hay mẫu hình của tuần trước, trừ khi các thông tin đó được mã hoá thành đặc trưng.
+%     \item \textbf{Rủi ro nhận diện toà nhà.} Các đặc trưng như \texttt{square\_feet} và tương tác khu vực gần như nhận diện được từng toà nhà. Nếu chia dữ liệu theo dòng, mô hình có thể ghi nhớ đặc điểm riêng của từng toà thay vì học quy luật chung, và điểm số có thể cao hơn khả năng thực khi gặp toà nhà mới.
+%     \item \textbf{Cần nhiều bước phụ trợ để đạt hiệu năng cao nhất:} tinh chỉnh ngưỡng, ngưỡng động theo khu vực và dung hợp mô hình, làm pipeline phức tạp hơn và tăng nguy cơ tinh chỉnh quá khớp trên tập kiểm định.
+% \end{itemize}
 
-\subsubsection{Đòn bẩy 1: Tối ưu hóa Ngưỡng Quyết định (Threshold Moving)}
-Việc chuyển từ ngưỡng mặc định $0{,}5$ sang ngưỡng tối ưu $\tau^*$ mang lại mức tăng F1-Score từ $0{,}8\% - 1{,}2\%$ trên tất cả các mô hình và tổ hợp:
-\begin{itemize}
-    \item Với LightGBM (nhánh Baseline), F1 tăng từ $0{,}9209$ lên $0{,}9284$ ($\Delta = +0{,}75\%$) khi dịch chuyển ngưỡng từ $0{,}5$ về $0{,}280$, giúp Recall cải thiện đáng kể lên $0{,}8974$ trong khi duy trì Precision ở mức cao $0{,}9615$.
-    \item Với XGBoost (nhánh Baseline), F1 tăng từ $0{,}9252$ lên $0{,}9332$ ($\Delta = +0{,}80\%$) tại ngưỡng $\tau^* = 0{,}240$, đưa độ nhạy phát hiện dị thường (Recall) đạt mốc kỷ lục $91{,}11\%$ và Precision đạt $0{,}9564$.
-    \item Với tổ hợp Weighted Blending LogLoss trên Zone, F1 tăng từ $0{,}9241$ lên $0{,}9336$ ($\Delta = +0{,}95\%$) tại $\tau^* = 0{,}232$.
-\end{itemize}
-Kết quả này khẳng định: trong bài toán phát hiện dị thường mất cân bằng lớp cực đoan, việc tối ưu hóa ngưỡng cắt xác suất là kỹ thuật có chi phí tính toán gần như bằng 0 nhưng mang lại hiệu quả tăng điểm tức thì lớn nhất.
+% \subsection{Thế mạnh và Điểm yếu của Học Sâu}
 
-\subsubsection{Đòn bẩy 2: Tích hợp Đặc trưng Tương tác Khu vực (Zone Features)}
-Khi bổ sung các biến tương tác giữa \texttt{site\_id}, \texttt{primary\_use} và quy mô diện tích công trình kết hợp mã hóa One-Hot trực giao:
-\begin{itemize}
-    \item Các mô hình trên tập Zone Features đạt được sự ổn định cao độ về khả năng phát hiện mẫu dị thường thiểu số, đặc biệt là tỷ lệ Recall tăng vọt lên mức cao nhất toàn đề tài ($91{,}59\%$ ở Weighted Blend Zone so với $91{,}20\%$ ở Baseline).
-    \item Khi kết hợp ngưỡng động 16 khu vực, lợi thế của Zone Features càng trở nên rõ nét: tổ hợp Weighted Blending Zone bứt phá lên đỉnh kỷ lục tuyệt đối \textbf{0,9373} (vượt trội so với mức $0{,}9365$ của Baseline Ensemble).
-    \item Điều này minh chứng các biến tương tác bối cảnh khu vực giúp mô hình phân hóa chính xác đường cơ sở phụ tải bình thường theo từng vùng khí hậu và loại công trình, giảm thiểu tối đa các cảnh báo giả do biến động thời tiết cục bộ.
-\end{itemize}
+% \paragraph{Thế mạnh:}\hspace{1cm}
+% \begin{itemize}
+%     \item \textbf{Tự học ngữ cảnh thời gian.} Mô hình chuỗi nhìn trực tiếp $252$ giờ trước đó (TCN có vùng nhìn $253$ giờ), nên biết cả hình dạng chu kỳ ngày, tuần và độ dài đoạn giá trị lặp mà không cần thiết kế từng đặc trưng trễ.
+%     \item \textbf{Dự đoán đồng thời nhiều giờ.} Mỗi đoạn dài $168$ giờ cho ra nhãn của toàn bộ các giờ, nên việc suy luận trên $1{,}75$ triệu bước thời gian chỉ cần khoảng $10^4$ đoạn (khoảng $53$ đoạn mỗi toà nhà).
+%     \item \textbf{Ngữ cảnh hai chiều.} BiGRU và BiLSTM dùng cả phần đứng trước và đứng sau trong đoạn, hữu ích để nhận ra một đoạn bất thường kéo dài, dù chỉ dùng được ở chế độ ngoại tuyến.
+%     \item \textbf{Có nhiều hệ hình khác nhau.} Từ mô hình có giám sát đến tái tạo không giám sát, trong đó mô hình không giám sát không cần nhãn và có thể dùng cho dữ liệu chưa gán nhãn.
+%     \item \textbf{Đã được kiểm chứng trên toà nhà chưa thấy.} Pipeline Học sâu được đánh giá bằng \texttt{GroupKFold} theo toà nhà, gần với tình huống triển khai thực tế hơn.
+% \end{itemize}
 
-\subsubsection{Đòn bẩy 3: Dung hợp Đa Mô hình (Ensemble Blending)}
-Việc kết hợp ba mô hình theo cơ chế Weighted Blending với bộ trọng số tối ưu LogLoss mang lại hai ưu thế vượt trội:
-\begin{itemize}
-    \item \textbf{Khắc phục điểm yếu đơn lẻ:} XGBoost có độ chính xác (\textit{Precision}) rất cao nhưng đôi khi bỏ sót các dị thường phân tán; trong khi CatBoost và LightGBM có vùng biên quyết định linh hoạt hơn, giúp bổ sung độ nhạy (\textit{Recall}) cho tập hợp.
-    \item \textbf{Tính ổn định vượt trội:} F1-Score của tổ hợp Blending ($0{,}9373$) cao hơn và ổn định hơn so với việc chỉ đặt cược vào một mô hình đơn lẻ.
-\end{itemize}
+% \paragraph{Điểm yếu:}\hspace{1cm}
+% \begin{itemize}
+%     \item \textbf{Chi phí tính toán và cài đặt cao.} Cần dựng chuỗi, đệm, mặt nạ, và GPU để huấn luyện trong thời gian hợp lý; dữ liệu và mã tiền xử lý phức tạp hơn nhiều so với đưa bảng vào mô hình cây.
+%     \item \textbf{Nhạy với siêu tham số và hạt giống ngẫu nhiên.} Kết quả cần chạy lại nhiều seed mới đáng tin; lần chạy hiện tại chỉ có một seed.
+%     \item \textbf{Khó giải thích hơn.} Việc chỉ ra vì sao một giờ bị coi là bất thường khó hơn nhiều so với mô hình cây.
+%     \item \textbf{Mô hình không giám sát yếu hơn.} Trong kết quả hiện có, LSTM-AE kém xa các mô hình có giám sát; ngoài ra thiết kế hiện tại chưa có điểm thắt (bottleneck) nên có nguy cơ tái tạo tốt cả điểm bất thường.
+%     \item \textbf{Mô hình hai chiều chỉ dùng được ngoại tuyến.} BiGRU và BiLSTM cần cả phần sau của đoạn; chỉ TCN nhân quả phù hợp với cảnh báo gần thời gian thực, với giới hạn về chuẩn hoá nhóm đã nêu ở mục~5.8.
+%     \item \textbf{Dữ liệu ít toà nhà.} Chỉ có $200$ chuỗi nên mô hình lớn dễ quá khớp.
+% \end{itemize}
 
-\subsection{So sánh Định hướng giữa Phương pháp Học Máy và Học Sâu}
+% \subsection{Bảng So sánh Tổng hợp theo Tiêu chí}
 
-Nhằm cung cấp cái nhìn toàn diện về mặt phương pháp luận, nhóm nghiên cứu tổng hợp và đối chiếu các đặc tính cốt lõi giữa hai trường phái tiếp cận Học máy (đại diện là họ Gradient Boosting) và Học sâu (đại diện là các mạng chuỗi BiGRU, TCN, LSTM-Autoencoder) trong bài toán phát hiện dị thường phụ tải điện quy mô lớn:
+% \begin{table}[H]
+% \centering
+% \caption{\textbf{So sánh tổng hợp Học máy và Học sâu theo từng tiêu chí}}
+% \label{tab:ml_dl_summary}
+% \renewcommand{\arraystretch}{1.25}
+% \small
+% \begin{tabular}{|p{3.4cm}|p{5.5cm}|p{5.5cm}|}
+% \hline
+% \textbf{Tiêu chí} & \textbf{Học máy (Boosting)} & \textbf{Học sâu (mô hình chuỗi)} \\ \hline
+% Tốc độ huấn luyện & Nhanh (hàng chục giây đến vài phút trên CPU) & Chậm hơn, nên có GPU \\ \hline
+% Yêu cầu tài nguyên & Thấp & Cao hơn \\ \hline
+% Công sức thiết kế đặc trưng & Cao (đặc trưng quyết định hiệu năng) & Thấp hơn nhưng cần dựng chuỗi và mặt nạ \\ \hline
+% Khai thác ngữ cảnh thời gian & Gián tiếp qua đặc trưng & Trực tiếp qua kiến trúc \\ \hline
+% Khả năng giải thích & Tốt & Hạn chế \\ \hline
+% Ổn định khi đổi siêu tham số & Cao & Trung bình, cần nhiều seed \\ \hline
+% Rủi ro nhận diện toà nhà & Đáng kể nếu chia theo dòng & Thấp hơn khi đánh giá theo toà nhà, nhưng vẫn có đặc trưng tĩnh \\ \hline
+% Dùng được khi không có nhãn & Không & Có (LSTM-AE), nhưng yếu hơn \\ \hline
+% Triển khai thực tế & Đơn giản, nhẹ & Phức tạp hơn \\ \hline
+% \end{tabular}
+% \end{table}
 
-\begin{table}[H]
-\centering
-\caption{\textbf{So sánh định hướng phương pháp luận giữa Học máy (GBDT) và Học sâu (Deep Sequence Models)}}
-\label{tab:ml_vs_dl_comparison}
-\renewcommand{\arraystretch}{1.25}
-\resizebox{\textwidth}{!}{
-\begin{tabular}{|l|p{6.8cm}|p{6.8cm}|}
-\hline
-\textbf{Tiêu chí so sánh} & \textbf{Học máy (Gradient Boosting: XGB, LGB, Cat)} & \textbf{Học sâu (Deep Sequence: BiGRU, TCN, AE)} \\ \hline
-\textbf{Định dạng biểu diễn} & Dữ liệu dạng bảng (Tabular matrix) kết hợp đặc trưng trễ (lag), thống kê trượt và mã hóa chu kỳ. & Tensor chuỗi 3D ($B \times L \times d$) bảo toàn thứ tự thời gian liên tục theo từng tòa nhà. \\ \hline
-\textbf{Hiệu năng phân loại (F1)} & Cực kỳ vượt trội ($F_1 > 0{,}93$ khi kết hợp Ngưỡng động 16 khu vực). & Đòi hỏi tinh chỉnh kỹ lưỡng hàm mất mát (Focal/Weighted BCE) để chống suy biến về lớp đa số. \\ \hline
-\textbf{Thời gian huấn luyện} & Rất nhanh ($8 - 150$ giây trên toàn bộ $1{,}75$ triệu bản ghi bằng CPU đa lõi). & Chậm hơn đáng kể (hàng chục phút đến nhiều giờ trên GPU hiệu năng cao). \\ \hline
-\textbf{Tài nguyên phần cứng} & Tiết kiệm RAM, có thể chạy trực tiếp trên máy trạm biên hoặc thiết bị IoT trạm biến áp. & Đòi hỏi dung lượng VRAM lớn và GPU tương thích CUDA để tối ưu hóa tensor chuỗi. \\ \hline
-\textbf{Khả năng giải thích} & Minh bạch, dễ dàng trích xuất độ quan trọng của đặc trưng (Feature Importance, SHAP values). & Mang tính ``hộp đen'' cao, đòi hỏi các cơ chế chú ý (Attention) hoặc gradient attribution phức tạp. \\ \hline
-\textbf{Kịch bản tối ưu} & Phù hợp nhất cho hệ sinh thái bảng tổng hợp đa nguồn (siêu dữ liệu, vi khí hậu, đặc trưng khu vực). & Phù hợp nhất khi khai thác chuỗi tín hiệu dạng sóng thô liên tục và tìm kiếm dị thường phụ thuộc ngữ cảnh dài. \\ \hline
-\end{tabular}
-}
-\end{table}
+% \subsection{Số liệu Hiện có và Giới hạn của Phép So sánh}
 
-\paragraph{Định hướng Kết hợp Lai (Hybrid Integration):}
-Thực nghiệm cho thấy họ Gradient Boosting thể hiện sức mạnh áp đảo đối với cấu trúc dữ liệu dạng bảng có chiều đặc trưng phong phú. Tuy nhiên, hai trường phái không mang tính triệt tiêu mà có thể bổ trợ chặt chẽ cho nhau: sai số tái tạo ($a_t$) từ mô hình không giám sát LSTM-Autoencoder hoàn toàn có thể đóng vai trò như một đặc trưng định lượng bất thường đầu vào được bổ sung vào ma trận huấn luyện của XGBoost hoặc CatBoost. Hướng đi lai này giúp tận dụng tối đa khả năng biểu diễn phi tuyến của mạng nơ-ron sâu mà vẫn bảo toàn tốc độ và hiệu suất phân lớp đỉnh cao của cây quyết định tăng cường.
+% Bảng~\ref{tab:ml_dl_numbers} tổng hợp đối chiếu kết quả tốt nhất của cả hai nhánh tiếp cận trên các giao thức thực nghiệm chuẩn hóa độc lập:
+
+% \begin{table}[H]
+% \centering
+% \caption{\textbf{So sánh đối chiếu kết quả tốt nhất giữa nhánh Học máy và nhánh Học sâu}}
+% \label{tab:ml_dl_numbers}
+% \renewcommand{\arraystretch}{1.25}
+% \small
+% \begin{tabular}{|p{3.2cm}|p{5.8cm}|p{5.8cm}|}
+% \hline
+% \textbf{Tiêu chí} & \textbf{Học máy (Machine Learning)} & \textbf{Học sâu (Deep Learning)} \\ \hline
+% Mô hình tốt nhất & Triplet Ensemble Rank Averaging (CAT + XGB + LGBM) trên không gian Context-Aware & BiGRU (theo ROC-AUC) / TCN (chuỗi nhân quả) \\ \hline
+% Giao thức chia dữ liệu & Seasonal Chunking ($T_{\text{in}}$ Ngày 1--20, Purge Gap 96h, $T_{\text{out}}$ Ngày 25--Hết) -- 100\% Zero Leakage & \texttt{GroupKFold} $5$ phần theo toà nhà \\ \hline
+% PR-AUC (Độ đo Cốt lõi - Primary Metric) & $\mathbf{0{,}6953}$ (Triplet Rank) / $0{,}6915$ (XGB Context đơn) & $0{,}7346$ (BiGRU OOF) \\ \hline
+% ROC-AUC & $\mathbf{0{,}8972}$ (Triplet Rank) / $0{,}8988$ (LGBM Context đơn) & $0{,}9521$ (BiGRU OOF) \\ \hline
+% F1-Score \& Ngưỡng $\tau^*$ & $F_1 = \mathbf{0{,}7252}$ (Precision = $\mathbf{95{,}0\%}$, Recall = $58{,}6\%$ @ Soft Voting CAT+XGB) \newline $F_1 = 0{,}7203$ (Precision = $\mathbf{97{,}0\%}$, Recall = $57{,}3\%$ @ Rank Averaging) & $F_1^{\max} = 0{,}7367$ (chọn trên OOF) \newline Precision $\approx 72\%$, Recall $\approx 75\%$ \\ \hline
+% Quy mô tập kiểm định & $372.993$ mẫu Out-of-Sample độc lập ($T_{\text{out}}$) & $5$ folds OOF trên $200$ toà nhà \\ \hline
+% Chi phí & Huấn luyện trong $\approx 10 - 35$ giây trên CPU thường & Huấn luyện $\approx 15 - 45$ phút / fold trên GPU \\ \hline
+% \end{tabular}
+% \end{table}
+
+% \textbf{Nhận xét đối chiếu chuyên sâu:}
+% \begin{itemize}
+%     \item \textbf{Độ chính xác bắt đúng dị thường (Precision):} Nhánh Học máy với cơ chế làm giàu đặc trưng ngữ cảnh vi mô (\texttt{z\_meter\_local}, \texttt{z\_meter\_workday}) và tối ưu ngưỡng xác suất đạt độ chính xác bắt đúng bất thường cực cao lên tới \textbf{95,0\% -- 97,0\%}, hạn chế tối đa tình trạng báo động giả gây lãng phí tài nguyên vận hành tòa nhà.
+%     \item \textbf{Độ nhạy và khả năng thích ứng chuỗi (Recall):} Nhánh Học sâu nhờ cửa sổ trượt dài 252 giờ và cơ chế cổng nhớ tuần hoàn (GRU/LSTM) duy trì khả năng bao quát tốt hơn các bất thường kéo dài (Recall $\approx 75\%$), trong khi Học máy trên dữ liệu Out-of-Sample đạt Recall $57{,}3\% - 58{,}6\%$.
+%     \item \textbf{Khả năng triển khai thực tế:} Nhóm mô hình cây tăng cường gradient (XGBoost, LightGBM) có tốc độ suy luận dưới 1 giây cho hàng trăm nghìn mẫu, không phụ thuộc vào hạ tầng GPU, rất thuận lợi để triển khai trực tiếp vào hệ thống SCADA/BEMS giám sát năng lượng thời gian thực.
+% \end{itemize}
+
+% \subsection{Hướng Hoàn thiện để So sánh Công bằng}
+
+% Để chuyển phép so sánh từ định tính sang định lượng, nhóm dự kiến:
+% \begin{enumerate}
+%     \item Chạy lại các mô hình Học máy tốt nhất (XGBoost, LightGBM, CatBoost) trên \textbf{đúng $5$ fold \texttt{GroupKFold} theo toà nhà} của Học sâu, với cùng đặc trưng không nhận diện toà nhà, và tính cùng bộ độ đo (ROC-AUC, PR-AUC, $F_1^{\max}$, độ đo theo toà nhà).
+%     \item Chọn ngưỡng và trọng số ensemble trên dữ liệu tách riêng khỏi fold báo cáo, cho cả hai phần.
+%     \item Chạy nhiều seed và báo cáo trung bình $\pm$ độ lệch chuẩn, so sánh theo cặp trên từng fold.
+%     \item Phân tích lỗi theo loại bất thường (giá trị bằng $1{,}0$, đoạn giá trị lặp, còn lại) để biết hệ hình nào bắt được loại nào.
+%     \item Thử dung hợp Học sâu và Học máy ở mức xác suất hoặc hạng phần trăm, và đo thời gian suy luận trên cùng thiết bị.
+% \end{enumerate}
+
+% \subsection{Kết luận Tạm thời}
+
+% Dựa trên đặc điểm lý thuyết và các kết quả hiện có:
+% \begin{itemize}
+%     \item \textbf{Học máy} là lựa chọn thực dụng khi cần pipeline nhanh, nhẹ, dễ giải thích trên dữ liệu dạng bảng; hiệu năng phụ thuộc mạnh vào chất lượng đặc trưng và giao thức chia dữ liệu.
+%     \item \textbf{Học sâu} phù hợp khi bất thường phụ thuộc ngữ cảnh chuỗi dài và khi cần tổng quát sang toà nhà mới, đổi lại chi phí huấn luyện, độ phức tạp và khó giải thích cao hơn.
+%     \item Hai hướng \textbf{bổ trợ nhau}: mô hình cây bắt tốt các mẫu theo ngưỡng và đặc trưng bảng, mô hình chuỗi bắt các mẫu phụ thuộc ngữ cảnh; dung hợp hai hướng là hướng phát triển tự nhiên.
+%     \item \textbf{Chưa kết luận} hướng nào cho độ chính xác cao hơn cho đến khi chạy lại hai phần trên cùng giao thức.
+% \end{itemize}

@@ -1,9 +1,0 @@
-BẢNG TỔNG KẾT KẾT QUẢ TUNING ZONE FEATURES 43 CỘT
-================================================================================
-Mô hình: XGBoost
-  - F1 (tau*): 0.9329
-  - Ngưỡng tối ưu: 0.2620
-  - Precision: 0.9608
-  - Recall: 0.9066
-  - Params: {'learning_rate': 0.18745401188473626, 'max_depth': 17, 'subsample': 0.9597990912717107, 'colsample_bytree': 0.6397316968394073, 'n_estimators': 169}
-

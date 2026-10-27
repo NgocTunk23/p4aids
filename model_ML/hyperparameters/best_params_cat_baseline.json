@@ -1,0 +1,18 @@
+{
+  "model": "CAT",
+  "dataset": "baseline",
+  "best_pr_auc": 0.6382616713367968,
+  "roc_auc": 0.8543190783707582,
+  "best_f1": 0.7011919441019319,
+  "best_threshold": 0.6393921621740452,
+  "total_trials": 50,
+  "total_time_sec": 1927.21,
+  "best_params": {
+    "iterations": 575,
+    "learning_rate": 0.08134228887037775,
+    "depth": 7,
+    "l2_leaf_reg": 6.880432722317884,
+    "random_strength": 1.29045609406564,
+    "scale_pos_weight": 6.555013262920987
+  }
+}

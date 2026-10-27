@@ -1,0 +1,22 @@
+{
+  "model": "XGB",
+  "dataset": "context",
+  "best_pr_auc": 0.691461578514161,
+  "roc_auc": 0.8968566645782778,
+  "best_f1": 0.7225010172250103,
+  "best_threshold": 0.6228757500648499,
+  "total_trials": 50,
+  "total_time_sec": 931.73,
+  "best_params": {
+    "n_estimators": 375,
+    "learning_rate": 0.04127198362718381,
+    "max_depth": 13,
+    "min_child_weight": 12.744841140696206,
+    "subsample": 0.9920817592980959,
+    "colsample_bytree": 0.4249437453102784,
+    "gamma": 0.5510537985341994,
+    "scale_pos_weight": 9.231717646873715,
+    "reg_alpha": 0.00011786709647733009,
+    "reg_lambda": 0.349565713066479
+  }
+}

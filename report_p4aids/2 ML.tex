@@ -18,13 +18,14 @@ với $g_i = \partial_{\hat{y}^{(t-1)}} \ell(y_i, \hat{y}^{(t-1)})$ là gradient
 \end{equation*}
 trong đó $T$ là số lá, $w_j$ là trọng số tại lá $j$, $\gamma$ phạt số lượng lá, $\lambda$ là hệ số điều chuẩn $L_2$ và $\alpha$ là hệ số điều chuẩn $L_1$.\\
 
+\pagebreak
 \textbf{Ưu điểm:}
 \begin{itemize}
     \item \textbf{Hạn chế Overfitting:} Tích hợp các thành phần phạt $L_1$ ($\alpha$) và $L_2$ ($\lambda$) trực tiếp vào hàm mục tiêu $\Omega(f)$, giúp hạn chế hiệu quả hiện tượng overfitting khi mô hình tiếp xúc với dữ liệu nhiễu từ các cảm biến đo lường.
-    \item \textbf{Xử lý mất cân bằng lớp:} Hỗ trợ điều chỉnh trọng số thông qua siêu tham số \texttt{scale\_pos\_weight}, gán penalty cao hơn cho các trường hợp phân loại sai lớp thiểu số.
+    \item \textbf{Xử lý mất cân bằng lớp:} Hỗ trợ điều chỉnh trọng số thông qua siêu tham số \texttt{scale\_pos\_weight}, gán penalty cao hơn cho trường hợp phân loại sai lớp thiểu số.
     \item \textbf{Xử lý giá trị khuyết:} Thuật toán tự học hướng mặc định tại mỗi nút chia cho các giá trị bị khuyết, phù hợp với dữ liệu cảm biến thực tế thường có nhiều giá trị bị thiếu.
 \end{itemize}
-\pagebreak
+
 \textbf{Nhược điểm:}
 \begin{itemize}
     \item \textbf{Độ phức tạp thời gian:} Thuật toán phân nhánh tham lam chính xác đòi hỏi duyệt qua toàn bộ dữ liệu liên tục. Mặc dù đã có các cải tiến như Histogram-based, XGBoost vẫn yêu cầu thời gian tính toán khi xử lý tập dữ liệu có quy mô lớn.
@@ -46,7 +47,7 @@ Kỹ thuật EFB gộp các đặc trưng thưa có tính loại trừ lẫn nha
 \textbf{Ưu điểm:}
 \begin{itemize}
     \item \textbf{Hiệu suất tính toán ưu việt:} Kỹ thuật Histogram giúp giảm độ phức tạp thời gian tìm kiếm điểm chia nhánh, mang lại tốc độ huấn luyện nhanh.
-    \item \textbf{Xử lý biến định danh trực tiếp:} Khai thác hiệu quả các đặc trưng phân loại xuất hiện nhiều giá trị khác nhau như \texttt{building\_id}, \texttt{meter}, ... bằng cách phân chia tối ưu trên các danh mục mà không cần mã hóa One-Hot, giúp kiểm soát chiều dữ liệu.
+    \item \textbf{Xử lý biến định danh trực tiếp:} Khai thác hiệu quả các đặc trưng phân loại xuất hiện nhiều giá trị khác nhau như \texttt{site\_id}, \texttt{primary\_use},... bằng cách phân chia tối ưu trên các danh mục mà không cần mã hóa One-Hot, giúp kiểm soát chiều dữ liệu.
     \item \textbf{Tiết kiệm bộ nhớ:} Kỹ thuật EFB giảm đáng kể số chiều hiệu dụng, trong khi biểu diễn Histogram chỉ lưu trữ các bin rời rạc thay vì toàn bộ giá trị liên tục, giúp tiết kiệm RAM khi xử lý dữ liệu hàng chục triệu dòng.
     \item \textbf{GOSS giữ độ chính xác khi lấy mẫu:} Thay vì lấy mẫu đồng đều, GOSS ưu tiên các mẫu có gradient lớn (đóng góp nhiều nhất vào việc học), nên giảm dữ liệu mà vẫn duy trì chất lượng mô hình.
 \end{itemize}

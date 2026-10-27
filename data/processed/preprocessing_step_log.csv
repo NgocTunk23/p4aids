@@ -1,14 +1,9 @@
 step,train_rows_before,train_rows_after,train_rows_added,train_rows_removed,train_rows_affected,train_values_changed,test_rows_before,test_rows_after,test_rows_added,test_rows_removed,test_rows_affected,test_values_changed,columns_added
-Nạp CSV (Hỗ trợ đa luồng),1749494,1749494,0,0,0,0,1800567,1800567,0,0,0,0,0
-EDA ban đầu (không biến đổi dữ liệu),1749494,1749494,0,0,0,0,1800567,1800567,0,0,0,0,0
-Tách nhãn và row_id,1749494,1749494,0,0,0,0,1800567,1800567,0,0,0,0,0
-Chuẩn hóa timestamp & Mã hóa chu kỳ sin/cos,1749494,1749494,0,0,1749494,12246458,1800567,1800567,0,0,1800567,12603969,-4
-Đồng bộ cột train/test,1749494,1749494,0,0,0,0,1800567,1800567,0,0,0,0,0
-Loại bỏ feature thừa & thêm cờ missing,1749494,1749494,0,0,1749494,1749494,1800567,1800567,0,0,1800567,1800567,-11
-Điền thiếu numeric bằng nội suy đa lõi (Parallel Imputation),1749494,1749494,0,0,107653,107653,1800567,1800567,0,0,94864,94864,0
-Lọc ngoại lai (Outlier) bằng Median,1749494,1749494,0,0,759868,759868,1800567,1800567,0,0,765652,765652,0
-Chuẩn hóa dữ liệu (Z-score Normalization),1749494,1749494,0,0,1749494,33240386,1800567,1800567,0,0,1800567,34210773,0
-Mã hóa Category (Label Encoding -> primary_use_code),1749494,1749494,0,0,1749494,0,1800567,1800567,0,0,1800567,0,0
-Kiểm tra cuối (không biến đổi dữ liệu),1749494,1749494,0,0,0,0,1800567,1800567,0,0,0,0,0
-EDA sau tiền xử lý (không biến đổi dữ liệu),1749494,1749494,0,0,0,0,1800567,1800567,0,0,0,0,0
-Xuất 2 bộ Parquet (Có Zone & Không Zone),1749494,1749494,0,0,0,0,1800567,1800567,0,0,0,0,0
+Nạp CSV Thô (train_features.csv),1749494,1749494,0,0,0,0,0,0,0,0,0,0,0
+Seasonal Chunking & 96h Purge Gap (Zero Leakage),1749494,1147089,0,229412,1749494,0,0,372993,372993,0,372993,0,0
+Khử 23 cột rò rỉ ID tòa nhà & Mã hóa sin/cos,1147089,1147089,0,0,1147089,0,372993,372993,0,0,372993,0,-23
+"Cờ Missing & Nội suy khuyết thiếu (Fit Tin, Transform Tout)",1147089,1147089,0,0,70876,70876,372993,372993,0,0,22532,22532,1
+Lọc ngoại lai khí tượng (IQR/Median clipping),1147089,1147089,0,0,498320,498320,372993,372993,0,0,157410,157410,0
+"Chuẩn hóa Z-score & Tích hợp Zone Features (Baseline 40, Zone 43)",1147089,1147089,0,0,1147089,21895258,372993,372993,0,0,372993,6967528,3
+Tích hợp Ngữ cảnh Vi mô Context-Aware (47 cột SOTA),1147089,1147089,0,0,1147089,4588356,372993,372993,0,0,372993,1491972,4
+"Xuất 6 bộ Parquet (Baseline, Zone, Context - Train & Test)",1147089,1147089,0,0,0,0,372993,372993,0,0,0,0,0
