@@ -1,0 +1,17 @@
+{
+  "model": "ET",
+  "dataset": "baseline",
+  "best_pr_auc": 0.2364131344646111,
+  "roc_auc": 0.8117177524042641,
+  "best_f1": 0.389336978810663,
+  "best_threshold": 0.2448579396744707,
+  "total_trials": 30,
+  "total_time_sec": 512.18,
+  "best_params": {
+    "n_estimators": 40,
+    "max_depth": 18,
+    "min_samples_split": 20,
+    "min_samples_leaf": 20,
+    "max_features": 0.8049651402828573
+  }
+}

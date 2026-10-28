@@ -1,0 +1,17 @@
+{
+  "model": "RF",
+  "dataset": "context",
+  "best_pr_auc": 0.6694027566154404,
+  "roc_auc": 0.8818926135820183,
+  "best_f1": 0.71807492480175,
+  "best_threshold": 0.553841889063973,
+  "total_trials": 30,
+  "total_time_sec": 1863.82,
+  "best_params": {
+    "n_estimators": 70,
+    "max_depth": 18,
+    "min_samples_split": 40,
+    "min_samples_leaf": 5,
+    "max_features": 0.4362786716972002
+  }
+}

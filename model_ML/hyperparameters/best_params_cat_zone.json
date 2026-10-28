@@ -1,0 +1,17 @@
+{
+  "model": "CAT",
+  "dataset": "zone",
+  "best_pr_auc": 0.6378621947853433,
+  "roc_auc": 0.8468628226124361,
+  "best_f1": 0.7057351407716371,
+  "best_threshold": 0.7554739950665434,
+  "total_trials": 50,
+  "total_time_sec": 1369.3,
+  "best_params": {
+    "iterations": 350,
+    "learning_rate": 0.06627692311705811,
+    "depth": 7,
+    "l2_leaf_reg": 13.737506235192091,
+    "scale_pos_weight": 12.024699213922762
+  }
+}

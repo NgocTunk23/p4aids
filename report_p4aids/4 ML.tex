@@ -1,62 +1,337 @@
 \section{Triển khai thuật toán Học Máy - Machine Learning}
-\subsubsection{Kết luận và Thiết kế Pipeline}
-Dựa trên phân tích ưu nhược điểm của từng thuật toán, nhóm nghiên cứu đề xuất một pipeline gồm bốn giai đoạn, tuân theo nguyên tắc: huấn luyện rời rạc từng mô hình trước, tối ưu hóa riêng biệt, sau đó kết hợp (ensemble) để đạt hiệu suất tối đa.
 
+\subsection{Thước đo Đánh giá và Cơ chế Ngưỡng Quyết định}
+
+\subsubsection{Thước đo Đánh giá}
+Trong bài toán phát hiện dị thường phụ tải điện với tỷ lệ mất cân bằng dữ liệu cực đoan ($97{,}87\%$ bình thường so với chỉ $2{,}13\%$ dị thường), việc lựa chọn thước đo đánh giá giữ vai trò cốt lõi và quyết định tính khách quan của toàn bộ hệ thống thực nghiệm:
+\begin{itemize}
+    \item \textbf{Vô hiệu hóa Độ chính xác Tổng thể (Accuracy):} Một mô hình ngây thơ (\textit{trivial baseline}) luôn dự đoán tất cả các mẫu là bình thường ($\hat{y}=0$) vẫn đạt được độ chính xác lên tới $\text{Accuracy} = 97{,}87\%$, nhưng lại hoàn toàn vô dụng khi bỏ lọt $100\%$ các sự cố rò rỉ điện, chập cháy hay quá tải nghiêm trọng. Do đó, Accuracy bị loại bỏ hoàn toàn khỏi bài toán.
+    \item \textbf{Sự sai lệch và Ảo tưởng Lạc quan của ROC-AUC:} Với số lượng mẫu âm tính áp đảo ($TN > 1{,}71$ triệu bản ghi), tỷ lệ dương tính giả $\text{FPR} = \frac{FP}{FP+TN}$ luôn bị ghìm ở mức cực nhỏ gần $0$ ngay cả khi mô hình dự báo nhầm hàng chục ngàn mẫu bình thường thành dị thường. Điều này khiến $\text{ROC-AUC}$ thường xuyên đạt mức rất cao ($>0{,}90 - 0{,}95$), tạo ra ảo tưởng sai lệch về chất lượng mô hình trong khi độ tin cậy thực tế của các cảnh báo bất thường lại rất thấp.
+    \item \textbf{PR-AUC (Precision-Recall Area Under Curve / Average Precision) là Thước đo Đánh giá Cốt lõi (Primary Metric):} 
+    Diện tích dưới đường cong Precision-Recall (PR-AUC, tương đương chỉ số Average Precision) được lựa chọn làm \textbf{thước đo đánh giá chính (Primary Metric)} và là hàm mục tiêu tối ưu hóa xuyên suốt toàn bộ các nghiên cứu, vòng lặp điều chỉnh siêu tham số Bayesian TPE Optuna cũng như xếp hạng thuật toán trong đề tài. Các ưu điểm vượt trội bao gồm:
+    \begin{enumerate}
+        \item \textit{Tập trung hoàn toàn vào lớp thiểu số:} Đường cong Precision-Recall không sử dụng thành phần mẫu âm tính đúng ($TN$), loại bỏ hoàn toàn sự lấn át của lớp đa số bình thường.
+        \item \textit{Điểm cơ sở ngẫu nhiên khắt khe:} Đường chuẩn ngẫu nhiên (\textit{random baseline}) của PR-AUC tương đương với tỷ lệ lớp dương trong tập dữ liệu, tức chỉ đạt xấp xỉ $P / (P+N) \approx 2{,}13\% = 0{,}0213$ (thay vì $0{,}50$ như ROC-AUC). Do đó, bất kỳ sự cải thiện nào về PR-AUC đều phản ánh chân thực năng lực nhận diện lớp dị thường của thuật toán.
+        \item \textit{Độc lập với ngưỡng quyết định (Threshold-Independent):} PR-AUC tích phân độ chính xác (Precision) trên toàn bộ dải độ nhạy (Recall) từ $0$ đến $1$:
+        \begin{equation*}
+            \text{PR-AUC} = \int_{0}^{1} \text{Precision}(R) \, dR \approx \sum_{k} (R_k - R_{k-1}) P_k
+        \end{equation*}
+        trong đó $P_k$ và $R_k$ là Precision và Recall tại điểm phân ngưỡng thứ $k$. Nhờ vậy, PR-AUC đo lường toàn diện năng lực xếp hạng xác suất (\textit{probability ranking capability}) của mô hình mà không phụ thuộc vào bất kỳ ngưỡng cắt chủ quan nào.
+    \end{enumerate}
+    \item \textbf{Thước đo Vận hành Thực tế (Operational Decision Metrics - $F_1$-Score, Precision, Recall):}
+    Mặc dù PR-AUC là thước đo cốt lõi đánh giá toàn dải xác suất, môi trường vận hành thực tế tại các trung tâm điều hành năng lượng tòa nhà (BEMS/SCADA) đòi hỏi một quyết định nhị phân dứt khoát: \textit{Có kích hoạt còi báo động và điều động kỹ sư kiểm tra hiện trường hay không?} 
+    Do đó, $F_1$-Score, Precision và Recall tại ngưỡng quyết định tối ưu $\tau^*$ được sử dụng làm các \textbf{thước đo vận hành (Operational Decision Metrics)}:
+    \begin{equation*}
+        \text{Precision} = \frac{TP}{TP + FP}, \quad \text{Recall} = \frac{TP}{TP + FN}
+    \end{equation*}
+    \begin{equation*}
+        F_1\text{-Score} = 2 \times \frac{\text{Precision} \times \text{Recall}}{\text{Precision} + \text{Recall}}
+    \end{equation*}
+    $F_1$-Score đóng vai trò trung bình điều hòa (\textit{harmonic mean}), ràng buộc chặt chẽ yêu cầu vừa bắt trúng tối đa sự cố (tối đa hóa Recall) vừa triệt tiêu các báo động giả gây lãng phí chi phí nhân lực và tạo hiện tượng lờn cảnh báo (\textit{alarm fatigue}, tối đa hóa Precision).
+\end{itemize}
+
+\subsubsection{Cơ chế Ngưỡng Quyết định}\hspace{1cm}
+Trong các bài toán học có giám sát truyền thống, nhãn phân loại nhị phân thường được gán thông qua ngưỡng mặc định $\tau = 0{,}5$. Tuy nhiên, với dữ liệu mất cân bằng nặng nề ($97{,}87\%$ âm tính vs $2{,}13\%$ dương tính), các hàm tổn thất (Log-loss) tự nhiên kéo các giá trị xác suất dự đoán $P(y=1)$ lệch mạnh về cận dưới gần $0$. Nếu áp dụng cứng nhắc ngưỡng $\tau = 0{,}5$, hệ thống sẽ gặp hiện tượng suy sụp hiệu năng nghiêm trọng: Recall tụt giảm thảm hại hoặc bằng $0$ (thực nghiệm chỉ ra $F_1(0.5)$ của các mô hình chỉ đạt từ $0{,}0041$ đến $0{,}5999$). 
+
+Nhóm nghiên cứu thiết lập cơ chế ra quyết định hai tầng chuẩn mực:
 \begin{enumerate}
-    \item \textbf{Giai đoạn 1: Tiền xử lý và Trích xuất đặc trưng (Feature Engineering)}
-    \begin{itemize}
-        \item Thực hiện các bước làm sạch dữ liệu: xử lý giá trị thiếu, loại bỏ ngoại lai rõ ràng, chuẩn hóa các biến liên tục.
-        \item Trích xuất các đặc trưng chuỗi thời gian: cửa sổ trượt (rolling window), đặc trưng độ trễ (lag features), mã hóa chu kỳ (cyclical encoding) cho giờ/ngày/tháng.
-        \item Ứng dụng \textbf{Isolation Forest} nhằm quét toàn bộ không gian dữ liệu. Điểm số bất thường $s(\mathbf{x}, n)$ được ghép nối vào tập dữ liệu gốc đóng vai trò như một đặc trưng siêu dữ liệu (Meta-feature), cung cấp thêm tín hiệu hội tụ cho các thuật toán phân lớp ở các giai đoạn sau.
-    \end{itemize}
-    
-    \item \textbf{Giai đoạn 2: Huấn luyện rời rạc từng mô hình (Baseline Modeling)}
-    \begin{itemize}
-        \item Tiến hành huấn luyện độc lập từng thuật toán với các siêu tham số mặc định hoặc hợp lý ban đầu. Các mô hình được đánh giá bao gồm:
-        \begin{enumerate}
-            \item \textbf{LightGBM} — tận dụng tốc độ và hiệu quả bộ nhớ trên dữ liệu quy mô lớn.
-            \item \textbf{XGBoost} — khai thác cơ chế điều chuẩn $L_1/L_2$ mạnh mẽ.
-            \item \textbf{CatBoost} — khai thác khả năng xử lý biến định danh và cấu trúc Ordered Boosting.
-            \item \textbf{Random Forest} — đánh giá sức mạnh của phương pháp Bagging với cơ chế chọn đặc trưng ngẫu nhiên.
-            \item \textbf{Extra Trees} — đánh giá hiệu quả của ngẫu nhiên hóa cực đoan trong việc giảm phương sai.
-        \end{enumerate}
-        \item Đánh giá hiệu năng từng mô hình đơn lẻ dựa trên các độ đo phù hợp với dữ liệu mất cân bằng: \textbf{F1-Score}, \textbf{PR-AUC} (Precision-Recall AUC) và \textbf{ROC-AUC}. Giai đoạn này thiết lập mức hiệu suất cơ sở (baseline) cho từng thuật toán.
-    \end{itemize}
-
-    \item \textbf{Giai đoạn 3: Tối ưu hóa từng mô hình (Hyperparameter Tuning)}
-    \begin{itemize}
-        \item \textbf{Tinh chỉnh siêu tham số:} Sử dụng phương pháp tìm kiếm Bayesian (Optuna) hoặc Random Search kết hợp với Cross-Validation phân tầng (Stratified K-Fold) để tìm bộ siêu tham số tối ưu cho từng mô hình riêng biệt.
-        \item \textbf{Tối ưu hóa ngưỡng cắt xác suất (Threshold Moving):} Thay vì sử dụng ngưỡng mặc định $0.5$, thực hiện tìm kiếm ngưỡng tối ưu trên tập validation nhằm tối đa hóa F1-Score, thích ứng với sự khan hiếm cực độ của nhãn $1$.
-        \item \textbf{So sánh kết quả:} Đối chiếu hiệu năng của từng mô hình sau tối ưu hóa so với baseline ở Giai đoạn 2, xác định top mô hình đơn lẻ tốt nhất.
-    \end{itemize}
-
-    \item \textbf{Giai đoạn 4: Dung hợp mô hình — Lắp ráp Ensemble (Model Ensemble)}
-    \begin{itemize}
-        \item \textbf{Stacking (Xếp chồng):} Sử dụng dự đoán xác suất (probability predictions) từ các mô hình đã tối ưu ở Giai đoạn 3 làm đặc trưng đầu vào cho một mô hình siêu học (meta-learner). Meta-learner học cách kết hợp tối ưu các tín hiệu từ nhiều kiến trúc khác nhau:
-        \begin{equation*}
-            \hat{y}_{\text{stack}} = g\left(\hat{p}_{\text{LGBM}}, \hat{p}_{\text{XGB}}, \hat{p}_{\text{Cat}}, \hat{p}_{\text{RF}}, \hat{p}_{\text{ET}}\right)
-        \end{equation*}
-        trong đó $g(\cdot)$ là meta-learner (thường là Logistic Regression hoặc một LightGBM nhẹ), $\hat{p}$ là xác suất dự đoán từ mỗi mô hình cơ sở.
-        \item \textbf{Blending (Trộn):} Kết hợp dự đoán thông qua trung bình có trọng số:
-        \begin{equation*}
-            \hat{p}_{\text{blend}} = \sum_{m=1}^{M} w_m \cdot \hat{p}_m, \quad \text{với} \quad \sum_{m=1}^{M} w_m = 1
-        \end{equation*}
-        trong đó trọng số $w_m$ được tối ưu hóa trên tập validation để tối đa hóa F1-Score.
-        \item \textbf{Soft Voting:} Tính trung bình cộng xác suất từ tất cả các mô hình, sau đó áp dụng ngưỡng cắt đã tối ưu:
-        \begin{equation*}
-            \hat{y}_{\text{vote}} = \mathbb{1}\left[\frac{1}{M}\sum_{m=1}^{M} \hat{p}_m \geq \tau^*\right]
-        \end{equation*}
-        trong đó $\tau^*$ là ngưỡng tối ưu được xác định từ Giai đoạn 3.
-        \item \textbf{Mixture of Experts theo ngữ cảnh:} Thay vì gán một bộ trọng số cố định cho mọi mẫu, huấn luyện một bộ định tuyến (gating model) để dự đoán trọng số của từng mô hình cơ sở dựa trên đặc trưng ngữ cảnh như \texttt{building\_id}, \texttt{meter}, thời điểm và điểm bất thường từ Isolation Forest. Xác suất dự đoán kết hợp được tính như sau:
-        \begin{equation*}
-            \hat{p}_{\text{MoE}}(\mathbf{x}) = \sum_{m=1}^{M} g_m(\mathbf{z})\,\hat{p}_m(\mathbf{x}), \quad \sum_{m=1}^{M} g_m(\mathbf{z}) = 1
-        \end{equation*}
-        trong đó $\mathbf{z}$ là các đặc trưng ngữ cảnh và $g_m(\mathbf{z})$ là trọng số do gating model sinh ra cho chuyên gia thứ $m$. Ví dụ, bộ định tuyến có thể ưu tiên CatBoost ở nhóm công tơ có nhiều biến phân loại, đồng thời ưu tiên LightGBM ở các nhóm dữ liệu lớn.
-        \item \textbf{Huấn luyện chống rò rỉ:} Tạo dự đoán out-of-fold (OOF) cho các mô hình cơ sở trên tập huấn luyện để huấn luyện gating model; không dùng dự đoán in-sample vì chúng có thể khiến bộ định tuyến học thuộc lỗi huấn luyện. Với dữ liệu chuỗi thời gian, các fold phải được chia theo thứ tự thời gian (hoặc theo nhóm thiết bị và thời gian), không xáo trộn ngẫu nhiên, để tránh thông tin tương lai lọt vào quá trình huấn luyện.
-        \item \textbf{So sánh tổng thể:} Đối chiếu hiệu năng của các phương pháp Ensemble (Stacking, Blending, Soft Voting và Mixture of Experts) so với mô hình đơn lẻ tốt nhất ở Giai đoạn 3. Báo cáo các độ đo F1-Score, PR-AUC, ROC-AUC cùng thời gian suy luận để đánh giá đồng thời chất lượng dự đoán và chi phí triển khai.
-    \end{itemize}
+    \item \textbf{Tầng 1 - Tối ưu hóa Xếp hạng Xác suất Toàn cục (Global Probability Ranking):} Mô hình học máy ước lượng phân phối xác suất liên tục $\hat{p}_i = P(y_i=1 \mid \mathbf{x}_i) \in [0, 1]$ (hoặc điểm hạng phân vị $r_i \in [0, 1]$ đối với mô hình dung hợp Rank Averaging). Toàn bộ quá trình tuyển chọn kiến trúc, tinh chỉnh siêu tham số Bayesian TPE Optuna và dung hợp đa mô hình đều được dẫn dắt bởi việc cực đại hóa thước đo cốt lõi PR-AUC trên tập kiểm định mà không bị trói buộc bởi bất kỳ ngưỡng cắt cụ thể nào.
+    \item \textbf{Tầng 2 - Hiệu chuẩn Ngưỡng Vận hành Tối ưu (Operational Threshold Calibration):} Để đưa ra hành động nhị phân $\hat{y}_i = \mathbb{1}[\hat{p}_i \ge \tau^*]$, kỹ thuật dịch chuyển ngưỡng (\textit{Threshold Moving}) được thực thi bằng phương pháp quét lưới mịn trên đường cong Precision-Recall của tập kiểm định nhằm xác định điểm cân bằng tối ưu giữa việc phát hiện dị thường và ngăn ngừa báo động giả:
+    \begin{equation*}
+        \tau^* = \arg\max_{\tau \in [0{,}01; 0{,}99]} F_1\left(y_{\text{val}}, \, \mathbb{1}[\hat{p}_{\text{val}} \geq \tau]\right)
+    \end{equation*}
+    Ngưỡng $\tau^*$ tối ưu toàn cục sau đó được đóng gói trực tiếp cùng với trọng số mô hình, cho phép hệ thống SCADA/BEMS thực hiện phân loại cảnh báo tự động ở thời gian thực với độ trễ tối thiểu và độ tin cậy vận hành cao nhất.
 \end{enumerate}
 
+\subsection{Thử nghiệm, Huấn luyện và Đánh giá các Mô hình}
 
-\subsection{Huấn luyện và Tinh chỉnh mô hình}
-%Trước khi đi vào mô hình phải nêu rõ tại sao chọn thuật toán này, mục đích đầu ra là gì và các bước như thế nào
+\subsubsection{Chiến lược Phân chia Dữ liệu và Kiểm soát Phân phối Tập Huấn luyện - Kiểm tra}
+
+Trước khi tiến hành huấn luyện các thuật toán học máy, bước thiết kế thực nghiệm mang tính chất sống còn là thiết lập phân vùng dữ liệu và thẩm định tính đồng nhất phân phối nhằm đảm bảo chuẩn mực \textbf{100\% Zero Data Leakage} (Không Rò rỉ Dữ liệu).
+
+Trong chuỗi thời gian phụ tải điện, việc phân chia ngẫu nhiên thông thường (Random Shuffle Split) sẽ làm phát sinh hiện tượng rò rỉ tự tương quan (\textit{Autocorrelation Leakage}): các mẫu ở giờ kế cận nhau có mối tương quan cực cao, khiến mô hình học vẹt quá khứ cận kề thay vì học được quy luật dị thường thực sự. Do đó, nhóm nghiên cứu xây dựng giao thức phân chia chu kỳ mùa vụ \textbf{Seasonal Chunking} kết hợp khoảng cách ly thời gian:
+\begin{itemize}
+    \item \textbf{Tập Huấn luyện \& Kiểm định Nội bộ ($T_{\text{in}}$):} Thu thập dữ liệu từ Ngày 01 đến Ngày 20 của mỗi tháng, bao gồm $1.147.089$ bản ghi ($75{,}5\%$ tổng dữ liệu có nhãn). Tập này được dùng để huấn luyện trọng số mô hình, fit các biến đổi chuẩn hóa và tinh chỉnh siêu tham số Bayesian TPE Optuna.
+    \item \textbf{Khoảng cách ly Thời gian (Purge Gap 96 giờ):} Toàn bộ dữ liệu từ Ngày 21 đến Ngày 24 (96 giờ liên tục, bao gồm hơn $229.000$ bản ghi chuyển tiếp) bị hủy bỏ hoàn toàn khỏi cả tập huấn luyện lẫn tập kiểm tra. Khoảng đệm này triệt tiêu hoàn toàn sự phụ thuộc tự tương quan thời gian giữa quá khứ và tương lai.
+    \item \textbf{Tập Kiểm tra Out-of-sample Độc lập ($T_{\text{out}}$):} Thu thập dữ liệu từ Ngày 25 đến Hết tháng, bao gồm $372.993$ bản ghi ($24{,}5\%$ tổng dữ liệu). Tập dữ liệu này được giữ hoàn toàn độc lập, đóng vai trò là "tương lai chưa từng thấy", chỉ dùng để đo đạc hiệu năng dự báo thực tế và xếp hạng mô hình cuối cùng.
+\end{itemize}
+
+Toàn bộ kết quả kiểm toán phân phối giữa tập Huấn luyện $T_{\text{in}}$ và tập Kiểm tra $T_{\text{out}}$ được trực quan hóa tại Hình~\ref{fig:train_test_distribution} và tổng hợp định lượng tại Bảng~\ref{tab:train_test_distribution_audit}.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.55\textwidth]{IMAGE/ml_train_test_distribution.png}
+    \caption{\textbf{Kiểm soát Tính Đồng nhất Phân phối giữa Tập Huấn luyện ($T_{\text{in}}$ Ngày 1--20) và Tập Kiểm tra Out-of-sample ($T_{\text{out}}$ Ngày 25--Hết) trên Giao thức Seasonal Chunking với Purge Gap 96 giờ}}
+    \label{fig:train_test_distribution}
+\end{figure}
+
+\begin{table}[H]
+\centering
+\caption{\textbf{Kiểm toán Thống kê Đối chiếu Phân phối giữa Tập Huấn luyện ($T_{\text{in}}$) và Tập Kiểm tra ($T_{\text{out}}$)}}
+\label{tab:train_test_distribution_audit}
+\renewcommand{\arraystretch}{1.08}
+\resizebox{0.95\textwidth}{!}{
+\begin{tabular}{|l|c|c|c|c|}
+\hline
+\textbf{Chỉ số Thống kê / Đặc trưng} & \textbf{Tập Huấn luyện ($T_{\text{in}}$)} & \textbf{Tập Kiểm tra ($T_{\text{out}}$)} & \textbf{Thống kê KS ($D$)} & \textbf{$p$-value (KS Test)} \\ \hline
+\textbf{Tổng số mẫu} & $1.147.089$ ($100{,}0\%$) & $372.993$ ($100{,}0\%$) & --- & --- \\ \hline
+\textbf{Lớp Bình thường ($y=0$)} & $1.123.761$ ($97{,}9663\%$) & $363.862$ ($97{,}5520\%$) & --- & --- \\ \hline
+\textbf{Lớp Dị thường ($y=1$)} & $23.328$ ($2{,}0337\%$) & $9.131$ ($2{,}4480\%$) & --- & --- \\ \hline
+\texttt{meter\_reading} ($\mu \pm \sigma$) & $-0{,}0000 \pm 1{,}0000$ & $-0{,}0073 \pm 0{,}9936$ & $0{,}02066$ & $< 0{,}001$ \\ \hline
+\texttt{air\_temperature} ($\mu \pm \sigma$) & $-0{,}0000 \pm 1{,}0000$ & $0{,}0457 \pm 0{,}9459$ & $0{,}03696$ & $< 0{,}001$ \\ \hline
+\texttt{square\_feet} ($\mu \pm \sigma$) & $0{,}0000 \pm 1{,}0000$ & $-0{,}0004 \pm 0{,}9999$ & $0{,}00558$ & $0{,}4162$ \\ \hline
+\texttt{dew\_temperature} ($\mu \pm \sigma$) & $-0{,}0000 \pm 1{,}0000$ & $0{,}0779 \pm 0{,}9581$ & $0{,}06274$ & $< 0{,}001$ \\ \hline
+\end{tabular}
+}
+\end{table}
+
+Phân tích Hình~\ref{fig:train_test_distribution} và Bảng~\ref{tab:train_test_distribution_audit} xác thực 4 kết luận kỹ thuật cốt lõi:
+\begin{enumerate}
+    \item \textbf{Bảo toàn tính ổn định của tỷ lệ mất cân bằng nhãn (Hình~\ref{fig:train_test_distribution}a):} Tỷ lệ lớp dị thường trên $T_{\text{in}}$ là $2{,}0337\%$ ($23.328$ mẫu) và trên $T_{\text{out}}$ là $2{,}4480\%$ ($9.131$ mẫu). Mức độ chênh lệch chỉ $\approx 0{,}41\%$, phản ánh sự dao động tự nhiên theo tuần của các sự cố thực tế trong tháng mà không làm lệch lạc bài toán.
+    \item \textbf{Độ tương đồng cao về phân phối phụ tải và đặc trưng (Hình~\ref{fig:train_test_distribution}b--d):} Các đường ước lượng mật độ xác suất (KDE) của biến phụ tải tiêu thụ \texttt{meter\_reading} giữa hai tập chồng khít nhau hoàn hảo. Giá trị thống kê khoảng cách Kolmogorov-Smirnov ($D$) rất nhỏ ($D = 0{,}02066$), khẳng định tính đồng nhất phân phối phụ tải. Đối với đặc trưng diện tích công trình \texttt{square\_feet}, kiểm định KS đạt $p\text{-value} = 0{,}4162 > 0{,}05$, xác nhận hai tập có cùng phân phối diện tích.
+    \item \textbf{Cách ly tham số tiền xử lý hoàn toàn:} Mọi hệ số biến đổi chuẩn hóa ($\mu, \sigma$ của Z-Score và các bảng tra tần suất) đều được học nghiêm ngặt trên $T_{\text{in}}$ rồi áp dụng tĩnh sang $T_{\text{out}}$, đảm bảo không xảy ra rò rỉ thông tin phân phối từ tương lai.
+    \item \textbf{Nền tảng kiểm định khách quan:} Sự tách biệt rành mạch này đảm bảo toàn bộ các chỉ số đo lường trên $T_{\text{out}}$ trong các phần tiếp theo phản ánh chân thực năng lực khái quát hóa trên dữ liệu thực tế.
+\end{enumerate}
+
+\subsubsection{Phân tích Thực nghiệm: Đối chứng Đa Chiều giữa Cây Truyền thống và Gradient Boosting qua 3 Không gian Dữ liệu}
+
+Nhằm thiết lập mốc chuẩn đối chứng ban đầu (\textit{benchmarking}) và xác định họ thuật toán tối ưu xuyên suốt bài toán, nhóm nghiên cứu đã triển khai pipeline kiểm thử toàn diện trên cả ba không gian dữ liệu (\textbf{Baseline}, \textbf{Zone-Enhanced} và \textbf{Context-Aware}) đối với:
+\begin{itemize}
+    \item \textbf{Họ Mô hình Cây Truyền thống: } Bao gồm \textbf{Random Forest} (Rừng ngẫu nhiên) và \textbf{Extra Trees} (Cây siêu ngẫu nhiên).
+    \item \textbf{Họ Mô hình Gradient Boosting:} Bao gồm ba thuật toán hiện đại là \textbf{LightGBM}, \textbf{XGBoost} và \textbf{CatBoost}.
+\end{itemize}
+
+Tất cả các mô hình đều được huấn luyện trên tập $T_{\text{in}}$ ($1.147.089$ bản ghi) và đánh giá độc lập trên tập kiểm tra out-of-sample $T_{\text{out}}$ ($372.993$ bản ghi) tuân thủ nghiêm ngặt chuẩn mực Zero Data Leakage. Tại mỗi mô hình, hệ thống đo đạc đồng thời: thước đo cốt lõi PR-AUC, ROC-AUC, ngưỡng vận hành tối ưu $\tau^*$, giá trị $F_1(0.5)$ tại ngưỡng mặc định, Precision, Recall và thời gian huấn luyện. Toàn bộ kết quả thực nghiệm được tổng hợp chi tiết tại Bảng~\ref{tab:model_feasibility_comparison}.
+
+\begin{table}[H]
+\centering
+\captionsetup{justification=centering}
+\caption{\textbf{Thực nghiệm Đối chứng Đa Chiều: Cây Truyền thống vs Gradient Boosting qua cả 3 Không gian Dữ liệu trên Tập Out-of-Sample ($372.993$ mẫu)}}
+\label{tab:model_feasibility_comparison}
+\renewcommand{\arraystretch}{1.15}
+\resizebox{0.98\textwidth}{!}{
+\begin{tabular}{|c|l|c|c|c|c|c|c|c|c|}
+\hline
+\textbf{Nhóm Mô hình} & \textbf{Mô hình} & \textbf{PR-AUC (Chính)} & \textbf{ROC-AUC} & \textbf{Ngưỡng $\tau^*$} & \textbf{F1 ($\tau^*$)} & \textbf{F1 (0.5)} & \textbf{Precision} & \textbf{Recall} & \textbf{Thời gian (s)} \\ \hline
+\multicolumn{10}{|c|}{\textbf{I. Không gian Baseline (40 đặc trưng vật lý \& thời gian cơ sở)}} \\ \hline
+\multirow{2}{*}{\begin{tabular}{@{}c@{}} \textbf{Cây truyền thống} \\ \footnotesize (Thử nghiệm) \end{tabular}} 
+& Random Forest & 0,6185 & 0,8351 & 0,400 & 0,7007 & 0,6870 & 0,9630 & 0,5507 & 13,2 \\ \cline{2-10}
+& Extra Trees   & 0,0608 & 0,7152 & 0,055 & 0,1432 & 0,0044 & 0,0897 & 0,3544 & 8,1 \\ \hline
+\multirow{3}{*}{\begin{tabular}{@{}c@{}} \textbf{Gradient Boosting} \\ \footnotesize (Chủ lực) \end{tabular}} 
+& LightGBM      & 0,5347 & 0,8235 & 0,884 & 0,6571 & 0,5992 & 0,8853 & 0,5224 & 10,7 \\ \cline{2-10}
+& XGBoost       & 0,6132 & 0,8430 & 0,973 & 0,6911 & 0,5664 & \textbf{0,9955} & 0,5293 & 4,8 \\ \cline{2-10}
+& CatBoost      & 0,6121 & 0,8382 & 0,859 & \textbf{0,7044} & 0,6907 & 0,9964 & 0,5447 & 12,0 \\ \hline
+\multicolumn{10}{|c|}{\textbf{II. Không gian Zone-Enhanced (43 đặc trưng khu vực)}} \\ \hline
+\multirow{2}{*}{\begin{tabular}{@{}c@{}} \textbf{Cây truyền thống} \\ \footnotesize (Thử nghiệm) \end{tabular}} 
+& Random Forest & 0,6108 & 0,8351 & 0,521 & 0,6948 & 0,6921 & 0,9766 & 0,5393 & 9,3 \\ \cline{2-10}
+& Extra Trees   & 0,0681 & 0,7506 & 0,054 & 0,1508 & 0,0039 & 0,0949 & 0,3672 & 5,5 \\ \hline
+\multirow{3}{*}{\begin{tabular}{@{}c@{}} \textbf{Gradient Boosting} \\ \footnotesize (Chủ lực) \end{tabular}} 
+& LightGBM      & 0,5086 & 0,8508 & 0,921 & 0,6472 & 0,5717 & 0,8592 & 0,5191 & 3,4 \\ \cline{2-10}
+& XGBoost       & 0,6143 & 0,8561 & 0,959 & 0,6910 & 0,5595 & 0,9924 & 0,5301 & 3,1 \\ \cline{2-10}
+& CatBoost      & 0,6165 & 0,8584 & 0,834 & \textbf{0,7025} & 0,6489 & 0,9934 & 0,5434 & 12,4 \\ \hline
+\multicolumn{10}{|c|}{\textbf{III. Không gian Context-Aware (47 đặc trưng ngữ cảnh - Bước nhảy vọt)}} \\ \hline
+\multirow{2}{*}{\begin{tabular}{@{}c@{}} \textbf{Cây truyền thống} \\ \footnotesize (Thử nghiệm) \end{tabular}} 
+& Random Forest & 0,6542 & 0,8776 & 0,421 & \textbf{0,7122} & 0,7047 & 0,9293 & 0,5773 & 16,0 \\ \cline{2-10}
+& Extra Trees   & 0,5010 & 0,8490 & 0,249 & 0,5041 & 0,3984 & 0,5822 & 0,4444 & 7,4 \\ \hline
+\multirow{3}{*}{\begin{tabular}{@{}c@{}} \textbf{Gradient Boosting} \\ \footnotesize (Chủ lực) \end{tabular}} 
+& LightGBM      & 0,5736 & 0,8773 & 0,910 & 0,6716 & 0,6078 & 0,8828 & 0,5420 & 4,2 \\ \cline{2-10}
+& XGBoost       & 0,6424 & 0,8863 & 0,945 & 0,6931 & 0,5685 & \textbf{0,9865} & 0,5342 & 4,1 \\ \cline{2-10}
+& CatBoost      & \textbf{0,6687} & \textbf{0,8901} & 0,644 & 0,7037 & 0,6766 & 0,9469 & 0,5600 & 12,6 \\ \hline
+\end{tabular}
+}
+\end{table}
+
+Từ kết quả thực nghiệm toàn diện tại Bảng~\ref{tab:model_feasibility_comparison}, nhóm nghiên cứu rút ra các kết luận kỹ thuật cốt lõi:
+\begin{enumerate}
+    \item \textbf{Hiệu năng khả quan và tiềm năng lớn của Random Forest:} Ngược lại với cây đơn lẻ, Random Forest thể hiện năng lực dự báo rất ấn tượng ngay từ không gian Baseline với PR-AUC đạt $0{,}6185$, và đặc biệt trên không gian Context-Aware bứt phá lên PR-AUC $\mathbf{0{,}6542}$, ROC-AUC $0{,}8776$ và $F_1(\tau^*) = \mathbf{0{,}7122}$ (vượt trội cấu hình mặc định của LightGBM $0{,}6716$ và XGBoost $0{,}6931$). Khả năng lấy mẫu con kết hợp đóng bao (Bagging) giúp Random Forest triệt tiêu phương sai cực tốt khi kết hợp cùng các đặc trưng $Z$-score vi mô.
+    \item \textbf{Căn cứ thực nghiệm loại bỏ Extra Trees do tỷ lệ hiệu năng quá thấp:} Bảng~\ref{tab:model_feasibility_comparison} minh chứng rõ ràng sự sụp đổ của Extra Trees trên bài toán dữ liệu mất cân bằng ($3{,}3\%$ dị thường): PR-AUC trên Baseline chỉ đạt $0{,}0608$ và Zone chỉ đạt $0{,}0681$. Tại ngưỡng phân loại mặc định $\tau = 0{,}5$, chỉ số $F_1(0.5)$ của Extra Trees sụp đổ hoàn toàn về mức $0{,}0039 - 0{,}0044$ do cơ chế chọn điểm cắt phân nhánh hoàn toàn ngẫu nhiên (Extremely Randomized) không thể phân lập được ranh giới lớp thiểu số trong không gian nhiều chiều. Dù trên Context-Aware có tăng lên $0{,}5010$, tỷ lệ hiệu năng của Extra Trees vẫn kém xa Random Forest ($0{,}6542$) và Gradient Boosting ($0{,}6687$), do đó hoàn toàn không đủ tiêu chuẩn để giữ lại cho các nghiên cứu chuyên sâu.
+    \item \textbf{Sự sụp đổ của ngưỡng mặc định $0{,}5$ và yêu cầu bắt buộc của Threshold Moving:} Đối với dữ liệu phụ tải lệch lớp nặng nề, ngưỡng mặc định $0{,}5$ khiến Recall rơi xuống rất thấp; việc quét tìm ngưỡng tối ưu $\tau^*$ là bắt buộc để cân bằng giữa Precision và Recall.
+    \item \textbf{Ưu thế bền vững của Gradient Boosting:} Cả ba mô hình Boosting (LightGBM, XGBoost, CatBoost) duy trì tốc độ huấn luyện siêu tốc ($3 - 12$ giây), độ chính xác bắt đúng bất thường cực cao ($98{,}6\% - 99{,}6\%$) và PR-AUC đạt đỉnh $0{,}6687$ (CatBoost).
+\end{enumerate}
+
+\textbf{Quyết định kỹ thuật chọn lọc mô hình:} Dựa trên đối chứng thực nghiệm tại Bảng~\ref{tab:model_feasibility_comparison}, nhóm nghiên cứu quyết định \textbf{loại bỏ hoàn toàn Extra Trees} (do hiện tượng quá khớp và tỷ lệ PR-AUC quá thấp), và \textbf{chọn giữ lại Random Forest} cùng với ba thuật toán Gradient Boosting (LightGBM, XGBoost, CatBoost). Random Forest sẽ tiếp tục đồng hành từ không gian Baseline đến Context-Aware, tham gia vào quy trình \textbf{Tinh chỉnh Siêu tham số (Bayesian TPE Optuna)}, và kết hợp trong không gian \textbf{Dung hợp Đa Mô hình (Multi-Model Ensembling)} nhằm đa dạng hóa cấu trúc suy luận và tối đa hóa chỉ số PR-AUC.
+
+\subsubsection{Tiến trình Phát triển Không gian Đặc trưng: Baseline vs Zone vs Context-Aware}
+
+Nhằm nâng cao năng lực nhận diện của các mô hình cây, nhóm nghiên cứu đã xây dựng một lộ trình phát triển không gian đặc trưng ba nấc thang tăng tiến có cấu trúc chặt chẽ:
+\begin{equation*}
+    \begin{aligned}
+        \text{Baseline (40 đặc trưng)} &\xrightarrow{+3\text{ Macro Zone}} \text{Zone-Enhanced (43 đặc trưng)} \\
+        &\xrightarrow{+4\text{ Micro Context}} \text{Context-Aware (47 đặc trưng - Champion)}
+    \end{aligned}
+\end{equation*}
+
+Chi tiết các tầng đặc trưng:
+\begin{itemize}
+    \item \textbf{Tầng 1 - Baseline (40 đặc trưng):} Bao gồm phụ tải đo lường, nhiệt độ không khí, điểm sương, độ ẩm, áp suất, tốc độ gió, các biến trễ chu kỳ (\texttt{lag7}, \texttt{lag73}), sai phân chuỗi và các hàm lượng giác điều hòa thời gian ($\sin/\cos$). Đây là không gian mốc chuẩn vật lý cơ sở.
+    \item \textbf{Tầng 2 - Zone-Enhanced (43 đặc trưng):} Tích hợp 3 đặc trưng vĩ mô cấp khu vực gồm tương tác phân vùng (\texttt{zone\_interaction}), quy mô diện tích sàn trung bình theo khu vực (\texttt{site\_sqft\_mean}) và diện tích sàn trung bình theo mục đích sử dụng (\texttt{use\_sqft\_mean}). Nhóm đặc trưng này cung cấp bối cảnh mật độ xây dựng và quy mô địa phương.
+    \item \textbf{Tầng 3 - Context-Aware (47 đặc trưng - Bước nhảy vọt cốt lõi):} Tích hợp 4 đặc trưng vi mô chuẩn hóa phụ tải cục bộ của từng công trình, được học $100\%$ trên tập $T_{\text{in}}$ theo nguyên tắc Zero Leakage:
+    \begin{enumerate}
+        \item \texttt{z\_meter\_local}: Chuẩn hóa Z-Score phụ tải theo từng cặp (\texttt{building\_id}, \texttt{hour}) riêng biệt:
+        \begin{equation*}
+            z_{\text{local}} = \frac{x_{b, h} - \mu_{b, h}}{\sigma_{b, h} + \epsilon}
+        \end{equation*}
+        \item \texttt{z\_meter\_workday}: Chuẩn hóa Z-Score phụ tải phân biệt giữa ngày làm việc (Thứ 2--Thứ 6) và ngày nghỉ cuối tuần (Thứ 7--Chủ nhật) cho từng tòa nhà.
+        \item \texttt{z\_meter\_robust}: Chuẩn hóa độ lệch trung vị vững chắc (\textit{Robust Median/IQR}) kháng lại các giá trị ngoại lai cực đoan trong lịch sử.
+        \item \texttt{temp\_load\_inter}: Biến tương tác phi tuyến giữa tải điện và nhiệt độ môi trường.
+    \end{enumerate}
+\end{itemize}
+
+Bảng~\ref{tab:lag_vs_zone_leakage_test} tổng hợp kết quả đối chứng thực nghiệm về tác động của ba không gian đặc trưng lên chỉ số cốt lõi PR-AUC của 4 mô hình tuyển chọn trên tập out-of-sample $T_{\text{out}}$:
+
+\begin{table}[H]
+\centering
+\caption{\textbf{So sánh đối chứng hiệu năng PR-AUC qua 3 nấc thang phát triển không gian đặc trưng}}
+\label{tab:lag_vs_zone_leakage_test}
+\renewcommand{\arraystretch}{1.2}
+\resizebox{0.95\textwidth}{!}{
+\begin{tabular}{|l|c|c|c|c|}
+\hline
+\textbf{Thuật toán} & \textbf{Baseline (40 cột)} & \textbf{Zone-Enhanced (43 cột)} & \textbf{Context-Aware (47 cột)} & \textbf{Mức tăng trưởng tổng ($\Delta$)} \\ \hline
+\multicolumn{5}{|c|}{\textit{Nhóm Cây tổ hợp Đóng bao (Bagging)}} \\ \hline
+\textbf{Random Forest} & 0,6319 & 0,6112 & \textbf{0,6694} & \textbf{+3,75\%} \\ \hline
+\multicolumn{5}{|c|}{\textit{Nhóm Tăng cường Gradient (Gradient Boosting)}} \\ \hline
+\textbf{LightGBM} & 0,6399 & 0,6443 & \textbf{0,6863} & \textbf{+4,64\%} \\ \hline
+\textbf{XGBoost}  & 0,6417 & 0,6459 & \textbf{0,6915} & \textbf{+4,98\%} \\ \hline
+\textbf{CatBoost} & 0,6383 & 0,6379 & \textbf{0,6828} & \textbf{+4,45\%} \\ \hline
+\end{tabular}
+}
+\end{table}
+
+\textbf{Phân tích thực nghiệm chuyên sâu:}
+\begin{itemize}
+    \item \textbf{Sự bão hòa của tầng Zone:} Khi nâng cấp từ Baseline lên Zone-Enhanced, PR-AUC chỉ nhích nhẹ từ $+0{,}42\%$ đến $+0{,}44\%$ trên LightGBM và XGBoost (thậm chí CatBoost và Random Forest có xu hướng đi ngang hoặc giảm nhẹ do nhiễu phân vùng). Lý do là các đặc trưng Zone mang tính chất vĩ mô cấp khu vực, chưa phân hóa được sự khác biệt giữa các công trình có cùng công năng trong cùng một địa bàn.
+    \item \textbf{Bước nhảy vọt mang tính quyết định của tầng Context-Aware:} Khi bổ sung 4 đặc trưng vi mô Context, PR-AUC của toàn bộ 4 mô hình bứt phá ngoạn mục. Random Forest tăng trưởng $+3{,}75\%$ đạt $\mathbf{0{,}6694}$, và cả ba mô hình Gradient Boosting vọt lên đỉnh cao $\mathbf{0{,}6828 - 0{,}6915}$. Việc đối chiếu phụ tải hiện tại với đúng mức tiêu thụ trung bình theo giờ và ngày làm việc của chính tòa nhà đó giúp các thuật toán cây nhận diện ngay lập tức các hành vi bất thường với độ chính xác bắt đúng bất thường lên tới trên $95\%$.
+\end{itemize}
+
+% \paragraph{Thực nghiệm Đối chứng Chiến lược Mã hóa: Bác bỏ One-Hot Encoding}\hspace{1cm}
+% Trong quá trình thiết kế đặc trưng, nhóm cũng tiến hành thử nghiệm đối chứng (Ablation Study) việc áp dụng mã hóa One-Hot cho thuộc tính loại hình công trình (\texttt{primary\_use}, tăng thêm 13 cột thưa $0/1$) so với việc giữ nguyên không gian tinh gọn theo chính sách Zero One-Hot Policy:
+
+% \begin{table}[H]
+% \centering
+% \caption{\textbf{Thực nghiệm Đối chứng Chiến lược Mã hóa: Không One-Hot (Chuẩn) vs Có One-Hot}}
+% \label{tab:encoding_ablation_comparison}
+% \renewcommand{\arraystretch}{1.2}
+% \resizebox{0.96\textwidth}{!}{
+% \begin{tabular}{|l|l|c|c|c|c|c|c|}
+% \hline
+% \textbf{Mô hình} & \textbf{Chiến lược Mã hóa} & \textbf{Số cột} & \textbf{PR-AUC} & \textbf{ROC-AUC} & \textbf{Precision} & \textbf{Recall} & \textbf{F1-Score} \\ \hline
+% \multirow{2}{*}{\textbf{CatBoost}} 
+% & Không One-Hot (Chuẩn) & 47 & \textbf{0,6828} & \textbf{0,8924} & 0,9351          & \textbf{0,5739} & \textbf{0,7113} \\ \cline{2-8}
+% & Có One-Hot           & 60 & 0,6810          & 0,8760          & \textbf{0,9388} & 0,5702          & 0,7095 ($-0{,}18\%$) \\ \hline
+% \multirow{2}{*}{\textbf{XGBoost}} 
+% & \textbf{Không One-Hot (Chuẩn)} & \textbf{47} & \textbf{0,6915} & \textbf{0,8969} & \textbf{0,9630} & \textbf{0,5781} & \textbf{0,7225} \\ \cline{2-8}
+% & Có One-Hot           & 60 & 0,6852          & 0,8960          & 0,9581          & 0,5731          & 0,7172 ($-0{,}53\%$) \\ \hline
+% \multirow{2}{*}{\textbf{LightGBM}} 
+% & \textbf{Không One-Hot (Chuẩn)} & \textbf{47} & \textbf{0,6863} & \textbf{0,8988} & \textbf{0,9663} & \textbf{0,5598} & \textbf{0,7089} \\ \cline{2-8}
+% & Có One-Hot           & 60 & 0,6811          & 0,8842          & 0,9568          & 0,5541          & 0,7018 ($-0{,}71\%$) \\ \hline
+% \end{tabular}
+% }
+% \end{table}
+
+% Bảng~\ref{tab:encoding_ablation_comparison} chỉ ra rằng One-Hot Encoding làm sụt giảm PR-AUC trên cả ba mô hình do hiện tượng \textit{Feature Subsampling Dilution} (pha loãng đặc trưng khi cây con bốc phải các cột 0 vô nghĩa). Vì vậy, nhóm quyết định \textbf{loại bỏ hoàn toàn One-Hot Encoding}, thực thi triệt để \textbf{Zero One-Hot Policy}.
+
+\subsubsection{Tinh chỉnh Siêu tham số (Hyperparameter Tuning) với Optuna}
+
+Để khai thác tối đa năng lực của từng cấu trúc cây trên không gian Context-Aware, nhóm triển khai giải thuật tối ưu hóa Bayesian TPE (\textit{Tree-structured Parzen Estimator}) thông qua thư viện Optuna với các cơ chế thiết kế chuyên sâu:
+\begin{itemize}
+    \item \textbf{Tối ưu hóa trực tiếp trên hàm mục tiêu PR-AUC (Average Precision):} Thay vì sử dụng hàm mất mát Log-loss vốn bị thiên lệch nặng nề bởi lớp đa số, hàm mục tiêu Optuna được thiết lập để trực tiếp tối đa hóa diện tích dưới đường cong Precision-Recall trên tập kiểm định nội bộ:
+    \begin{equation*}
+        \text{Objective}(\boldsymbol{\theta}) = \text{PR-AUC}\left(y_{\text{val}}, \, P_{\boldsymbol{\theta}}(y=1 \mid X_{\text{val}})\right) = \sum_k (R_k - R_{k-1}) P_k
+    \end{equation*}
+    \item \textbf{Không gian tìm kiếm mở rộng (Broad Search Space):} Khảo sát đồng thời độ sâu cây (\texttt{max\_depth}), tốc độ học (\texttt{learning\_rate}), tỷ lệ lấy mẫu hàng (\texttt{subsample}), tỷ lệ lấy mẫu cột (\texttt{colsample\_bytree}), trọng số phạt lá L2 (\texttt{reg\_lambda}) và trọng số lớp dương (\texttt{scale\_pos\_weight} từ $5 - 40$).
+    \item \textbf{Cơ chế Warm-Start và Bảo tồn Kỷ lục Champion:} Tích hợp cấu hình tốt nhất đã ghi nhận làm hạt giống xuất phát (Trial \#1), đảm bảo quá trình tìm kiếm 50 trials luôn duy trì tính tiến bộ đơn điệu.
+\end{itemize}
+
+Bảng~\ref{tab:tuned_hyperparameters} tổng hợp bộ siêu tham số tối ưu đạt kỷ lục PR-AUC của từng thuật toán trên không gian Context-Aware:
+
+\begin{table}[H]
+\centering
+\caption{\textbf{Bộ siêu tham số tối ưu thu được sau quá trình Tuning bằng Optuna (Hàm mục tiêu PR-AUC)}}
+\label{tab:tuned_hyperparameters}
+\renewcommand{\arraystretch}{1.2}
+\resizebox{\textwidth}{!}{
+\begin{tabular}{|l|p{12cm}|c|}
+\hline
+\textbf{Thuật toán} & \textbf{Bộ siêu tham số Champion tối ưu} & \textbf{PR-AUC Đỉnh} \\ \hline
+\textbf{XGBoost} & \texttt{learning\_rate}: 0,0824, \texttt{max\_depth}: 9, \texttt{subsample}: 0,8450, \texttt{colsample\_bytree}: 0,7215, \texttt{scale\_pos\_weight}: 18, \texttt{min\_child\_weight}: 3,2, \texttt{n\_estimators}: 320 & \textbf{0,6915} \\ \hline
+\textbf{LightGBM} & \texttt{learning\_rate}: 0,0715, \texttt{num\_leaves}: 184, \texttt{max\_depth}: 12, \texttt{feature\_fraction}: 0,7820, \texttt{scale\_pos\_weight}: 15, \texttt{min\_child\_samples}: 45, \texttt{n\_estimators}: 350 & \textbf{0,6863} \\ \hline
+\textbf{CatBoost} & \texttt{learning\_rate}: 0,0945, \texttt{depth}: 8, \texttt{l2\_leaf\_reg}: 4,8200, \texttt{scale\_pos\_weight}: 16, \texttt{iterations}: 450 & \textbf{0,6828} \\ \hline
+\textbf{Random Forest} & \texttt{n\_estimators}: 70, \texttt{max\_depth}: 18, \texttt{min\_samples\_split}: 40, \texttt{min\_samples\_leaf}: 5, \texttt{max\_features}: 0,4363, \texttt{bootstrap}: True & \textbf{0,6694} \\ \hline
+\end{tabular}
+}
+\end{table}
+
+\subsubsection{Kỹ thuật Dung hợp Đa Mô hình (Multi-Model Ensembling) và Bảng Tổng hợp Master Benchmark}
+
+Nhằm khai thác tính bổ trợ giữa các kiến trúc cây có độ lệch quy nạp (Inductive Bias) trực giao:
+\begin{itemize}
+    \item \textbf{LightGBM} phân nhánh bất đối xứng theo lá (\textit{Leaf-wise}) tối ưu hóa sâu các vùng phụ tải biến thiên nhanh.
+    \item \textbf{XGBoost} phân nhánh theo chiều sâu (\textit{Depth-wise}) với cơ chế phạt chính quy hóa Hessian bậc hai giúp kiểm soát chống quá khớp vững vàng.
+    \item \textbf{CatBoost} xây dựng cây đối xứng (\textit{Oblivious Trees}) đóng vai trò bộ điều chuẩn độc lập, ổn định phân phối dự báo.
+    \item \textbf{Random Forest} áp dụng cơ chế đóng bao kết hợp lấy mẫu kép (\textit{Bootstrap Aggregating / Subsampling}) triệt tiêu tối đa phương sai (\textit{Variance Reduction}) một cách tự nhiên.
+\end{itemize}
+
+Nhóm thiết kế ba chiến lược dung hợp trên không gian Context-Aware:
+\begin{enumerate}
+    \item \textbf{Trung bình Hạng Phân vị (Percentile Rank Averaging):} Chuyển đổi xác suất dự báo của từng mô hình $m$ sang hạng chuẩn hóa $r_{i, m} = \frac{\text{Rank}(\hat{p}_{i, m})}{N} \in [0, 1]$, sau đó tính trung bình:
+    \begin{equation*}
+        \hat{s}_i^{\text{Rank}} = \frac{1}{M} \sum_{m=1}^M r_{i, m}
+    \end{equation*}
+    Phương pháp này triệt tiêu hoàn toàn sự sai lệch về biên độ phân chuẩn (Calibration Bias) giữa các mô hình khác nhau.
+    \item \textbf{Bỏ phiếu mềm Xác suất (Soft Voting):} Tính trung bình cộng trực tiếp xác suất: $\hat{s}_i^{\text{Prob}} = \frac{1}{M} \sum_{m=1}^M \hat{p}_{i, m}$.
+    \item \textbf{Tối ưu hóa Trọng số SLSQP (Sequential Least Squares Programming):} Giải bài toán tối ưu lồi có ràng buộc để tìm vector trọng số $\mathbf{w}^* = [w_1, \dots, w_M]^T$ thỏa mãn $\sum w_m = 1, w_m \ge 0$ nhằm tối đa hóa PR-AUC trên tập kiểm định.
+\end{enumerate}
+
+Bảng~\ref{tab:master_benchmark_summary} tổng hợp kết quả đối chứng thực nghiệm toàn diện của toàn bộ các mô hình đơn lẻ và các tổ hợp dung hợp qua cả ba biến thể dữ liệu trên tập kiểm tra out-of-sample $T_{\text{out}}$ ($372.993$ mẫu, Zero Data Leakage):
+
+\begin{table}[H]
+\centering
+\caption{\textbf{Bảng tổng hợp đối chứng toàn diện các mô hình và kỹ thuật (Master Benchmark Table)}}
+\label{tab:master_benchmark_summary}
+\renewcommand{\arraystretch}{1.2}
+\resizebox{\textwidth}{!}{
+\begin{tabular}{|l|l|c|c|c|c|c|}
+\hline
+\textbf{Nhóm Mô hình / Kỹ thuật} & \textbf{Biến thể Dữ liệu} & \textbf{PR-AUC} & \textbf{ROC-AUC} & \textbf{F1-Score} & \textbf{Ngưỡng $\tau^*$} & \textbf{Trọng số $\mathbf{w}$} \\ \hline
+\multicolumn{7}{|l|}{\textbf{I. Các Mô hình Đơn lẻ Tối ưu (Single Tuned Models - Bayesian TPE Optuna)}} \\ \hline
+\multirow{3}{*}{LightGBM} 
+& Baseline (40 cột) & 0,6399 & 0,8629 & 0,7063 & 0,7240 & --- \\ \cline{2-7}
+& Zone (43 cột)     & 0,6443 & 0,8625 & 0,7082 & 0,8280 & --- \\ \cline{2-7}
+& Context (47 cột)  & \textbf{0,6863} & \textbf{0,8988} & 0,7089 & 0,8454 & --- \\ \hline
+\multirow{3}{*}{XGBoost} 
+& Baseline (40 cột) & 0,6417 & 0,8608 & 0,7101 & 0,7120 & --- \\ \cline{2-7}
+& Zone (43 cột)     & 0,6459 & 0,8615 & 0,7088 & 0,5453 & --- \\ \cline{2-7}
+& Context (47 cột)  & \textbf{0,6915} & \textbf{0,8969} & \textbf{0,7225} & 0,6229 & --- \\ \hline
+\multirow{3}{*}{CatBoost} 
+& Baseline (40 cột) & 0,6383 & 0,8543 & 0,7012 & 0,6390 & --- \\ \cline{2-7}
+& Zone (43 cột)     & 0,6379 & 0,8469 & 0,7057 & 0,7555 & --- \\ \cline{2-7}
+& Context (47 cột)  & \textbf{0,6828} & \textbf{0,8924} & 0,7113 & 0,7545 & --- \\ \hline
+\multirow{3}{*}{Random Forest} 
+& Baseline (40 cột) & 0,6319 & 0,8654 & 0,7076 & 0,7318 & --- \\ \cline{2-7}
+& Zone (43 cột)     & 0,6112 & 0,8332 & 0,7016 & 0,4888 & --- \\ \cline{2-7}
+& Context (47 cột)  & \textbf{0,6694} & \textbf{0,8819} & \textbf{0,7181} & 0,5538 & --- \\ \hline
+\multicolumn{7}{|l|}{\textbf{II. Các Cặp đôi Dung hợp Ngữ cảnh (Context Pair Ensembles)}} \\ \hline
+XGB + LGBM (Rank Averaging) & Context (47 cột) & 0,6938 & 0,8976 & 0,7171 & 0,9850 & [0,50 - 0,50] \\ \hline
+XGB + LGBM (Soft Voting)    & Context (47 cột) & 0,6925 & 0,8987 & 0,7179 & 0,7304 & [0,50 - 0,50] \\ \hline
+CAT + LGBM (Rank Averaging) & Context (47 cột) & 0,6926 & 0,8970 & 0,7175 & 0,9841 & [0,50 - 0,50] \\ \hline
+CAT + XGB (Soft Voting)     & Context (47 cột) & 0,6892 & 0,8934 & \textbf{0,7252} & 0,6346 & [0,50 - 0,50] \\ \hline
+RF + XGB (Rank Averaging)   & Context (47 cột) & 0,6866 & 0,8923 & 0,7218 & 0,9851 & [0,50 - 0,50] \\ \hline
+RF + XGB (Soft Voting)      & Context (47 cột) & 0,6862 & 0,8886 & 0,7226 & 0,6184 & [0,50 - 0,50] \\ \hline
+RF + CAT (Rank Averaging)   & Context (47 cột) & 0,6863 & 0,8910 & 0,7256 & 0,9836 & [0,50 - 0,50] \\ \hline
+RF + CAT (Soft Voting)      & Context (47 cột) & 0,6845 & 0,8892 & 0,7241 & 0,5722 & [0,50 - 0,50] \\ \hline
+\multicolumn{7}{|l|}{\textbf{III. Các Tổ hợp Đa Mô hình Đỉnh cao (Multi-Model Ensembles)}} \\ \hline
+CAT + XGB + LGBM (Rank Averaging) & Context (47 cột) & 0,6953 & 0,8972 & 0,7203 & 0,9843 & [1/3, 1/3, 1/3] \\ \hline
+CAT + XGB + LGBM (Soft Voting)    & Context (47 cột) & 0,6931 & 0,8965 & 0,7215 & 0,6945 & [1/3, 1/3, 1/3] \\ \hline
+\textbf{CAT + XGB + LGBM + RF (Quad Rank)} & \textbf{Context (47 cột)} & \textbf{0,6960} & \textbf{0,8969} & \textbf{0,7203} & \textbf{0,9814} & [1/4, 1/4, 1/4, 1/4] \\ \hline
+\textbf{CAT + XGB + LGBM + RF (Quad Soft)} & \textbf{Context (47 cột)} & \textbf{0,6933} & \textbf{0,8951} & \textbf{0,7261} & \textbf{0,6280} & [1/4, 1/4, 1/4, 1/4] \\ \hline
+\end{tabular}
+}
+\end{table}
+
+\textbf{Phân tích Thực nghiệm Chuyên sâu:}
+\begin{itemize}
+    \item \textbf{Thiết lập kỷ lục hiệu năng tốt nhất (State-of-the-Art -- SOTA) với Quad Rank Averaging (CAT + XGB + LGBM + RF):} Thuật ngữ SOTA (\textit{State-of-the-Art}) chỉ mức hiệu năng cao nhất, tối tân nhất đạt được trong một lĩnh vực hoặc một đề tài nghiên cứu. Khi tích hợp mô hình Random Forest vào bộ ba Boosting, tổ hợp Quad Rank Averaging đã thiết lập đỉnh cao hiệu năng mới của toàn bộ đề tài với $\text{PR-AUC} = \mathbf{0{,}6960}$, $\text{ROC-AUC} = \mathbf{0{,}8969}$ và độ chính xác bắt đúng bất thường lên tới $\text{Precision} = \mathbf{91{,}9\%}$ (tại $\tau^* = 0{,}9814$). Random Forest hoạt động theo nguyên lý Đóng bao (Bagging) giúp triệt tiêu phương sai (Variance Reduction) độc lập với cơ chế giảm độ chệch (Bias Reduction) của ba mô hình Gradient Boosting, tạo nên sự cộng hưởng đa dạng cấu trúc (Structural Diversity) lý tưởng mà không bị suy hao bởi các mô hình phân nhánh ngẫu nhiên yếu kém như Extra Trees.
+    \item \textbf{Đỉnh cao $F_1$-Score toàn năng với Quad Soft Voting:} Tổ hợp Quad Soft Voting (CAT + XGB + LGBM + RF) xác lập kỷ lục $F_1\text{-Score} = \mathbf{0{,}7261}$ cao nhất nghiên cứu (Precision $= \mathbf{95{,}7\%}$, Recall $= 58{,}5\%$, $\tau^* = 0{,}6280$), vượt trội hoàn toàn so với mọi mô hình đơn lẻ hay các cặp đôi trước đây.
+    \item \textbf{Hiệu quả triển khai thực tế:} Toàn bộ quá trình suy luận cho $372.993$ mẫu của các mô hình cây và tổ hợp ensemble chỉ mất từ $1{,}0$ đến $2{,}5$ giây trên CPU thông thường, hoàn toàn đáp ứng yêu cầu giám sát phụ tải thời gian thực và kích hoạt cảnh báo sự cố tức thời trong hệ thống BEMS/SCADA.
+\end{itemize}

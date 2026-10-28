@@ -27,3 +27,6 @@ model_DL/artifacts/**/*.zip
 # !model_DL/artifacts/checkpoints/.gitkeep
 # !model_DL/artifacts/logs/.gitkeep
 # !model_DL/artifacts/predictions/.gitkeep
+
+# LaTeX build tools and temp files
+report_p4aids/bin/

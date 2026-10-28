@@ -1,5 +1,11 @@
 \documentclass[12pt,a4paper]{article}
-\usepackage[utf8]{inputenc}
+\usepackage{iftex}
+\ifXeTeX
+  \usepackage{fontspec}
+\else
+  \usepackage[T5]{fontenc}
+  \usepackage[utf8]{inputenc}
+\fi
 \usepackage[vietnamese]{babel}
 \usepackage{amsmath}
 \usepackage{amsfonts}
@@ -13,11 +19,12 @@
 \usepackage{hyperref}
 \usepackage{listings}
 \usepackage{xcolor}
-\usepackage{caption}
+\usepackage[justification=centering]{caption}
 \usepackage{subcaption}
 \usepackage{enumitem}
 \usepackage{longtable} 
 \usepackage{indentfirst}
+\usepackage{tabularx}
 \geometry{margin=2.5cm}
 % Code listing style
 \lstset{
@@ -119,8 +126,8 @@
 \renewcommand{\headrulewidth}{0.3pt}
  \renewcommand{\footrulewidth}{0.3pt}
 \fancyfoot{} % clear all footer fields
-\fancyfoot[L]{\scriptsize \ttfamily Báo cáo Bài tập lớn Lập trình cho Trí tuệ nhân tạo và Khoa học dữ liệu - CO3135 HK261 }
-\fancyfoot[R]{\scriptsize \ttfamily Trang \thepage}
+\fancyfoot[L]{\scriptsize Báo cáo Bài tập lớn Lập trình cho Trí tuệ nhân tạo và Khoa học dữ liệu - CO3135 HK261 }
+\fancyfoot[R]{\scriptsize Trang \thepage}
 
 
 
@@ -150,10 +157,10 @@
 	firstnumber=1,
 	numberfirstline=true
 }
-\usepackage[T5]{fontenc}
-\usepackage[utf8]{inputenc}
-\usepackage[vietnamese]{babel}
-\usepackage{listingsutf8}
+\ifXeTeX
+\else
+  \usepackage{listingsutf8}
+\fi
 \usepackage{mdframed}
 %\usepackage{fancyhdr}
 \setlength{\headheight}{50pt}
@@ -168,8 +175,8 @@
   \begin{tabular}{rl}
     \includegraphics[width=10mm]{IMAGE/LOGO HCMUT.png} &
     \parbox[b]{14cm}{% chiều rộng khối chữ, chỉnh theo ý
-      \textbf{\ttfamily TRƯỜNG ĐẠI HỌC BÁCH KHOA - ĐHQG-HCM}\\[1pt]
-      \textbf{\ttfamily KHOA KHOA HỌC VÀ KỸ THUẬT MÁY TÍNH}
+      \textbf{TRƯỜNG ĐẠI HỌC BÁCH KHOA - ĐHQG-HCM}\\[1pt]
+      \textbf{KHOA KHOA HỌC VÀ KỸ THUẬT MÁY TÍNH}
     }
   \end{tabular}%
 }
@@ -241,17 +248,17 @@
 	%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \include{0 Bảng phân công}
 
-\include{1 Tổng quan về bài toán và dữ liệu}
+\input{1 Tổng quan về bài toán và dữ liệu}
 
-\include{2 Tổng quan tài liệu}
+\input{2 Tổng quan tài liệu}
 
-\include{3 Tiền xử lý dữ liệu}
+\input{3 Tiền xử lý dữ liệu}
 
-\include{4 ML}
+\input{4 ML}
 
-\include{5 DL}
+\input{5 DL}
 
-\include{6 Đánh giá, So sánh và Phân tích kết quả hiệu năng}
+\input{6 Đánh giá, So sánh và Phân tích kết quả hiệu năng}
 
-\include{7 Kết luận và Hướng phát triển tương lai}
+\input{7 Kết luận và Hướng phát triển tương lai}
 \end{document}

@@ -157,6 +157,8 @@ Với chuỗi đơn biến ($d = 1$), điểm này rút gọn thành sai số b�
     \item \textbf{Tạo được điểm số liên tục:} có thể đưa sai số tái tạo vào mô hình Học máy làm đặc trưng bổ sung (tương tự vai trò của điểm Isolation Forest ở phần Học máy).
 \end{itemize}
 
+\pagebreak
+
 \textbf{Nhược điểm:}
 \begin{itemize}
     \item \textbf{Bỏ phí nhãn sẵn có:} khi bộ dữ liệu đã có nhãn, huấn luyện không giám sát thường kém mô hình có giám sát cùng ngân sách tính toán.
@@ -248,6 +250,8 @@ Transformer dùng cơ chế tự chú ý (self-attention) để mọi vị trí 
 \end{equation*}
 Chi phí tính toán của một tầng chú ý là $\mathcal{O}(w^2 d)$ theo độ dài cửa sổ $w$. Anomaly Transformer đề xuất tiêu chí \textit{Association Discrepancy}: do bất thường hiếm nên khó xây dựng liên kết mạnh với toàn chuỗi và liên kết của nó tập trung vào các điểm lân cận, vì vậy sự khác biệt giữa liên kết tiên nghiệm và liên kết chuỗi được dùng để phân biệt bất thường (Xu et al., 2022). TranAD dùng bộ mã hoá chú ý với tự điều kiện hoá theo điểm tập trung (focus score), huấn luyện đối kháng và học meta (MAML) để huấn luyện được với dữ liệu hạn chế (Tuli et al., 2022).\\
 
+\pagebreak
+
 \textbf{Ưu điểm:}
 \begin{itemize}
     \item \textbf{Mô hình hoá quan hệ xa không phụ thuộc khoảng cách:} bất kỳ hai giờ nào trong cửa sổ cũng liên hệ trực tiếp, phù hợp chu kỳ ngày/tuần.
@@ -294,6 +298,8 @@ Bảng dưới tóm tắt các nghiên cứu sử dụng LEAD mà nhóm đã tha
     \item \textbf{Phân cụm toà nhà rồi huấn luyện riêng (Cansever \& Konyar, 2026):} phân cụm toà nhà theo kiểu tiêu thụ bằng K-means rồi phát hiện bất thường độc lập trong từng cụm, bằng các mô hình Isolation Forest, LOF, XGBoost, Random Forest và LightGBM; mô hình huấn luyện trên các toà nhà có mẫu tiêu thụ tương tự cải thiện đáng kể so với mô hình toàn cục. Ý tưởng này chưa được áp dụng cho mô hình Học sâu, nên là hướng mở rộng của nhóm.
 \end{itemize}
 Các nghiên cứu trên khác nhau về tập toà nhà ($15$, $200$ hoặc $406$ toà), về đơn vị đánh giá (cửa sổ hoặc từng giờ) và về việc có dùng nhãn hay không. Vì vậy nhóm sẽ dùng chúng làm cơ sở ý tưởng chứ không đặt trực tiếp kết quả cạnh nhau. Ngoài ra, bảng đánh giá của Schmidl et al. (2022) trên $71$ thuật toán và $976$ tập chuỗi thời gian cho thấy việc chọn thuật toán phụ thuộc mạnh vào từng bài toán, nên cần đối chiếu thực nghiệm thay vì dựa vào kết quả công bố ở bộ dữ liệu khác.
+
+\pagebreak
 
 \subsubsection{Tổng hợp so sánh các họ mô hình Học sâu}
 \begin{center}
