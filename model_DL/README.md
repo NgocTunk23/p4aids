@@ -78,6 +78,15 @@ feature list. Precomputed chunked features were fitted on full `T_in` before
 the model's GroupKFold, so its CV results are exploratory for features that
 depend on building-level statistics.
 
+Windows automatic sleep is blocked only while the training process runs.
+Checkpoints, epoch histories, and each completed fold's prediction cache are
+written atomically. If a run stops, continue it with the same arguments plus
+`--run-id <run-id> --resume`; completed folds are reused. Keep the laptop
+connected to power and do not close its lid during training.
+On resume, `--epochs` may lower the maximum for folds still to run. Previously
+completed folds keep their checkpoints and original epoch histories, and the
+change is recorded in `run_config.json`.
+
 Pipeline đọc trực tiếp dữ liệu Kaggle trong `energy-anomaly-detection/`, tạo
 dataset riêng tại `data/processed_DL/`, đánh giá mọi model bằng cùng GroupKFold
 theo `building_id`, rồi sinh submission riêng cho từng model.

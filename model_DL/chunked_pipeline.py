@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import random
 import re
 from dataclasses import replace
@@ -28,6 +29,49 @@ from .data_pipeline import FoldTransformer, PointDataset
 from .models import build_model
 
 RUN_ROOT = PROJECT_ROOT / "model_DL" / "artifacts" / "chunked"
+
+
+def write_json_atomic(path: Path, payload: dict) -> None:
+    temporary = path.with_name(path.name + ".tmp")
+    temporary.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+    os.replace(temporary, path)
+
+
+def save_parquet_atomic(frame: pd.DataFrame, path: Path) -> None:
+    temporary = path.with_name(path.name + ".tmp")
+    frame.to_parquet(temporary, index=False)
+    os.replace(temporary, path)
+
+
+def keep_windows_awake() -> bool:
+    """Hold a process-scoped power request; Windows removes it if we exit."""
+    if os.name != "nt":
+        return False
+    import ctypes
+    result = ctypes.windll.kernel32.SetThreadExecutionState(0x80000001)
+    if not result:
+        raise OSError("Could not prevent automatic Windows sleep")
+    return True
+
+
+def release_windows_awake() -> None:
+    if os.name == "nt":
+        import ctypes
+        ctypes.windll.kernel32.SetThreadExecutionState(0x80000000)
+
+
+def save_fold_cache(path: Path, valid_pos: np.ndarray, valid_score: np.ndarray,
+                    test_pos: np.ndarray, test_score: np.ndarray) -> None:
+    temporary = path.with_name(path.name + ".tmp")
+    with temporary.open("wb") as stream:
+        np.savez_compressed(stream, valid_pos=valid_pos, valid_score=valid_score,
+                            test_pos=test_pos, test_score=test_score)
+    os.replace(temporary, path)
+
+
+def load_fold_cache(path: Path) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+    with np.load(path, allow_pickle=False) as data:
+        return tuple(data[name] for name in ("valid_pos", "valid_score", "test_pos", "test_score"))
 
 
 def seed_everything(seed: int) -> None:
@@ -215,12 +259,15 @@ def train_fold(model_name: str, variant: str, fold: int, train: pd.DataFrame, te
         pos, score, valid_loss = score_loader(model, valid_loader, model_name, device, config, True)
         metrics = ranking_metrics(labels[pos], score)
         history.append({"epoch": epoch, "train_loss": train_loss, "valid_loss": valid_loss, **metrics})
-        pd.DataFrame(history).to_csv(history_path, index=False)
+        history_tmp = history_path.with_name(history_path.name + ".tmp")
+        pd.DataFrame(history).to_csv(history_tmp, index=False)
+        os.replace(history_tmp, history_path)
         print(f"[{variant}/{model_name} fold={fold} epoch={epoch}] "
               f"loss={train_loss:.6f} val_loss={valid_loss:.6f} "
               f"AP={metrics['average_precision']:.6f} ROC={metrics['roc_auc']:.6f}", flush=True)
         if metrics["average_precision"] > best_ap:
             best_ap, best_epoch, stale = metrics["average_precision"], epoch, 0
+            checkpoint_tmp = checkpoint.with_name(checkpoint.name + ".tmp")
             torch.save({
                 "data_source": "chunked", "variant": variant, "model_name": model_name,
                 "fold": fold, "best_epoch": epoch, "best_average_precision": best_ap,
@@ -228,7 +275,8 @@ def train_fold(model_name: str, variant: str, fold: int, train: pd.DataFrame, te
                 "categorical_features": categorical, "model_state": model.state_dict(),
                 "transformer": transformer.state_dict(), "config": config.to_dict(),
                 "valid_buildings": sorted(train.iloc[valid_idx]["building_id"].unique().astype(int).tolist()),
-            }, checkpoint)
+            }, checkpoint_tmp)
+            os.replace(checkpoint_tmp, checkpoint)
         else:
             stale += 1
             if stale >= config.train.early_stopping_patience:
@@ -267,29 +315,61 @@ def train_run(args: argparse.Namespace) -> Path:
         raise RuntimeError("CUDA requested but not available")
     folds = 2 if args.smoke else args.folds
     epochs = 1 if args.smoke else args.epochs
-    if folds < 2 or epochs < 1 or args.workers < 0 or (args.batch_size is not None and args.batch_size < 1):
-        raise ValueError("folds>=2, epochs>=1, workers>=0 and batch-size>=1 are required")
+    if (folds < 2 or epochs < 1 or args.patience < 1 or args.workers < 0
+            or (args.batch_size is not None and args.batch_size < 1)):
+        raise ValueError("folds>=2, epochs>=1, patience>=1, workers>=0 and batch-size>=1 are required")
+    if len(set(args.models)) != len(args.models) or len(set(args.variants)) != len(args.variants):
+        raise ValueError("Duplicate models or variants are not allowed")
+    if args.resume and not args.run_id:
+        raise ValueError("--resume requires --run-id")
     run_id = args.run_id or (("smoke_" if args.smoke else "full_") +
                              datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ"))
     if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_.-]*", run_id):
         raise ValueError("run-id may only contain letters, digits, dots, underscores and hyphens")
     root = RUN_ROOT / run_id
-    root.mkdir(parents=True, exist_ok=False)
     config = replace(CONFIG, train=replace(CONFIG.train, n_group_folds=folds, max_epochs=epochs,
                                             early_stopping_patience=1 if args.smoke else args.patience))
     run_info = {"status": "running", "run_id": run_id, "smoke": bool(args.smoke),
                 "device": str(device), "models": args.models, "variants": args.variants,
                 "folds": folds, "max_epochs": epochs, "seed": config.train.seed,
+                "patience": config.train.early_stopping_patience,
+                "batch_size_override": args.batch_size, "workers": args.workers,
                 "feature_policy": "all numeric except IDs, labels, timestamps and gte_*; site_id categorical",
                 "validation": "GroupKFold by building_id within T_in",
                 "holdout": "T_out; no fitting, early stopping or threshold selection on T_out",
                 "metric_note": "average_precision is sklearn AP, not trapezoidal PR area",
                 "data_note": "chunked features were precomputed on full T_in before GroupKFold"}
     run_config = root / "run_config.json"
-    run_config.write_text(json.dumps(run_info, indent=2) + "\n", encoding="utf-8")
+    if args.resume:
+        previous = json.loads(run_config.read_text(encoding="utf-8"))
+        for key in ("run_id", "smoke", "device", "models", "variants", "folds",
+                    "seed", "patience", "batch_size_override", "workers"):
+            if previous.get(key) != run_info[key]:
+                raise ValueError(f"Resume settings differ for {key}")
+        if epochs > previous["max_epochs"]:
+            raise ValueError("Resume may keep or lower the epoch cap, not increase it")
+        if previous["status"] == "complete":
+            print(f"[COMPLETE] {root} already finished", flush=True)
+            return root
+        changes = list(previous.get("epoch_cap_changes", []))
+        if epochs < previous["max_epochs"]:
+            changes.append({"from": previous["max_epochs"], "to": epochs,
+                            "effective_on_resume_utc": datetime.now(timezone.utc).isoformat(),
+                            "note": "Completed folds retain their original checkpoints and histories"})
+            print(f"[CONFIG] Epoch cap lowered {previous['max_epochs']} -> {epochs}; completed folds retained",
+                  flush=True)
+        run_info["epoch_cap_changes"] = changes
+    else:
+        root.mkdir(parents=True, exist_ok=False)
+    write_json_atomic(run_config, run_info)
+    print(f"[RUN] {run_id} device={device} resume={args.resume}", flush=True)
     summaries: list[dict] = []
     smoke_buildings: list[int] | None = None
+    awake = False
     try:
+        awake = keep_windows_awake()
+        if awake:
+            print("[POWER] Windows automatic sleep blocked while this process runs", flush=True)
         for variant in args.variants:
             train, test, source_manifest = load_variant(variant)
             if args.smoke:
@@ -302,15 +382,19 @@ def train_run(args: argparse.Namespace) -> Path:
             if (numeric, categorical) != (test_numeric, test_categorical):
                 raise ValueError(f"{variant}: train/test feature schemas differ")
             variant_dir = root / variant
-            (variant_dir / "logs").mkdir(parents=True)
-            (variant_dir / "predictions").mkdir()
-            (variant_dir / "checkpoints").mkdir()
+            (variant_dir / "logs").mkdir(parents=True, exist_ok=args.resume)
+            (variant_dir / "predictions").mkdir(exist_ok=args.resume)
+            (variant_dir / "checkpoints").mkdir(exist_ok=args.resume)
             records = [item for item in source_manifest["datasets"] if item["variant"] == variant]
             variant_info = {"variant": variant, "train_rows": len(train), "holdout_rows": len(test),
                             "numeric_features": numeric, "categorical_features": categorical,
                             "source_datasets": records, "smoke_buildings": smoke_buildings}
-            (variant_dir / "variant_config.json").write_text(json.dumps(variant_info, indent=2) + "\n",
-                                                             encoding="utf-8")
+            variant_config = variant_dir / "variant_config.json"
+            if args.resume and variant_config.exists():
+                if json.loads(variant_config.read_text(encoding="utf-8")) != variant_info:
+                    raise ValueError(f"{variant}: dataset or feature schema changed since run started")
+            else:
+                write_json_atomic(variant_config, variant_info)
             labels = train["anomaly"].to_numpy(np.uint8)
             groups = train["building_id"].to_numpy()
             cv = list(GroupKFold(n_splits=folds).split(train, groups=groups))
@@ -325,10 +409,29 @@ def train_run(args: argparse.Namespace) -> Path:
                 holdout_count = np.zeros(len(test), np.int16)
                 fold_reports = []
                 for fold, (train_idx, valid_idx) in enumerate(cv):
-                    vp, vs, tp, ts, report = train_fold(
-                        model_name, variant, fold, train, test, train_idx, valid_idx,
-                        numeric, categorical, variant_dir, device, model_config, args.workers, batch_size
-                    )
+                    cache = variant_dir / "predictions" / f"fold_{fold}_{model_name}.npz"
+                    fold_report = variant_dir / "logs" / f"fold_{fold}_{model_name}.json"
+                    checkpoint = variant_dir / "checkpoints" / model_name / f"fold_{fold}.pt"
+                    restored = False
+                    if args.resume and cache.exists() and fold_report.exists() and checkpoint.exists():
+                        try:
+                            vp, vs, tp, ts = load_fold_cache(cache)
+                            report = json.loads(fold_report.read_text(encoding="utf-8"))
+                            if (not np.array_equal(np.sort(vp), np.sort(valid_idx))
+                                    or not np.array_equal(np.sort(tp), np.arange(len(test)))
+                                    or not np.isfinite(vs).all() or not np.isfinite(ts).all()):
+                                raise ValueError("cache coverage or scores invalid")
+                            restored = True
+                            print(f"[RESUME] {variant}/{model_name} fold={fold}", flush=True)
+                        except (OSError, ValueError, KeyError, json.JSONDecodeError) as error:
+                            print(f"[RESUME] Retrying {variant}/{model_name} fold={fold}: {error}", flush=True)
+                    if not restored:
+                        vp, vs, tp, ts, report = train_fold(
+                            model_name, variant, fold, train, test, train_idx, valid_idx,
+                            numeric, categorical, variant_dir, device, model_config, args.workers, batch_size
+                        )
+                        save_fold_cache(cache, vp, vs, tp, ts)
+                        write_json_atomic(fold_report, report)
                     if not np.isnan(oof[vp]).all():
                         raise ValueError(f"{variant}/{model_name}: duplicate OOF predictions")
                     oof[vp] = vs
@@ -343,14 +446,12 @@ def train_run(args: argparse.Namespace) -> Path:
                 threshold, oof_f1 = oof_threshold(labels, oof, config.train.threshold_grid_size)
                 oof_metrics = summarize_predictions(oof_frame, threshold)
                 holdout_metrics = summarize_predictions(holdout_frame, threshold)
-                oof_frame.to_parquet(variant_dir / "predictions" / f"oof_{model_name}.parquet", index=False)
-                holdout_frame.to_parquet(variant_dir / "predictions" / f"holdout_{model_name}.parquet", index=False)
+                save_parquet_atomic(oof_frame, variant_dir / "predictions" / f"oof_{model_name}.parquet")
+                save_parquet_atomic(holdout_frame, variant_dir / "predictions" / f"holdout_{model_name}.parquet")
                 report = {"variant": variant, "model": model_name, "oof_threshold": threshold,
                           "oof_f1_at_selected_threshold": oof_f1, "oof": oof_metrics,
                           "holdout": holdout_metrics, "folds": fold_reports}
-                (variant_dir / "logs" / f"metrics_{model_name}.json").write_text(
-                    json.dumps(report, indent=2) + "\n", encoding="utf-8"
-                )
+                write_json_atomic(variant_dir / "logs" / f"metrics_{model_name}.json", report)
                 summaries.append({"variant": variant, "model": model_name,
                                   "oof_ap": oof_metrics["average_precision"],
                                   "oof_roc_auc": oof_metrics["roc_auc"],
@@ -358,16 +459,20 @@ def train_run(args: argparse.Namespace) -> Path:
                                   "holdout_roc_auc": holdout_metrics["roc_auc"],
                                   "holdout_f1_at_oof_threshold": holdout_metrics["f1_at_oof_threshold"],
                                   "oof_threshold": threshold})
-                pd.DataFrame(summaries).to_csv(root / "summary.csv", index=False)
+                summary_tmp = root / "summary.csv.tmp"
+                pd.DataFrame(summaries).to_csv(summary_tmp, index=False)
+                os.replace(summary_tmp, root / "summary.csv")
                 print(f"[DONE] {variant}/{model_name}: OOF AP={oof_metrics['average_precision']:.6f}, "
                       f"T_out AP={holdout_metrics['average_precision']:.6f}", flush=True)
         run_info["status"] = "complete"
-    except Exception as error:
-        run_info["status"] = "failed"
+    except BaseException as error:
+        run_info["status"] = "interrupted" if isinstance(error, KeyboardInterrupt) else "failed"
         run_info["error"] = f"{type(error).__name__}: {error}"
         raise
     finally:
-        run_config.write_text(json.dumps(run_info, indent=2) + "\n", encoding="utf-8")
+        if awake:
+            release_windows_awake()
+        write_json_atomic(run_config, run_info)
     print(f"[COMPLETE] {root}", flush=True)
     return root
 
@@ -409,6 +514,7 @@ def parse_args() -> argparse.Namespace:
     train.add_argument("--workers", type=int, default=0)
     train.add_argument("--device", default="auto", choices=("auto", "cpu", "cuda"))
     train.add_argument("--run-id", default=None)
+    train.add_argument("--resume", action="store_true", help="Continue a matching interrupted run")
     train.add_argument("--smoke", action="store_true", help="8 buildings, 2 folds, 1 epoch")
     evaluate = sub.add_parser("evaluate", help="Recalculate metrics from saved predictions")
     evaluate.add_argument("--run-id", required=True)
