@@ -1,5 +1,83 @@
 # Deep Learning pipeline
 
+## Chunked datasets with timestamps
+
+The six immutable datasets in `data/processed/` do not contain `timestamp`.
+To prepare separate timestamped copies for later DL training, run from the
+repository root:
+
+```powershell
+python -m model_DL.prepare_chunked_data
+```
+
+This reads `energy-anomaly-detection/train_features.csv` for timestamps only,
+checks row order against `building_id`, `anomaly`, and the six time features,
+then writes these files to `data/processed_DL/`:
+
+```text
+train_chunked_baseline_timestamp.parquet
+train_chunked_zone_timestamp.parquet
+train_chunked_context_timestamp.parquet
+test_chunked_baseline_timestamp.parquet
+test_chunked_zone_timestamp.parquet
+test_chunked_context_timestamp.parquet
+chunked_timestamp_metadata.json
+```
+
+All original columns and values are preserved. The metadata records input and
+output SHA-256 hashes and row counts. Existing outputs are never overwritten.
+The legacy `model_DL.pipeline` still uses `train_processed_dl.parquet` and
+`test_processed_dl.parquet`. The chunked training command below reads the new
+timestamped files explicitly.
+
+## Train on the timestamped chunked datasets
+
+Use the separate entry point below. It keeps the original Kaggle pipeline and
+its saved artifacts intact:
+
+```powershell
+# Short end-to-end check: 8 buildings, 2 folds, 1 epoch.
+python -m model_DL.chunked_pipeline train --smoke
+
+# Full run: three variants, five models, five GroupKFold splits.
+python -m model_DL.chunked_pipeline train
+
+# Recalculate the metrics from saved OOF and T_out prediction files.
+python -m model_DL.chunked_pipeline evaluate --run-id full_YYYYMMDDTHHMMSSZ
+```
+
+`--variants` and `--models` can narrow a run. `--epochs`, `--folds`,
+`--patience`, `--batch-size`, `--workers`, `--device`, and `--run-id` are also
+available. Full runs default to 30 epochs at most, with early stopping after
+five epochs without a better validation Average Precision (AP). The default
+batch size is 1024 for MLP and 16 for each sequence model; reduce it if GPU
+memory is insufficient. Every run uses a new directory under
+`model_DL/artifacts/chunked/<run-id>/`. Generated runs stay on disk and are
+ignored by Git until explicitly added. Each run writes:
+
+```text
+run_config.json
+summary.csv
+<variant>/variant_config.json
+<variant>/checkpoints/<model>/fold_<n>.pt
+<variant>/logs/history_<model>_fold_<n>.csv
+<variant>/logs/metrics_<model>.json
+<variant>/predictions/oof_<model>.parquet
+<variant>/predictions/holdout_<model>.parquet
+```
+
+The per-row prediction files contain `processed_position`, `building_id`,
+`timestamp`, `anomaly_true`, and `score`. GroupKFold uses `T_in` only. Best
+checkpoints use validation AP, with ROC-AUC and loss logged each epoch. The
+F1 threshold comes from `T_in` OOF scores and is applied unchanged to labeled
+`T_out`; the holdout is never used for training or model selection. Sequence
+windows reset at each non-hourly gap and cover every selected row once. The
+training feature set excludes `gte_*`, as in the original DL pipeline, until
+their provenance has been established. `variant_config.json` records the exact
+feature list. Precomputed chunked features were fitted on full `T_in` before
+the model's GroupKFold, so its CV results are exploratory for features that
+depend on building-level statistics.
+
 Pipeline đọc trực tiếp dữ liệu Kaggle trong `energy-anomaly-detection/`, tạo
 dataset riêng tại `data/processed_DL/`, đánh giá mọi model bằng cùng GroupKFold
 theo `building_id`, rồi sinh submission riêng cho từng model.

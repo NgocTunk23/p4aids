@@ -1,0 +1,90 @@
+{
+  "purpose": "Row-aligned timestamps for chunked DL training; no feature values modified",
+  "timestamp_source": "energy-anomaly-detection\\train_features.csv",
+  "timestamp_source_sha256": "d6ad36fe100a33d6561d34bafbc6cb35fe08ff9dc576297124c8c1899c328558",
+  "split_rule": {
+    "train_days": "1-20",
+    "purged_days": "21-24",
+    "test_days": "25-end"
+  },
+  "counts": {
+    "total_raw_rows": 1749494,
+    "n_train": 1147089,
+    "n_gap_purged": 229412,
+    "n_test": 372993
+  },
+  "datasets": [
+    {
+      "split": "train",
+      "variant": "baseline",
+      "rows": 1147089,
+      "columns": 41,
+      "timestamp_min": "2016-01-01 00:00:00",
+      "timestamp_max": "2016-12-20 23:00:00",
+      "input": "data\\processed\\train_chunked_baseline.parquet",
+      "input_sha256": "29fad03b03c33e004b726f2c58c3077a3c0ddab97dee2f68175230edca0862b7",
+      "output": "data\\processed_DL\\train_chunked_baseline_timestamp.parquet",
+      "output_sha256": "3dda6833e660ea9774c9a9d143fd3a91bd074a659e5f410f88c2626ec90b61cb"
+    },
+    {
+      "split": "train",
+      "variant": "zone",
+      "rows": 1147089,
+      "columns": 44,
+      "timestamp_min": "2016-01-01 00:00:00",
+      "timestamp_max": "2016-12-20 23:00:00",
+      "input": "data\\processed\\train_chunked_zone.parquet",
+      "input_sha256": "e5733609881501d0e88cd097c0bb73c39e863ea977fe9467f48c2de0a29c5652",
+      "output": "data\\processed_DL\\train_chunked_zone_timestamp.parquet",
+      "output_sha256": "db47c41eb623d51a09fb2934fc800193f6a39fa2ff4ca9c86165af0112297910"
+    },
+    {
+      "split": "train",
+      "variant": "context",
+      "rows": 1147089,
+      "columns": 48,
+      "timestamp_min": "2016-01-01 00:00:00",
+      "timestamp_max": "2016-12-20 23:00:00",
+      "input": "data\\processed\\train_chunked_context.parquet",
+      "input_sha256": "c18492d5485c9e5ecbf2fc2f08a5a588a156bf60295a0280249283bac7d71092",
+      "output": "data\\processed_DL\\train_chunked_context_timestamp.parquet",
+      "output_sha256": "4bed4a7efdaedcd7f5b8e8fc277e38e907358c21034d666d7b6c63f88f8a7976"
+    },
+    {
+      "split": "test",
+      "variant": "baseline",
+      "rows": 372993,
+      "columns": 41,
+      "timestamp_min": "2016-01-25 00:00:00",
+      "timestamp_max": "2016-12-31 23:00:00",
+      "input": "data\\processed\\test_chunked_baseline.parquet",
+      "input_sha256": "c09a483eee8fb6bcb113a061542f49d65457138d8cc689cbf85db9dd15c71c86",
+      "output": "data\\processed_DL\\test_chunked_baseline_timestamp.parquet",
+      "output_sha256": "bf71d103ab14e845df4090e35516ad8d86d1f13d3a81a87ed6a076ecb7029501"
+    },
+    {
+      "split": "test",
+      "variant": "zone",
+      "rows": 372993,
+      "columns": 44,
+      "timestamp_min": "2016-01-25 00:00:00",
+      "timestamp_max": "2016-12-31 23:00:00",
+      "input": "data\\processed\\test_chunked_zone.parquet",
+      "input_sha256": "72ee8ef49e06e3f4fb213e3723f64514401698002b1560e674469a734e62d67e",
+      "output": "data\\processed_DL\\test_chunked_zone_timestamp.parquet",
+      "output_sha256": "8834cdb85d9f19b1fc6b55e2b024c025dcb2a2d5ebd3c834ebbbe0ed33e4c018"
+    },
+    {
+      "split": "test",
+      "variant": "context",
+      "rows": 372993,
+      "columns": 48,
+      "timestamp_min": "2016-01-25 00:00:00",
+      "timestamp_max": "2016-12-31 23:00:00",
+      "input": "data\\processed\\test_chunked_context.parquet",
+      "input_sha256": "8af9e2f1485b5ee76415423887954a1e76e883d3d0d08e087be1ef3314905b2f",
+      "output": "data\\processed_DL\\test_chunked_context_timestamp.parquet",
+      "output_sha256": "995c2a5ac044aeb4491c850488d89df77b0b5acb8f78ae2693b9cef0c43ee183"
+    }
+  ]
+}
