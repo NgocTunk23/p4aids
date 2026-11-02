@@ -1,0 +1,17 @@
+{
+  "model": "HIST",
+  "dataset": "zone",
+  "best_pr_auc": 0.6194555417119189,
+  "roc_auc": 0.8556642992411009,
+  "best_f1": 0.6803083795662511,
+  "best_threshold": 0.9602988687274658,
+  "total_trials": 30,
+  "total_time_sec": 745.76,
+  "best_params": {
+    "max_iter": 250,
+    "learning_rate": 0.0346760046117986,
+    "max_leaf_nodes": 33,
+    "min_samples_leaf": 60,
+    "l2_regularization": 3.0049302044651633
+  }
+}

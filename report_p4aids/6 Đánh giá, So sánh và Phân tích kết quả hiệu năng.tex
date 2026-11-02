@@ -36,7 +36,7 @@
 
 % \paragraph{Điểm yếu:}\hspace{1cm}
 % \begin{itemize}
-%     \item \textbf{Phụ thuộc vào đặc trưng thiết kế thủ công.} Ngữ cảnh thời gian chỉ đi vào mô hình qua các đặc trưng người thiết kế chọn; nếu thiết kế chưa đủ (hoặc xây sai) thì mô hình không tự bù. Kết quả tiến trình không gian đặc trưng ở Bảng~\ref{tab:lag_vs_zone_leakage_test} cho thấy chất lượng đặc trưng quyết định rất lớn đến hiệu năng (tăng từ $0{,}64$ lên hơn $0{,}69$).
+%     \item \textbf{Phụ thuộc vào đặc trưng thiết kế thủ công.} Ngữ cảnh thời gian chỉ đi vào mô hình qua các đặc trưng người thiết kế chọn; nếu thiết kế chưa đủ (hoặc xây sai) thì mô hình không tự bù. Kết quả tiến trình không gian đặc trưng ở Bảng~\ref{tab:model_feasibility_comparison} cho thấy chất lượng đặc trưng quyết định rất lớn đến hiệu năng (tăng từ $0{,}64$ lên hơn $0{,}69$).
 %     \item \textbf{Mỗi dòng được xét độc lập.} Mô hình không biết trực tiếp một giá trị đã lặp bao lâu hay mẫu hình của tuần trước, trừ khi các thông tin đó được mã hoá thành đặc trưng.
 %     \item \textbf{Rủi ro nhận diện toà nhà.} Các đặc trưng như \texttt{square\_feet} và tương tác khu vực gần như nhận diện được từng toà nhà. Nếu chia dữ liệu theo dòng, mô hình có thể ghi nhớ đặc điểm riêng của từng toà thay vì học quy luật chung, và điểm số có thể cao hơn khả năng thực khi gặp toà nhà mới.
 %     \item \textbf{Cần nhiều bước phụ trợ để đạt hiệu năng cao nhất:} tinh chỉnh ngưỡng, ngưỡng động theo khu vực và dung hợp mô hình, làm pipeline phức tạp hơn và tăng nguy cơ tinh chỉnh quá khớp trên tập kiểm định.
@@ -99,22 +99,22 @@
 % \begin{tabular}{|p{3.2cm}|p{5.8cm}|p{5.8cm}|}
 % \hline
 % \textbf{Tiêu chí} & \textbf{Học máy (Machine Learning)} & \textbf{Học sâu (Deep Learning)} \\ \hline
-% Mô hình tốt nhất & Triplet Ensemble Rank Averaging (CAT + XGB + LGBM) trên không gian Context-Aware & BiGRU (theo ROC-AUC) / TCN (chuỗi nhân quả) \\ \hline
+% Mô hình tốt nhất & Tri-Model Ensemble Rank Averaging (CAT + XGB + LGBM) trên không gian Context-Aware & BiGRU (theo ROC-AUC) / TCN (chuỗi nhân quả) \\ \hline
 % Giao thức chia dữ liệu & Seasonal Chunking ($T_{\text{in}}$ Ngày 1--20, Purge Gap 96h, $T_{\text{out}}$ Ngày 25--Hết) -- 100\% Zero Leakage & \texttt{GroupKFold} $5$ phần theo toà nhà \\ \hline
-% PR-AUC (Độ đo Cốt lõi - Primary Metric) & $\mathbf{0{,}6953}$ (Triplet Rank) / $0{,}6915$ (XGB Context đơn) & $0{,}7346$ (BiGRU OOF) \\ \hline
-% ROC-AUC & $\mathbf{0{,}8972}$ (Triplet Rank) / $0{,}8988$ (LGBM Context đơn) & $0{,}9521$ (BiGRU OOF) \\ \hline
-% F1-Score \& Ngưỡng $\tau^*$ & $F_1 = \mathbf{0{,}7252}$ (Precision = $\mathbf{95{,}0\%}$, Recall = $58{,}6\%$ @ Soft Voting CAT+XGB) \newline $F_1 = 0{,}7203$ (Precision = $\mathbf{97{,}0\%}$, Recall = $57{,}3\%$ @ Rank Averaging) & $F_1^{\max} = 0{,}7367$ (chọn trên OOF) \newline Precision $\approx 72\%$, Recall $\approx 75\%$ \\ \hline
+% PR-AUC (Độ đo Cốt lõi - Primary Metric) & $\mathbf{0{,}6953}$ (Tri-Model Rank) / $\mathbf{0{,}6962}$ (XGB Context đơn) & $0{,}7346$ (BiGRU OOF) \\ \hline
+% ROC-AUC & $\mathbf{0{,}8972}$ (Tri-Model Rank) / $\mathbf{0{,}8988}$ (LGBM Context đơn) & $0{,}9521$ (BiGRU OOF) \\ \hline
+% F1-Score \& Ngưỡng $\tau^*$ & $F_1 = \mathbf{0{,}7273}$ (Precision = $\mathbf{95{,}4\%}$, Recall = $58{,}8\%$ @ XGB Context) \newline $F_1 = \mathbf{0{,}7215}$ (@ Soft Voting CAT+XGB+LGBM) \newline $F_1 = 0{,}7203$ (Precision = $\mathbf{97{,}0\%}$, Recall = $57{,}3\%$ @ Rank Averaging) & $F_1^{\max} = 0{,}7367$ (chọn trên OOF) \newline Precision $\approx 72\%$, Recall $\approx 75\%$ \\ \hline
 % Quy mô tập kiểm định & $372.993$ mẫu Out-of-Sample độc lập ($T_{\text{out}}$) & $5$ folds OOF trên $200$ toà nhà \\ \hline
 % Chi phí & Huấn luyện trong $\approx 10 - 35$ giây trên CPU thường & Huấn luyện $\approx 15 - 45$ phút / fold trên GPU \\ \hline
 % \end{tabular}
-% \end{table}
+% % \end{table}
 
-% \textbf{Nhận xét đối chiếu chuyên sâu:}
-% \begin{itemize}
-%     \item \textbf{Độ chính xác bắt đúng dị thường (Precision):} Nhánh Học máy với cơ chế làm giàu đặc trưng ngữ cảnh vi mô (\texttt{z\_meter\_local}, \texttt{z\_meter\_workday}) và tối ưu ngưỡng xác suất đạt độ chính xác bắt đúng bất thường cực cao lên tới \textbf{95,0\% -- 97,0\%}, hạn chế tối đa tình trạng báo động giả gây lãng phí tài nguyên vận hành tòa nhà.
-%     \item \textbf{Độ nhạy và khả năng thích ứng chuỗi (Recall):} Nhánh Học sâu nhờ cửa sổ trượt dài 252 giờ và cơ chế cổng nhớ tuần hoàn (GRU/LSTM) duy trì khả năng bao quát tốt hơn các bất thường kéo dài (Recall $\approx 75\%$), trong khi Học máy trên dữ liệu Out-of-Sample đạt Recall $57{,}3\% - 58{,}6\%$.
-%     \item \textbf{Khả năng triển khai thực tế:} Nhóm mô hình cây tăng cường gradient (XGBoost, LightGBM) có tốc độ suy luận dưới 1 giây cho hàng trăm nghìn mẫu, không phụ thuộc vào hạ tầng GPU, rất thuận lợi để triển khai trực tiếp vào hệ thống SCADA/BEMS giám sát năng lượng thời gian thực.
-% \end{itemize}
+% % \textbf{Nhận xét đối chiếu chuyên sâu:}
+% % \begin{itemize}
+% %     \item \textbf{Độ chính xác bắt đúng dị thường (Precision):} Nhánh Học máy với cơ chế làm giàu đặc trưng ngữ cảnh vi mô (\texttt{z\_meter\_local}, \texttt{z\_meter\_workday}) và tối ưu ngưỡng xác suất đạt độ chính xác bắt đúng bất thường cực cao lên tới \textbf{95,0\% -- 97,0\%}, hạn chế tối đa tình trạng báo động giả gây lãng phí tài nguyên vận hành tòa nhà.
+% %     \item \textbf{Độ nhạy và khả năng thích ứng chuỗi (Recall):} Nhánh Học sâu nhờ cửa sổ trượt dài 252 giờ và cơ chế cổng nhớ tuần hoàn (GRU/LSTM) duy trì khả năng bao quát tốt hơn các bất thường kéo dài (Recall $\approx 75\%$), trong khi Học máy trên dữ liệu Out-of-Sample đạt Recall $57{,}3\% - 58{,}6\%$.
+% %     \item \textbf{Khả năng triển khai thực tế:} Nhóm mô hình cây tăng cường gradient (XGBoost, LightGBM) có tốc độ suy luận dưới 1 giây cho hàng trăm nghìn mẫu, không phụ thuộc vào hạ tầng GPU, rất thuận lợi để triển khai trực tiếp vào hệ thống SCADA/BEMS giám sát năng lượng thời gian thực.
+% % \end{itemize}
 
 % \subsection{Hướng Hoàn thiện để So sánh Công bằng}
 

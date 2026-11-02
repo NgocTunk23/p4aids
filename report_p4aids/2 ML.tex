@@ -4,7 +4,7 @@ Do dữ liệu đã có gán nhãn cho biến \texttt{anomaly}( $0$ biểu thị
 
 \subsubsection{XGBoost (eXtreme Gradient Boosting)}\hspace{1cm}
 
-XGBoost tối ưu hóa hàm mục tiêu bằng phương pháp khai triển Taylor bậc hai, cho phép hội tụ nhanh hơn. Cấu trúc cây được phát triển theo từng tầng. Mô hình cuối cùng là tổng hợp tuần tự của $K$ cây quyết định:
+XGBoost~\cite{xgboost} tối ưu hóa hàm mục tiêu bằng phương pháp khai triển Taylor bậc hai, cho phép hội tụ nhanh hơn. Cấu trúc cây được phát triển theo từng tầng. Mô hình cuối cùng là tổng hợp tuần tự của $K$ cây quyết định:
 \begin{equation*}
     \hat{y}_i = \sum_{k=1}^{K} f_k(\mathbf{x}_i), \quad f_k \in \mathcal{F}
 \end{equation*}
@@ -18,7 +18,6 @@ với $g_i = \partial_{\hat{y}^{(t-1)}} \ell(y_i, \hat{y}^{(t-1)})$ là gradient
 \end{equation*}
 trong đó $T$ là số lá, $w_j$ là trọng số tại lá $j$, $\gamma$ phạt số lượng lá, $\lambda$ là hệ số điều chuẩn $L_2$ và $\alpha$ là hệ số điều chuẩn $L_1$.\\
 
-\pagebreak
 \textbf{Ưu điểm:}
 \begin{itemize}
     \item \textbf{Hạn chế Overfitting:} Tích hợp các thành phần phạt $L_1$ ($\alpha$) và $L_2$ ($\lambda$) trực tiếp vào hàm mục tiêu $\Omega(f)$, giúp hạn chế hiệu quả hiện tượng overfitting khi mô hình tiếp xúc với dữ liệu nhiễu từ các cảm biến đo lường.
@@ -34,7 +33,7 @@ trong đó $T$ là số lá, $w_j$ là trọng số tại lá $j$, $\gamma$ ph�
 
 \subsubsection{LightGBM (Light Gradient Boosting Machine)}\hspace{1cm}
 
-LightGBM được thiết kế chuyên biệt để tối ưu hóa hiệu suất trên dữ liệu quy mô lớn thông qua hai kỹ thuật cốt lõi: GOSS (Gradient-based One-Side Sampling) và EFB (Exclusive Feature Bundling). Cây được phát triển theo cơ chế ưu tiên lá.
+LightGBM~\cite{lightgbm} được thiết kế chuyên biệt để tối ưu hóa hiệu suất trên dữ liệu quy mô lớn thông qua hai kỹ thuật cốt lõi: GOSS (Gradient-based One-Side Sampling) và EFB (Exclusive Feature Bundling). Cây được phát triển theo cơ chế ưu tiên lá.
 
 Kỹ thuật GOSS ước lượng độ lợi thông tin bằng cách giữ lại toàn bộ các mẫu có gradient lớn và lấy mẫu ngẫu nhiên từ các mẫu có gradient nhỏ, sau đó nhân trọng số bù:
 \begin{equation*}
@@ -60,7 +59,7 @@ Kỹ thuật EFB gộp các đặc trưng thưa có tính loại trừ lẫn nha
 
 \subsubsection{CatBoost (Categorical Boosting)}\hspace{1cm}
 
-Thuật toán xây dựng các cây quyết định đối xứng và sử dụng cơ chế Ordered Target Encoding. Đặc điểm cốt lõi của CatBoost là sử dụng hoán vị ngẫu nhiên $\sigma$ để tính giá trị mã hóa cho biến định danh, tránh rò rỉ thông tin mục tiêu:
+Thuật toán CatBoost~\cite{catboost} xây dựng các cây quyết định đối xứng và sử dụng cơ chế Ordered Target Encoding. Đặc điểm cốt lõi của CatBoost là sử dụng hoán vị ngẫu nhiên $\sigma$ để tính giá trị mã hóa cho biến định danh, tránh rò rỉ thông tin mục tiêu:
 \begin{equation*}
     \hat{x}_{\sigma_p}^i = \frac{\sum_{j=1}^{p-1} [x_{\sigma_j}^i = x_{\sigma_p}^i] \cdot y_{\sigma_j} + a \cdot P}{\sum_{j=1}^{p-1} [x_{\sigma_j}^i = x_{\sigma_p}^i] + a}
 \end{equation*}
@@ -82,90 +81,61 @@ Cây đối xứng sử dụng cùng một điều kiện chia tại tất cả 
     \item \textbf{Khả năng biểu diễn hạn chế:} Ràng buộc cùng một điều kiện chia tại mỗi tầng có thể hạn chế khả năng biểu diễn các mẫu phức tạp, đòi hỏi cây phải sâu hơn để đạt cùng mức chính xác so với cây tự do.
 \end{itemize}
 
-\subsubsection{Random Forest}\hspace{1cm}
+\subsubsection{HistGradientBoosting (Histogram-based Gradient Boosting)}\hspace{1cm}
 
-Random Forest là thuật toán học tập hợp Bagging, xây dựng $B$ cây quyết định độc lập trên các tập dữ liệu bootstrap. Mỗi cây được huấn luyện trên tập $\mathcal{D}_b$ được lấy mẫu ngẫu nhiên có hoàn lại từ tập gốc $\mathcal{D}$, với $|\mathcal{D}_b| = |\mathcal{D}| = n$.
+HistGradientBoosting~\cite{hist_gb} là thuật toán tăng cường độ dốc hiện đại được xây dựng trong thư viện Scikit-learn, lấy cảm hứng trực tiếp từ kỹ thuật Histogram-based của LightGBM và được nhóm Quán quân cuộc thi LEAD~\cite{lead_winner} lựa chọn làm một trong bốn trụ cột phân loại chính. Thuật toán được thiết kế chuyên biệt để giải quyết rào cản tốc độ và bộ nhớ khi huấn luyện trên các tập dữ liệu chuỗi thời gian quy mô lớn ($N > 10^6$ mẫu).
 
-Tại mỗi nút phân chia, thay vì xét toàn bộ $p$ đặc trưng, Random Forest chỉ chọn ngẫu nhiên một tập con $m$ đặc trưng và tìm điểm chia tối ưu theo tiêu chí Gini Impurity:
+Khác biệt cốt lõi của HistGradientBoosting nằm ở khâu lượng tử hóa đặc trưng (Feature Quantization / Binning): Thay vì duyệt qua toàn bộ các giá trị thực liên tục và sắp xếp lại dữ liệu tại mỗi bước phân nhánh với độ phức tạp $O(N \log N)$, thuật toán ánh xạ trước các đặc trưng liên tục vào tối đa $K = 256$ thùng số nguyên 8-bit (\texttt{uint8}):
 \begin{equation*}
-    \text{Gini}(S) = 1 - \sum_{k=1}^{C} p_k^2
+    q(x_i) \in \{0, 1, \dots, K-1\}
 \end{equation*}
-trong đó $C$ là số lớp và $p_k$ là tỷ lệ mẫu thuộc lớp $k$ trong tập $S$. Số đặc trưng được chọn ngẫu nhiên thường là $m = \lfloor\sqrt{p}\rfloor$ cho bài toán phân lớp.
+Đặc biệt, thùng thứ $255$ được dành riêng để biểu diễn tự nhiên các giá trị bị khuyết (NaN), cho phép mô hình tự động phân nhánh tối ưu cho dữ liệu thiếu mà không cần phải thực hiện bước điền khuyết (Imputation) nhân tạo trước đó.
 
-Dự đoán cuối cùng được xác định bằng bỏ phiếu đa số:
+Tại mỗi nút của cây quyết định thứ $t$, thuật toán tích lũy trực tiếp Gradient bậc nhất $g_i$ và Gradient bậc hai Hessian $h_i$ vào các bin histogram:
 \begin{equation*}
-    \hat{y}(\mathbf{x}) = \text{mode}\left\{ h_b(\mathbf{x}) \right\}_{b=1}^{B}
+    G_k = \sum_{i: q(x_i) = k} g_i, \quad H_k = \sum_{i: q(x_i) = k} h_i, \quad k \in \{0, 1, \dots, K-1\}
 \end{equation*}
-
-Phương sai của mô hình tập hợp được giới hạn bởi:
+Nhờ tính chất cộng dồn của Histogram, việc tìm kiếm điểm chia nhánh tối ưu $s^*$ chỉ tốn chi phí $O(K)$ độc lập với kích thước dữ liệu $N$. Hơn nữa, thuật toán áp dụng cơ chế trừ Histogram (\textit{Histogram Subtraction Trick}): Histogram của nút con bên phải được suy ra trực tiếp bằng phép trừ:
 \begin{equation*}
-    \text{Var}\left[\hat{y}\right] = \rho \sigma^2 + \frac{1 - \rho}{B} \sigma^2
+    G_{\text{Right}} = G_{\text{Parent}} - G_{\text{Left}}, \quad H_{\text{Right}} = H_{\text{Parent}} - H_{\text{Left}}
 \end{equation*}
-trong đó $\rho$ là hệ số tương quan trung bình giữa các cây và $\sigma^2$ là phương sai của mỗi cây đơn lẻ. Việc chọn ngẫu nhiên $m \ll p$ đặc trưng tại mỗi nút giúp giảm $\rho$, từ đó giảm phương sai tổng thể.\\
+giúp giảm một nửa khối lượng tính toán trên toàn bộ cây. Độ lợi phân chia được tối đa hóa theo hàm mất mát chính quy:
+\begin{equation*}
+    \Delta \mathcal{L} = \frac{1}{2} \left[ \frac{G_L^2}{H_L + \lambda} + \frac{G_R^2}{H_R + \lambda} - \frac{G^2}{H + \lambda} \right] - \gamma
+\end{equation*}
+trong đó $\lambda$ là hệ số điều chuẩn $L_2$ và $\gamma$ là ngưỡng phạt tạo nhánh mới.\\
 
 \textbf{Ưu điểm:}
 \begin{itemize}
-    \item \textbf{Kháng nhiễu và ngoại lai:} Cơ chế trung bình hóa từ hàng trăm cây quyết định độc lập giúp mô hình miễn nhiễm với các giá trị bất thường ngẫu nhiên của cảm biến.
-    \item \textbf{Huấn luyện song song:} Các cây hoàn toàn độc lập nên có thể huấn luyện song song trên nhiều lõi CPU, tận dụng hiệu quả kiến trúc đa nhân.
-    \item \textbf{Ước lượng lỗi:} Khoảng $37\%$ mẫu không xuất hiện trong mỗi bootstrap có thể được dùng làm tập kiểm tra nội bộ, cung cấp ước lượng lỗi tổng quát hóa mà không cần tập validation riêng.
-    \item \textbf{Đo lường tầm quan trọng đặc trưng:} Cung cấp thước đo dựa trên mức giảm tạp chất trung bình hoặc hoán vị, hỗ trợ giải thích mô hình.
+    \item \textbf{Tốc độ huấn luyện và tối ưu bộ nhớ vượt trội:} Việc chuyển đổi toàn bộ mảng dữ liệu sang định dạng số nguyên \texttt{uint8} kết hợp song song hóa đa luồng OpenMP/Cython giúp HistGradientBoosting tiêu tốn ít bộ nhớ RAM và đạt tốc độ huấn luyện nhanh gấp hàng chục lần so với các thuật toán phân nhánh chính xác (Exact-split).
+    \item \textbf{Tự động xử lý giá trị khuyết và biến phân loại:} Hỗ trợ trực tiếp giá trị thiếu (NaN) và biến định danh (\texttt{categorical\_features}) bằng cơ chế phân nhóm tối ưu dựa trên thứ tự gradient, hạn chế tối đa rủi ro rò rỉ dữ liệu khi tiền xử lý.
+    \item \textbf{Tích hợp cơ chế Dừng sớm (Early Stopping) nội bộ:} Tự động trích xuất một phần dữ liệu nội bộ làm tập kiểm định để theo dõi điểm số đánh giá (ROC-AUC / Loss), tự động dừng huấn luyện khi mô hình bắt đầu có dấu hiệu bão hòa hoặc quá khớp.
 \end{itemize}
 
 \textbf{Nhược điểm:}
 \begin{itemize}
-    \item \textbf{Độ nhạy thấp với lớp thiểu số:} Thuật toán Bagging hội tụ về phía dự đoán nhãn đa số do mỗi bootstrap chỉ chứa một tỷ lệ nhỏ mẫu lớp thiểu số. Cần kết hợp với kỹ thuật Balanced Random Forest (lấy mẫu phân tầng trong bootstrap) để cải thiện.
-    \item \textbf{Kích thước mô hình lớn:} Với số lượng cây lớn, file mô hình có thể lên tới hàng GB trên ổ cứng, gây khó khăn cho việc triển khai và lưu trữ.
-    \item \textbf{Không có cơ chế học tuần tự:} Khác với Boosting, mỗi cây không học từ sai sót của cây trước, nên không tập trung sửa lỗi ở vùng dữ liệu khó — điểm yếu quan trọng trong bài toán mất cân bằng.
+    \item \textbf{Mất mát độ phân giải vi mô cục bộ:} Do dữ liệu liên tục bị ép vào $256$ thùng rời rạc, thuật toán có thể làm phẳng các biến động giá trị cực kỳ nhỏ (tuy nhiên với quy mô dữ liệu $1{,}75$ triệu dòng của LEAD, hạn chế này không gây ảnh hưởng tiêu cực).
+    \item \textbf{Khả năng tùy biến mất cân bằng lớp chuyên sâu:} So với \texttt{scale\_pos\_weight} linh hoạt của XGBoost hoặc \texttt{class\_weights} của CatBoost, cơ chế phạt mất cân bằng nhị phân trong Scikit-learn đòi hỏi phải điều chỉnh gián tiếp thông qua trọng số mẫu (\texttt{sample\_weight}).
 \end{itemize}
 
-\subsubsection{Extra Trees (Extremely Randomized Trees)}\hspace{1cm}
+\subsubsection{Tổng hợp So sánh Bộ tứ Thuật toán Gradient Boosting Chủ lực}
 
-Extra Trees (Extremely Randomized Trees) là một biến thể cực đoan hóa của Random Forest. Khác biệt cốt lõi nằm ở hai điểm: Sử dụng toàn bộ tập huấn luyện $\mathcal{D}$ thay vì lấy mẫu bootstrap và ngẫu nhiên hóa hoàn toàn cả ngưỡng phân chia tại mỗi nút.
+Bảng~\ref{tab:ml_boosting_comparison} tổng hợp các đặc tính kỹ thuật cốt lõi của bốn mô hình Gradient Boosting chủ lực được nghiên cứu:
 
-Cụ thể, tại mỗi nút, thuật toán chọn ngẫu nhiên $K$ đặc trưng. Với mỗi đặc trưng $j$ được chọn, ngưỡng chia $s_j$ được lấy ngẫu nhiên đồng đều trong khoảng giá trị:
-\begin{equation*}
-    s_j \sim \mathcal{U}\left(\min_{i} x_i^j, \; \max_{i} x_i^j\right)
-\end{equation*}
-Sau đó, cặp $(j^*, s^*)$ cho điểm chia tốt nhất được chọn theo tiêu chí Gini hoặc Entropy:
-\begin{equation*}
-    (j^*, s^*) = \arg\max_{j \in \{1,\ldots,K\}, \; s_j} \; \text{Gain}(j, s_j)
-\end{equation*}
-
-Việc ngẫu nhiên hóa ngưỡng chia khiến hệ số tương quan $\rho$ giữa các cây giảm sâu hơn so với Random Forest, dẫn đến phương sai tổng thể thấp hơn theo công thức $\text{Var}[\hat{y}] = \rho \sigma^2 + \frac{1-\rho}{B}\sigma^2$.\\
-
-\textbf{Ưu điểm:}
-\begin{itemize}
-    \item \textbf{Tốc độ huấn luyện nhanh hơn Random Forest:} Không cần tìm kiếm ngưỡng chia tối ưu cho mỗi đặc trưng, giúp giảm đáng kể chi phí tính toán tại mỗi nút từ $O(n \log n)$ xuống $O(n)$.
-    \item \textbf{Kháng overfitting tốt hơn Random Forest:} Ngưỡng chia ngẫu nhiên ngăn cây học quá sát các mẫu nhiễu cục bộ. Sử dụng toàn bộ dữ liệu giúp mỗi cây có cái nhìn đầy đủ hơn về phân phối dữ liệu, giảm bias.
-    \item \textbf{Hoạt động tốt trên dữ liệu nhiễu cao:} Đặc tính ngẫu nhiên hóa cực đoan giúp Extra Trees miễn nhiễm tốt với nhiễu cảm biến, phù hợp với bản chất dữ liệu đo lường năng lượng.
-\end{itemize}
-
-\textbf{Nhược điểm:}
-\begin{itemize}
-    \item \textbf{Bias cao hơn Random Forest:} Ngưỡng chia ngẫu nhiên thay vì tối ưu có thể tạo ra các phân vùng kém chính xác hơn, khiến mỗi cây đơn lẻ có sai số bias cao hơn.
-    \item \textbf{Không nhạy cảm với đặc trưng quan trọng:} Do không tìm kiếm ngưỡng tối ưu, thuật toán khó phân biệt giữa các đặc trưng hữu ích và đặc trưng nhiễu, đặc biệt khi tập đặc trưng có chiều cao.
-    \item \textbf{Cùng hạn chế Bagging với lớp thiểu số:} Tương tự Random Forest, Extra Trees không có cơ chế tập trung vào các mẫu khó của lớp thiểu số, kém hiệu quả hơn Boosting trong bài toán mất cân bằng nghiêm trọng.
-\end{itemize}
-
-\subsubsection{Tổng hợp so sánh các thuật toán Học máy}
-\begin{center}
-\small
-\renewcommand{\arraystretch}{1.35}
-\begin{tabular}{|>{\centering\arraybackslash}m{2.0cm}|>{\centering\arraybackslash}m{2.0cm}|>{\centering\arraybackslash}m{2.3cm}|>{\centering\arraybackslash}m{2.4cm}|>{\centering\arraybackslash}m{2.5cm}|>{\centering\arraybackslash}m{1.8cm}|}
+\begin{table}[H]
+\centering
+\caption{\textbf{So sánh Tổng hợp Bộ tứ Thuật toán Gradient Boosting trong Bài toán Phát hiện Bất thường}}
+\label{tab:ml_boosting_comparison}
+\renewcommand{\arraystretch}{1.25}
+\resizebox{\textwidth}{!}{
+\begin{tabular}{|l|c|c|c|c|c|}
 \hline
-\textbf{Thuật toán} & \textbf{Cơ chế học} & \textbf{Xử lý biến danh mục} & \textbf{Tốc độ \& Bộ nhớ} & \textbf{Xử lý mất cân bằng} & \textbf{Phù hợp LEAD} \\
-\hline
-XGBoost & Boosting (Level-wise) & Cần mã hóa trước (Ordinal / One-Hot) & Trung bình, yêu cầu bộ nhớ RAM & Tốt ({\footnotesize\texttt{scale\_}\allowbreak\texttt{pos\_}\allowbreak\texttt{weight}}) & Rất cao \\
-\hline
-LightGBM & Boosting (Leaf-wise) & Tự động phân chia tối ưu danh mục & Rất nhanh, tối ưu nhờ Histogram & Xuất sắc (trọng số mẫu và lớp) & Xuất sắc (ưu tiên cao nhất) \\
-\hline
-CatBoost & Boosting (Symmetric Tree) & Ordered Target Encoding chống rò rỉ & Huấn luyện lâu hơn, suy luận cực nhanh $O(d)$ & Rất tốt ({\footnotesize\texttt{auto\_}\allowbreak\texttt{class\_}\allowbreak\texttt{weights}}) & Rất cao (mạnh với biến phân loại) \\
-\hline
-Random Forest & Bagging (Bootstrap) & Cần mã hóa trước & Rất chậm trên $1{,}75$M dòng, file mô hình lớn & Kém (dễ thiên lệch về lớp đa số) & Trung bình (nặng tài nguyên) \\
-\hline
-Extra Trees & Bagging (Random Splits) & Cần mã hóa trước & Nhanh hơn RF, giảm phương sai tốt & Kém (dễ thiên lệch về lớp đa số) & Thấp đến trung bình \\
-\hline
+\textbf{Thuật toán} & \textbf{Chiến lược Phát triển Cây} & \textbf{Xử lý Biến Danh mục} & \textbf{Xử lý Dữ liệu Khuyết} & \textbf{Cơ chế Tối ưu Tốc độ} & \textbf{Thế mạnh Nổi bật} \\ \hline
+\textbf{XGBoost} & Theo tầng (\textit{Depth-wise}) & One-Hot / Target Encoding & Tự học hướng đi mặc định & Khai triển Taylor bậc hai & Kháng quá khớp cực tốt ($L_1, L_2$) \\ \hline
+\textbf{LightGBM} & Theo lá (\textit{Leaf-wise}) & Phân chia tối ưu danh mục & Bỏ qua hoặc gán nhánh riêng & Histogram + GOSS + EFB & Tốc độ huấn luyện siêu tốc \\ \hline
+\textbf{CatBoost} & Cây đối xứng (\textit{Oblivious}) & Ordered Target Encoding & Gán giá trị biên nhỏ/lớn nhất & Tra bảng $O(d)$ + Hoán vị & Xử lý biến phân loại chống rò rỉ \\ \hline
+\textbf{HistGradientBoosting} & Theo lá / Histogram & Hỗ trợ phân nhóm tự nhiên & Gán thùng chuyên biệt (Bin 255) & Rời rạc hóa \texttt{uint8} + Trừ Histogram & Chuẩn tắc Scikit-learn, nhẹ bộ nhớ \\ \hline
 \end{tabular}
-\end{center}
-Cột ``Phù hợp LEAD'' là đánh giá tổng hợp của nhóm dựa trên các tiêu chí: tốc độ xử lý trên quy mô $1{,}75$ triệu dòng, khả năng khai thác các đặc trưng định danh công trình (\texttt{building\_id}, \texttt{primary\_use}), cơ chế phạt mẫu dị thường và độ linh hoạt khi tinh chỉnh ngưỡng phân loại tối ưu. Đánh giá này sẽ được kiểm chứng bằng thực nghiệm ở phần triển khai.
+}
+\end{table}
 

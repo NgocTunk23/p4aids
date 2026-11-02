@@ -36,7 +36,7 @@ Mạng hồi quy xử lý chuỗi tuần tự, duy trì trạng thái ẩn $\mat
 
 \paragraph{LSTM (Long Short-Term Memory)}\hspace{1cm}
 
-LSTM đưa vào trạng thái ô nhớ $\mathbf{c}_t$ cùng ba cổng điều khiển luồng thông tin (Hochreiter \& Schmidhuber, 1997):
+LSTM đưa vào trạng thái ô nhớ $\mathbf{c}_t$ cùng ba cổng điều khiển luồng thông tin (Hochreiter \& Schmidhuber~\cite{lstm}; Malhotra et al.~\cite{lstm_ad}):
 \begin{equation*}
 \begin{aligned}
     \mathbf{f}_t &= \sigma\left(\mathbf{W}_f [\mathbf{h}_{t-1}, \mathbf{x}_t] + \mathbf{b}_f\right), \quad
@@ -65,7 +65,7 @@ trong đó $\mathbf{f}_t$, $\mathbf{i}_t$, $\mathbf{o}_t$ lần lượt là cổ
 
 \paragraph{GRU (Gated Recurrent Unit)}\hspace{1cm}
 
-GRU rút gọn LSTM bằng hai cổng (cập nhật $\mathbf{z}_t$ và đặt lại $\mathbf{r}_t$), không có ô nhớ riêng (Cho et al., 2014):
+GRU rút gọn LSTM bằng hai cổng (cập nhật $\mathbf{z}_t$ và đặt lại $\mathbf{r}_t$), không có ô nhớ riêng (Cho et al.~\cite{gru}):
 \begin{equation*}
 \begin{aligned}
     \mathbf{z}_t &= \sigma\left(\mathbf{W}_z [\mathbf{h}_{t-1}, \mathbf{x}_t]\right), \quad
@@ -89,7 +89,7 @@ GRU rút gọn LSTM bằng hai cổng (cập nhật $\mathbf{z}_t$ và đặt l�
 
 \paragraph{BiLSTM / BiGRU (Mạng hồi quy hai chiều)}\hspace{1cm}
 
-Mạng hai chiều chạy hai mạng hồi quy ngược chiều nhau và ghép trạng thái ẩn (Schuster \& Paliwal, 1997):
+Mạng hai chiều chạy hai mạng hồi quy ngược chiều nhau và ghép trạng thái ẩn (Schuster \& Paliwal~\cite{birnn}):
 \begin{equation*}
     \mathbf{h}_t = \left[\overrightarrow{\mathbf{h}}_t ; \overleftarrow{\mathbf{h}}_t\right], \qquad \hat{p}_t = \sigma\left(\mathbf{w}^{\top} \mathbf{h}_t + b\right)
 \end{equation*}
@@ -110,7 +110,7 @@ Với bài toán gán nhãn từng giờ, $\hat{p}_t$ được tính tại mọi
 \subsubsection{Nhóm Mạng Tích chập thời gian (Temporal Convolutional Networks)}
 \paragraph{TCN (Temporal Convolutional Network)}\hspace{1cm}
 
-TCN dùng tích chập nhân quả giãn nở (causal dilated convolution) kết hợp khối dư (residual block) để xử lý chuỗi (Bai et al., 2018). Tích chập nhân quả đảm bảo đầu ra tại $t$ chỉ phụ thuộc đầu vào từ $t$ trở về trước, và giãn nở cho phép tăng vùng nhìn mà không tăng số tham số:
+TCN dùng tích chập nhân quả giãn nở (causal dilated convolution) kết hợp khối dư (residual block) để xử lý chuỗi (Bai et al.~\cite{tcn}). Tích chập nhân quả đảm bảo đầu ra tại $t$ chỉ phụ thuộc đầu vào từ $t$ trở về trước, và giãn nở cho phép tăng vùng nhìn mà không tăng số tham số:
 \begin{equation*}
     (F *_d \mathbf{x})(t) = \sum_{i=0}^{k-1} f(i) \cdot \mathbf{x}_{t - d \cdot i}
 \end{equation*}
@@ -140,7 +140,7 @@ Nhóm này được huấn luyện chỉ trên dữ liệu bình thường (ho�
 
 \paragraph{LSTM Autoencoder (EncDec-AD)}\hspace{1cm}
 
-Mô hình gồm bộ mã hoá LSTM nén cửa sổ $\mathbf{X}$ thành vector tiềm ẩn $\mathbf{z}$ và bộ giải mã LSTM tái tạo lại cửa sổ (Malhotra et al., 2016):
+Mô hình gồm bộ mã hoá LSTM nén cửa sổ $\mathbf{X}$ thành vector tiềm ẩn $\mathbf{z}$ và bộ giải mã LSTM tái tạo lại cửa sổ (Malhotra et al.~\cite{lstm_ae}):
 \begin{equation*}
     \mathbf{z} = E_{\phi}(\mathbf{X}), \quad \hat{\mathbf{X}} = D_{\theta}(\mathbf{z}), \quad \mathcal{L} = \frac{1}{w} \sum_{i=1}^{w} \left\| \mathbf{x}_i - \hat{\mathbf{x}}_i \right\|_2^2
 \end{equation*}
@@ -157,7 +157,6 @@ Với chuỗi đơn biến ($d = 1$), điểm này rút gọn thành sai số b�
     \item \textbf{Tạo được điểm số liên tục:} có thể đưa sai số tái tạo vào mô hình Học máy làm đặc trưng bổ sung (tương tự vai trò của điểm Isolation Forest ở phần Học máy).
 \end{itemize}
 
-\pagebreak
 
 \textbf{Nhược điểm:}
 \begin{itemize}
@@ -169,11 +168,11 @@ Với chuỗi đơn biến ($d = 1$), điểm này rút gọn thành sai số b�
 
 \paragraph{Autoencoder tích chập (Conv-AE) và Variational Autoencoder (VAE)}\hspace{1cm}
 
-Conv-AE thay LSTM bằng tích chập một chiều để nén cửa sổ. VAE thêm ràng buộc xác suất lên không gian tiềm ẩn, tối ưu cận dưới bằng chứng (ELBO) (Kingma \& Welling, 2014):
+Conv-AE thay LSTM bằng tích chập một chiều để nén cửa sổ. VAE thêm ràng buộc xác suất lên không gian tiềm ẩn, tối ưu cận dưới bằng chứng (ELBO) (Kingma \& Welling~\cite{vae}):
 \begin{equation*}
     \mathcal{L}_{\text{ELBO}} = \mathbb{E}_{q_{\phi}(\mathbf{z} \mid \mathbf{x})}\left[\log p_{\theta}(\mathbf{x} \mid \mathbf{z})\right] - \beta \, D_{\mathrm{KL}}\left(q_{\phi}(\mathbf{z} \mid \mathbf{x}) \,\|\, p(\mathbf{z})\right)
 \end{equation*}
-Handigol \& Arjunan (2025) đã huấn luyện 1D-CNN Autoencoder và Convolutional VAE trên LEAD.\\
+Handigol \& Arjunan~\cite{handigol2025} đã huấn luyện 1D-CNN Autoencoder và Convolutional VAE trên LEAD.\\
 
 \textbf{Ưu điểm:}
 \begin{itemize}
@@ -190,7 +189,7 @@ Handigol \& Arjunan (2025) đã huấn luyện 1D-CNN Autoencoder và Convolutio
 
 \paragraph{USAD (UnSupervised Anomaly Detection)}\hspace{1cm}
 
-USAD dùng một bộ mã hoá chung và hai bộ giải mã $D_1$, $D_2$, huấn luyện đối kháng theo hai pha để vừa ổn định vừa khuếch đại sai số của đầu vào bất thường (Audibert et al., 2020). Với $AE_1 = D_1 \circ E$, $AE_2 = D_2 \circ E$ và $n$ là chỉ số epoch hiện tại:
+USAD dùng một bộ mã hoá chung và hai bộ giải mã $D_1$, $D_2$, huấn luyện đối kháng theo hai pha để vừa ổn định vừa khuếch đại sai số của đầu vào bất thường (Audibert et al.~\cite{usad}). Với $AE_1 = D_1 \circ E$, $AE_2 = D_2 \circ E$ và $n$ là chỉ số epoch hiện tại:
 \begin{equation*}
 \begin{aligned}
     \mathcal{L}_{AE_1} &= \frac{1}{n}\left\| \mathbf{W} - AE_1(\mathbf{W}) \right\|_2 + \left(1 - \frac{1}{n}\right)\left\| \mathbf{W} - AE_2\left(AE_1(\mathbf{W})\right) \right\|_2 \\
@@ -218,13 +217,13 @@ Mạng sinh đối kháng (GAN) gồm bộ sinh $G$ và bộ phân biệt $D$ ch
 \begin{equation*}
     \min_{G} \max_{D} \; \mathbb{E}_{\mathbf{x}}\left[\log D(\mathbf{x})\right] + \mathbb{E}_{\mathbf{z}}\left[\log\left(1 - D(G(\mathbf{z}))\right)\right]
 \end{equation*}
-Vì GAN không có bộ mã hoá, khi phát hiện bất thường phải tìm vector tiềm ẩn $\mathbf{z}^{*}$ tái tạo tốt nhất cửa sổ cần kiểm tra (Schlegl et al., 2017; Bashar \& Nayak, 2020). Orvati Nia et al. (2026) dùng:
+Vì GAN không có bộ mã hoá, khi phát hiện bất thường phải tìm vector tiềm ẩn $\mathbf{z}^{*}$ tái tạo tốt nhất cửa sổ cần kiểm tra (Schlegl et al.~\cite{anogan}; Bashar \& Nayak~\cite{tanogan}). Orvati Nia et al.~\cite{orvati2026} dùng:
 \begin{equation*}
     \mathbf{z}^{*} = \arg\min_{\mathbf{z}} \; (1 - \lambda)\left\| \mathbf{x} - G(\mathbf{z}) \right\|_1 + \lambda \left\| f_D(\mathbf{x}) - f_D(G(\mathbf{z})) \right\|_1
 \end{equation*}
 với $f_D(\cdot)$ là đặc trưng trung gian của bộ phân biệt và $\lambda = 0{,}1$. Điểm bất thường $S(\mathbf{x})$ là giá trị hàm mục tiêu tại $\mathbf{z}^{*}$. GAN-LSTM thay các tầng của $G$ và $D$ bằng LSTM; bộ sinh nhận vector tiềm ẩn $100$ chiều qua ba tầng LSTM, bộ phân biệt dùng một tầng LSTM.\\
 
-Trên dữ liệu năng lượng, các biến thể này đã được áp dụng trong ba nghiên cứu: Prabhu et al. (2024) dùng 1D-DCGAN với hàm mất mát Soft-DTW và tái tạo song song, thử nghiệm trên $15$ toà nhà; Handigol \& Arjunan (2025) báo cáo DCGAN đạt F1 $0{,}697$, cao nhất trong số các phương pháp họ so sánh trên $200$ toà nhà; Orvati Nia et al. (2026) báo cáo GAN-LSTM đạt F1 $0{,}89$ với cửa sổ $60$ giờ.\\
+Trên dữ liệu năng lượng, các biến thể này đã được áp dụng trong ba nghiên cứu: Prabhu et al.~\cite{prabhu2024} dùng 1D-DCGAN với hàm mất mát Soft-DTW và tái tạo song song; Handigol \& Arjunan~\cite{handigol2025} khảo sát DCGAN trên $200$ toà nhà; Orvati Nia et al.~\cite{orvati2026} áp dụng GAN-LSTM với cửa sổ $60$ giờ.\\
 
 \textbf{Ưu điểm:}
 \begin{itemize}
@@ -244,13 +243,11 @@ Trên dữ liệu năng lượng, các biến thể này đã được áp dụn
 \subsubsection{Nhóm Transformer}
 \paragraph{Transformer Encoder, Anomaly Transformer và TranAD}\hspace{1cm}
 
-Transformer dùng cơ chế tự chú ý (self-attention) để mọi vị trí trong cửa sổ liên hệ trực tiếp với nhau (Vaswani et al., 2017):
+Transformer dùng cơ chế tự chú ý (self-attention) để mọi vị trí trong cửa sổ liên hệ trực tiếp với nhau \cite{transformer}:
 \begin{equation*}
     \mathrm{Attention}(\mathbf{Q}, \mathbf{K}, \mathbf{V}) = \mathrm{softmax}\left(\frac{\mathbf{Q}\mathbf{K}^{\top}}{\sqrt{d_k}}\right)\mathbf{V}
 \end{equation*}
-Chi phí tính toán của một tầng chú ý là $\mathcal{O}(w^2 d)$ theo độ dài cửa sổ $w$. Anomaly Transformer đề xuất tiêu chí \textit{Association Discrepancy}: do bất thường hiếm nên khó xây dựng liên kết mạnh với toàn chuỗi và liên kết của nó tập trung vào các điểm lân cận, vì vậy sự khác biệt giữa liên kết tiên nghiệm và liên kết chuỗi được dùng để phân biệt bất thường (Xu et al., 2022). TranAD dùng bộ mã hoá chú ý với tự điều kiện hoá theo điểm tập trung (focus score), huấn luyện đối kháng và học meta (MAML) để huấn luyện được với dữ liệu hạn chế (Tuli et al., 2022).\\
-
-\pagebreak
+Chi phí tính toán của một tầng chú ý là $\mathcal{O}(w^2 d)$ theo độ dài cửa sổ $w$. Trong bài toán phát hiện dị thường chuỗi thời gian, Anomaly Transformer \cite{anomaly_transformer} đề xuất tiêu chí \textit{Association Discrepancy}: do bất thường hiếm nên khó xây dựng liên kết mạnh với toàn chuỗi và liên kết của nó tập trung vào các điểm lân cận, vì vậy sự khác biệt giữa liên kết tiên nghiệm và liên kết chuỗi được dùng để phân biệt bất thường. TranAD \cite{tranad} sử dụng kiến trúc bộ mã hoá chú ý với cơ chế tự điều kiện hoá theo điểm tập trung (focus score), kết hợp huấn luyện đối kháng hai giai đoạn và học meta (MAML) để duy trì tính khái quát hoá tốt ngay cả khi lượng dữ liệu chuỗi có nhãn bị hạn chế.\\
 
 \textbf{Ưu điểm:}
 \begin{itemize}
@@ -267,61 +264,31 @@ Chi phí tính toán của một tầng chú ý là $\mathcal{O}(w^2 d)$ theo đ
     \item \textbf{Chưa có đánh giá trên dữ liệu năng lượng LEAD:} hiệu quả cần kiểm chứng.
 \end{itemize}
 
-\subsubsection{Kỹ thuật huấn luyện trên dữ liệu mất cân bằng}
-Với tỷ lệ bất thường khoảng $2{,}1\%$, mô hình Học sâu có giám sát cần hàm mất mát phù hợp. Có hai lựa chọn chính.
+Để giải quyết đồng thời các thách thức về mất cân bằng lớp cực đoan, sự sai lệch thang đo công năng - khu vực và tính co dãn thời gian đã được đúc rút từ các nghiên cứu liên quan trên bộ dữ liệu LEAD, Mục~\ref{sec:advanced_techniques} tiếp theo sẽ trình bày chi tiết các nghiên cứu mốc trên LEAD cùng cơ sở lý thuyết toán học của các kỹ thuật bổ trợ chuyên sâu được nhóm hoàn thiện và tích hợp vào pipeline của đề tài.
 
-\paragraph{Binary Cross-Entropy có trọng số lớp}\hspace{1cm}
 
-\begin{equation*}
-    \mathcal{L}_{\text{WBCE}} = -\frac{1}{N}\sum_{i=1}^{N}\left[ w_{+}\, y_i \log \hat{p}_i + (1 - y_i)\log\left(1 - \hat{p}_i\right)\right], \qquad w_{+} \approx \frac{N_{-}}{N_{+}} \approx 45
-\end{equation*}
+% \subsubsection{Tổng hợp so sánh các họ mô hình Học sâu}
+% \begin{center}
+% \small
+% \begin{tabular}{|p{2.9cm}|p{1.9cm}|p{1.6cm}|p{2.3cm}|p{2.3cm}|p{2.5cm}|}
+% \hline
+% \textbf{Họ mô hình} & \textbf{Hệ hình} & \textbf{Dùng nhãn} & \textbf{Ngữ cảnh thời gian} & \textbf{Chi phí} & \textbf{Phù hợp LEAD} \\
+% \hline
+% BiLSTM / BiGRU & Gán nhãn chuỗi & Có & Hai phía, dài & Trung bình & Cao (offline) \\
+% \hline
+% TCN & Gán nhãn chuỗi & Có & Cố định theo $R$ & Thấp & Cao \\
+% \hline
+% LSTM-AE (EncDec-AD) & Tái tạo & Không & Trong cửa sổ & Trung bình & Trung bình \\
+% \hline
+% Conv-AE / VAE & Tái tạo & Không & Trong cửa sổ & Thấp & Thấp đến trung bình \\
+% \hline
+% USAD & Tái tạo đối kháng & Không & Trong cửa sổ & Thấp & Chưa rõ \\
+% \hline
+% GAN-LSTM / TAnoGAN & Sinh đối kháng & Không & Trong cửa sổ & Rất cao khi suy luận & Trung bình (mở rộng) \\
+% \hline
+% Transformer / TranAD & Tái tạo hoặc gán nhãn & Tuỳ biến thể & Toàn cửa sổ & Bậc hai theo $w$ & Thấp đến trung bình \\
+% \hline
+% \end{tabular}
+% \end{center}
+% Cột ``Phù hợp LEAD'' là đánh giá của nhóm dựa trên các tiêu chí: tận dụng được nhãn sẵn có, khả năng chấm điểm từng giờ trên khoảng $1{,}75$ triệu quan trắc, và rủi ro quá khớp với chỉ $200$ chuỗi. Đánh giá này sẽ được kiểm chứng bằng thực nghiệm ở phần triển khai.
 
-\textbf{Ưu điểm:} đơn giản, một siêu tham số $w_{+}$ và tương ứng trực tiếp với \texttt{scale\_pos\_weight} đã dùng ở phần Học máy. \textbf{Nhược điểm:} đặt $w_{+}$ bằng đúng tỷ lệ lớp có thể làm xác suất đầu ra lệch mạnh về phía lớp $1$, nên ngưỡng quyết định phải được tối ưu lại và độ tin cậy xác suất giảm.\\
-
-\paragraph{Focal Loss}\hspace{1cm}
-
-Focal loss giảm trọng số của các mẫu dễ phân loại để tập trung vào mẫu khó (Lin et al., 2017):
-\begin{equation*}
-    \mathrm{FL}(p_t) = -\alpha_t \left(1 - p_t\right)^{\gamma} \log\left(p_t\right)
-\end{equation*}
-trong đó $p_t$ là xác suất mô hình gán cho lớp đúng, $\gamma \geq 0$ là hệ số tập trung và $\alpha_t$ là trọng số lớp.
-
-\textbf{Ưu điểm:} hàng triệu điểm bình thường dễ phân loại sẽ không chi phối gradient, phù hợp khi bất thường có hai loại dễ và khó. \textbf{Nhược điểm:} thêm hai siêu tham số $(\alpha, \gamma)$ cần tinh chỉnh và xác suất đầu ra cũng cần hiệu chỉnh lại.
-
-\subsubsection{Các nghiên cứu liên quan trên chính bộ dữ liệu LEAD}
-Bảng dưới tóm tắt các nghiên cứu sử dụng LEAD mà nhóm đã tham khảo, kèm lưu ý về khả năng so sánh. Các con số là do chính tác giả bài báo báo cáo; nhóm không tự chạy lại.
-\begin{itemize}
-    \item \textbf{LEAD1.0 (Gulati \& Arjunan, 2022):} công bố phiên bản được gán nhãn của bộ dữ liệu ASHRAE Great Energy Predictor III gồm $1{,}413$ chuỗi từ công tơ điện thông minh, kéo dài hơn một năm, và đối sánh tám phương pháp phát hiện bất thường hiện đại. Đây là mốc tham chiếu gốc của bộ dữ liệu.
-    \item \textbf{GAN-LSTM (Orvati Nia et al., 2026):} dùng cửa sổ $60$ giờ trên chuỗi tiêu thụ đơn biến, huấn luyện chỉ trên cửa sổ bình thường, đánh giá ở mức cửa sổ trên $206$ toà nhà giữ lại; F1 $0{,}89$, so với Isolation Forest $0{,}52$, One-Class SVM $0{,}56$, LSTM-AE $0{,}60$, Attention LSTM-AE $0{,}64$, VAE $0{,}62$ và TAnoGAN $0{,}67$. Các giá trị này theo mức cửa sổ, không so sánh trực tiếp với đánh giá theo từng giờ.
-    \item \textbf{DCGAN, Conv-AE, Conv-VAE (Handigol \& Arjunan, 2025):} khảo sát học sâu không giám sát trên $200$ toà nhà, so với Isolation Forest và LOF; kết luận học sâu tốt hơn các phương pháp không giám sát truyền thống ở bất thường dạng chuỗi, DCGAN đạt F1 $0{,}697$.
-    \item \textbf{1D-DCGAN với Soft-DTW (Prabhu et al., 2024):} đề xuất hàm mất mát Soft-DTW cho tái tạo và tính toán song song nhiều điểm để tăng tốc phát hiện; thử nghiệm trên $15$ toà nhà, mỗi toà một mô hình riêng.
-    \item \textbf{Phân cụm toà nhà rồi huấn luyện riêng (Cansever \& Konyar, 2026):} phân cụm toà nhà theo kiểu tiêu thụ bằng K-means rồi phát hiện bất thường độc lập trong từng cụm, bằng các mô hình Isolation Forest, LOF, XGBoost, Random Forest và LightGBM; mô hình huấn luyện trên các toà nhà có mẫu tiêu thụ tương tự cải thiện đáng kể so với mô hình toàn cục. Ý tưởng này chưa được áp dụng cho mô hình Học sâu, nên là hướng mở rộng của nhóm.
-\end{itemize}
-Các nghiên cứu trên khác nhau về tập toà nhà ($15$, $200$ hoặc $406$ toà), về đơn vị đánh giá (cửa sổ hoặc từng giờ) và về việc có dùng nhãn hay không. Vì vậy nhóm sẽ dùng chúng làm cơ sở ý tưởng chứ không đặt trực tiếp kết quả cạnh nhau. Ngoài ra, bảng đánh giá của Schmidl et al. (2022) trên $71$ thuật toán và $976$ tập chuỗi thời gian cho thấy việc chọn thuật toán phụ thuộc mạnh vào từng bài toán, nên cần đối chiếu thực nghiệm thay vì dựa vào kết quả công bố ở bộ dữ liệu khác.
-
-\pagebreak
-
-\subsubsection{Tổng hợp so sánh các họ mô hình Học sâu}
-\begin{center}
-\small
-\begin{tabular}{|p{2.9cm}|p{1.9cm}|p{1.6cm}|p{2.3cm}|p{2.3cm}|p{2.5cm}|}
-\hline
-\textbf{Họ mô hình} & \textbf{Hệ hình} & \textbf{Dùng nhãn} & \textbf{Ngữ cảnh thời gian} & \textbf{Chi phí} & \textbf{Phù hợp LEAD} \\
-\hline
-BiLSTM / BiGRU & Gán nhãn chuỗi & Có & Hai phía, dài & Trung bình & Cao (offline) \\
-\hline
-TCN & Gán nhãn chuỗi & Có & Cố định theo $R$ & Thấp & Cao \\
-\hline
-LSTM-AE (EncDec-AD) & Tái tạo & Không & Trong cửa sổ & Trung bình & Trung bình \\
-\hline
-Conv-AE / VAE & Tái tạo & Không & Trong cửa sổ & Thấp & Thấp đến trung bình \\
-\hline
-USAD & Tái tạo đối kháng & Không & Trong cửa sổ & Thấp & Chưa rõ \\
-\hline
-GAN-LSTM / TAnoGAN & Sinh đối kháng & Không & Trong cửa sổ & Rất cao khi suy luận & Trung bình (mở rộng) \\
-\hline
-Transformer / TranAD & Tái tạo hoặc gán nhãn & Tuỳ biến thể & Toàn cửa sổ & Bậc hai theo $w$ & Thấp đến trung bình \\
-\hline
-\end{tabular}
-\end{center}
-Cột ``Phù hợp LEAD'' là đánh giá của nhóm dựa trên các tiêu chí: tận dụng được nhãn sẵn có, khả năng chấm điểm từng giờ trên khoảng $1{,}75$ triệu quan trắc, và rủi ro quá khớp với chỉ $200$ chuỗi. Đánh giá này sẽ được kiểm chứng bằng thực nghiệm ở phần triển khai.

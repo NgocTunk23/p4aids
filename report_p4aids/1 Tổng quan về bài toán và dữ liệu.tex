@@ -7,7 +7,7 @@ Trong báo cáo này, nhóm tập trung vào bài toán \textit{Energy Anomaly D
 
 Về mặt hình thức, bài toán được thiết lập dưới dạng phân lớp có giám sát trên không gian đặc trưng đa chiều. Mỗi quan trắc của một tòa nhà tại thời điểm $t$ được mã hóa thành một vector đặc trưng $\mathbf{x} \in \mathbb{R}^D$ tích hợp từ nhiều nguồn dữ liệu:
 \begin{equation*}
-    \mathbf{x} = \Big[\underbrace{p_t}_{\text{mức phụ tải}}, \, \underbrace{\mathbf{x}_{\text{time}}}_{\text{chu kỳ tuần hoàn}}, \, \underbrace{\mathbf{x}_{\text{bldg}}}_{\text{thông tin tòa nhà}}, \, \underbrace{\mathbf{x}_{\text{weather}}}_{\text{vi khí hậu}}, \, \underbrace{\mathbf{x}_{\text{interaction}}}_{\text{tương tác khu vực}}\Big]^\top \in \mathbb{R}^D
+    \mathbf{x} = \Big[\underbrace{p_t}_{\text{mức phụ tải}}, \, \underbrace{\mathbf{x}_{\text{time}}}_{\text{chu kỳ tuần hoàn}}, \, \underbrace{\mathbf{x}_{\text{bldg}}}_{\text{thông tin tòa nhà}}, \, \underbrace{\mathbf{x}_{\text{weather}}}_{\text{khí hậu}}, \, \underbrace{\mathbf{x}_{\text{interaction}}}_{\text{tương tác khu vực}}\Big]^\top \in \mathbb{R}^D
 \end{equation*}
 
 Mục tiêu của mô hình là học một hàm ánh xạ $f: \mathbb{R}^D \to [0, 1]$ nhằm ước lượng xác suất xảy ra dị thường:
@@ -15,15 +15,7 @@ Mục tiêu của mô hình là học một hàm ánh xạ $f: \mathbb{R}^D \to 
     \hat{p} = P(y = 1 \mid \mathbf{x}) = f(\mathbf{x})
 \end{equation*}
 
-Do tập dữ liệu thực tế có mức độ mất cân bằng lớp cực đoan (tỷ lệ mẫu bất thường chỉ chiếm khoảng $2{,}13\%$), việc áp dụng ngưỡng phân lớp mặc định $\tau = 0{,}5$ sẽ khiến mô hình bỏ sót phần lớn các điểm dị thường thực tế. Do đó, quyết định gán nhãn cuối cùng được điều khiển bởi ngưỡng quyết định tối ưu $\tau^*$:
-\begin{equation*}
-    \hat{y} = \mathbb{I}(\hat{p} \ge \tau^*) = \begin{cases} 
-    1 & \text{nếu } \hat{p} \ge \tau^* \quad (\text{Bất thường / Anomaly}) \\ 
-    0 & \text{nếu } \hat{p} < \tau^* \quad (\text{Bình thường / Normal}) 
-    \end{cases}
-\end{equation*}
-
-Để giải quyết bài toán này một cách toàn diện, báo cáo nghiên cứu và so sánh song song hai trường phái: họ mô hình Học máy dựa trên cây quyết định (bao gồm các mô hình Bagging đối chứng: Random Forest, Extra Trees cùng các thuật toán Gradient Boosting chủ lực: XGBoost, LightGBM, CatBoost) kết hợp các kỹ thuật dung hợp mô hình nâng cao; cùng họ mô hình Học sâu chuỗi thời gian (BiGRU, TCN, LSTM-Autoencoder) nhằm khai phá các mối quan hệ phi tuyến và bối cảnh phụ tải phức tạp.
+Để giải quyết bài toán này, nhóm tiến hành nghiên cứu, huấn luyện mô hình trên cả hai lĩnh vực Machine Learning và Deep Learning, đồng thời so sánh nhằm tìm ra được ưu, nhược điểm trong cách giải quyết bài toán của chúng, kết hợp các kỹ thuật xử lý nâng cao để cải thiện chất lượng của mô hình.
 
 \subsection{Mô tả tập dữ liệu}
 
@@ -35,14 +27,14 @@ Theo công bố từ ban tổ chức cuộc thi trên nền tảng Kaggle (tổn
     \item \textbf{\texttt{test.csv}:} Tệp chuỗi thời gian thô của tập kiểm tra, không chứa cột nhãn bất thường.
     \item \textbf{\texttt{sample\_submission.csv}:} Tệp mẫu định dạng nộp kết quả dự đoán (\texttt{row\_id}, \texttt{anomaly}) lên hệ thống chấm điểm trực tuyến của cuộc thi.
     \item \textbf{\texttt{test\_features.csv}:} Tệp kiểm tra mở rộng gồm $206$ tòa nhà độc lập với $1{.}800{.}567$ bản ghi và $57$ thuộc tính đã được ghép nối thông tin công trình và điều kiện thời tiết, nhưng không có cột nhãn mục tiêu \texttt{anomaly} (chỉ phục vụ sinh file nộp bài dự thi).
-    \item \textbf{\texttt{train\_features.csv}:} Tệp huấn luyện mở rộng hoàn chỉnh gồm dữ liệu đo đạc của $200$ tòa nhà với $1{.}749{.}494$ bản ghi chuỗi thời gian và $57$ thuộc tính tích hợp sẵn mức tiêu thụ điện, đặc tính tòa nhà, điều kiện vi khí hậu, các biến trễ thời gian và nhãn bất thường \texttt{anomaly}.
+    \item \textbf{\texttt{train\_features.csv}:} Tệp huấn luyện mở rộng hoàn chỉnh gồm dữ liệu đo đạc của $200$ tòa nhà với $1{.}749{.}494$ bản ghi chuỗi thời gian và $57$ thuộc tính tích hợp sẵn mức tiêu thụ điện, đặc tính tòa nhà, điều kiện khí hậu, các biến trễ thời gian và nhãn bất thường \texttt{anomaly}.
 \end{itemize}
 
 \textbf{Phạm vi dữ liệu sử dụng trong nghiên cứu:} Mặc dù ban tổ chức cuộc thi cung cấp đầy đủ 5 tệp dữ liệu nêu trên, trong toàn bộ nghiên cứu và thực nghiệm của đề tài này, nhóm nghiên cứu \textbf{chỉ sử dụng duy nhất một tệp là \texttt{train\_features.csv}}. Quyết định này được xây dựng trên các cơ sở khoa học sau:
 \begin{itemize}
     \item \textit{Bảo toàn nhãn kiểm chứng khách quan:} Tệp \texttt{test\_features.csv} là tập dữ liệu ẩn của cuộc thi, hoàn toàn không công bố nhãn \texttt{anomaly} nhằm mục đích bảo mật cho bảng xếp hạng trực tuyến. Do đó, để có thể chủ động đánh giá độ chính xác, phân tích ma trận nhầm lẫn (Confusion Matrix), tính toán đường cong Precision-Recall và tối ưu hóa các ngưỡng phân loại động $\tau^*$ độc lập, nhóm cần một tập dữ liệu có đầy đủ nhãn chân lý thực nghiệm.
     \item \textit{Tận dụng các đặc trưng làm giàu chất lượng cao:} So với tệp thô \texttt{train.csv}, tệp \texttt{train\_features.csv} đã được tích hợp sẵn các đặc trưng bối cảnh vật lý công trình và dữ liệu khí tượng chuẩn hóa, cung cấp nền tảng vững chắc để xây dựng các kỹ thuật Feature Engineering chuyên sâu.
-    \item \textit{Train/Test Split:} Toàn bộ $1{.}749{.}494$ bản ghi của \texttt{train\_features.csv} được nhóm sử dụng để thực hiện quy trình phân tích khám phá (EDA), tiền xử lý làm sạch, xây dựng bộ đặc trưng không gian khu vực (Zone Features) và phân chia độc lập theo tỷ lệ 80\% Train set và 20\% Test set bằng phương pháp phân tầng Stratified Split bảo toàn tỷ lệ dị thường. Tập Kiểm tra độc lập này đóng vai trò quyết định để đo lường, đối chứng khách quan hiệu năng giữa tất cả các mô hình Học máy và Học sâu.
+    \item \textit{Phân chia Dữ liệu Huấn luyện và Kiểm tra (Zero Data Leakage Protocol):} Toàn bộ $1{.}749{.}494$ bản ghi của \texttt{train\_features.csv} được nhóm sử dụng xuyên suốt quy trình phân tích khám phá (EDA), tiền xử lý làm sạch và kỹ nghệ đặc trưng đa tầng. Nhằm triệt tiêu hoàn toàn rủi ro rò rỉ thông tin trong chuỗi thời gian (đặc biệt là tác động từ các biến trễ khí tượng dài hạn), dữ liệu không phân chia ngẫu nhiên mà tuân thủ nghiêm ngặt giao thức chia khối thời gian mùa vụ kết hợp khoảng đệm cách ly (\textbf{Seasonal Chunking with 96h Purge Gap}). Cụ thể, tập Huấn luyện ($T_{\text{in}}$) gồm $1{.}147{.}089$ bản ghi (chiếm $\approx 65{,}6\%$) được dùng để học trọng số và tinh chỉnh siêu tham số; khoảng đệm $96$ giờ ($229{.}412$ bản ghi) bị loại bỏ hoàn toàn làm bức tường ngăn cách; và tập Kiểm tra out-of-sample độc lập ($T_{\text{out}}$) gồm $372{.}993$ bản ghi (chiếm $\approx 21{,}3\%$) đóng vai trò chuẩn mực tối cao để đo lường, đối chứng khách quan hiệu năng giữa các mô hình Học máy và Học sâu.
 \end{itemize}
 
 \subsubsection{Các thuộc tính và nhóm đặc trưng của bộ dữ liệu}

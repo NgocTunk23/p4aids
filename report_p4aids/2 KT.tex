@@ -1,0 +1,321 @@
+\subsection{Các kỹ thuật bổ trợ hiện có để giải quyết bài toán}
+%Ghi rõ và ưu nhược điểm
+
+Bên cạnh các thuật toán Học máy dạng bảng (Mục~2.1) và các kiến trúc mạng Học sâu (Mục~2.2), bài toán phát hiện bất thường trên chuỗi phụ tải điện đặt ra nhiều thách thức đặc thù: sự khác biệt lớn về hành vi tiêu thụ giữa các vùng khí hậu và loại công trình, tỷ lệ mẫu dị thường quá thấp trong dữ liệu thực tế, và sự nhạy cảm của các hàm khoảng cách hình học trước biến dạng trễ thời gian. Nhằm giải quyết các bài toán này, nhiều kỹ thuật kỹ nghệ đặc trưng, hàm mục tiêu điều chỉnh và cơ chế kiến trúc bổ trợ đã được các nghiên cứu trong lĩnh vực đề xuất và áp dụng. Mục này hệ thống hóa nguyên lý hoạt động, ưu điểm và nhược điểm của các kỹ thuật hiện có.
+
+\subsubsection{Kỹ thuật Tương tác Vùng không gian và Địa bàn (Zone-level Interaction)}\hspace{1cm}
+
+Trong vật lý công trình và mô hình hóa năng lượng đô thị quy mô lớn (Urban Building Energy Modeling - UBEM) \cite{bdg2}, nhu cầu phụ tải của một tòa nhà luôn chịu sự chi phối đồng thời của hai yếu tố cốt lõi: điều kiện khí hậu môi trường bên ngoài theo từng địa bàn (\texttt{site\_id}) và đặc tính vận hành sinh hoạt bên trong theo công năng (\texttt{primary\_use}). Mỗi mã địa bàn trên thực tế đại diện cho một trạm quan trắc khí tượng và một vùng khí hậu riêng biệt (theo phân loại khí hậu chuẩn ASHRAE) \cite{ashrae_gep3}. Do đó, cùng một loại hình công năng (ví dụ trường học hoặc bệnh viện), biểu đồ tiêu thụ điện tại vùng khí hậu nhiệt đới nóng ẩm (đòi hỏi hệ thống HVAC làm lạnh vận hành cường độ cao) sẽ có hành vi và phụ tải nền hoàn toàn khác biệt so với vùng khí hậu ôn đới lạnh.
+
+Để mô hình hóa mối quan hệ phi tuyến này mà không làm tăng quá mức số chiều không gian, các nghiên cứu và giải pháp hàng đầu trong các cuộc thi năng lượng quy mô lớn \cite{lead_winner, lead_framework, ashrae_gep3} đã đề xuất kỹ thuật ánh xạ tích Descartes $\mathcal{S} \times \mathcal{U}$ giữa tập địa bàn $S \in \mathcal{S}$ và tập công năng $U \in \mathcal{U}$ thành một không gian danh mục tương tác thống nhất:
+\begin{equation*}
+    \texttt{zone\_interaction} = \phi(S, U) \in \{0, 1, \dots, |\mathcal{S} \times \mathcal{U}| - 1\}
+\end{equation*}
+Đồng thời, phương pháp tính toán hai đại lượng thống kê quy mô kỳ vọng theo vùng khí hậu ($\bar{A}_S$) và theo nhóm công năng ($\bar{A}_U$) dựa trên diện tích sàn công trình:
+\begin{equation*}
+    \bar{A}_{S} = \mathbb{E}_{\mathbf{x} \in \mathcal{D}_S}[\texttt{square\_feet}], \qquad \bar{A}_{U} = \mathbb{E}_{\mathbf{x} \in \mathcal{D}_U}[\texttt{square\_feet}]
+\end{equation*}
+Kỹ thuật này được Fu, Arjunan, \& Miller \cite{lead_winner} (lời giải quán quân cuộc thi LEAD) chứng minh là yếu tố then chốt giúp mô hình cây quyết định (LightGBM) nắm bắt bối cảnh phụ tải địa phương và loại bỏ nhiễu ngoại lai. Đồng thời, Buaprakhong et al. \cite{lead_framework} và Miller et al. \cite{ashrae_gep3} cũng khẳng định các đặc trưng bối cảnh không gian vùng giúp thiết lập trục tọa độ tham chiếu phụ tải nền chuẩn mực mà không cần phụ thuộc vào mã định danh cá thể (\texttt{building\_id}), từ đó bảo toàn năng lực tổng quát hóa khi gặp công trình mới.\\
+
+\textbf{Ưu điểm:}
+\begin{itemize}
+    \item \textbf{Phân hóa ngưỡng phụ tải theo điều kiện khí hậu:} Giúp mô hình tự động phân lập hành vi tiêu thụ điện đặc thù theo từng địa phương, tránh việc đánh đồng một mức phụ tải cao là bất thường khi tòa nhà nằm tại vùng khí hậu đang có đợt nắng nóng cực đoan.
+    \item \textbf{Tạo điểm cắt nhị phân tối ưu cho mô hình cây:} Biến tương tác gộp \texttt{zone\_interaction} cho phép các thuật toán cây (XGBoost, LightGBM, CatBoost) thực hiện ngay lập tức một lát cắt đơn (\textit{single-split decision}) để cô lập hành vi của một nhóm công trình cụ thể tại một vùng địa lý, thay vì phải tốn nhiều tầng rẽ nhánh độc lập.
+    \item \textbf{Bảo tồn tính tổng quát hóa (Zero-shot generalization):} Sử dụng bối cảnh vùng và diện tích sàn trung bình thay vì mã định danh cá thể giúp mô hình dễ dàng ngoại suy và áp dụng trực tiếp cho các tòa nhà mới nằm ngoài tập dữ liệu huấn luyện.
+\end{itemize}
+
+\textbf{Nhược điểm:}
+\begin{itemize}
+    \item \textbf{Làm tăng độ thưa của biến danh mục:} Phép nhân tổ hợp $\mathcal{S} \times \mathcal{U}$ tạo ra nhiều cặp giá trị có rất ít mẫu quan sát trong thực tế (ví dụ loại công năng hiếm tại một địa bàn nhỏ), dễ gây nhiễu cho mô hình nếu phân vùng dữ liệu không đồng đều.
+    \item \textbf{Chỉ nắm bắt thông tin tĩnh:} Kỹ thuật này cung cấp bối cảnh địa lý và công năng ở mức vĩ mô nhưng không theo dõi được các dao động phụ tải vi mô ngắn hạn theo từng giờ của riêng công trình đó.
+\end{itemize}
+
+\subsubsection{Kỹ thuật Chuẩn hóa Ngữ cảnh Vi mô Thích ứng (Context-Aware Micro Normalization)}\hspace{1cm}
+
+Kỹ thuật chuẩn hóa ngữ cảnh vi mô đưa phụ tải điện về các thang đo tương đối dựa trên thông tin lịch sử của chính công trình và chu kỳ sinh hoạt, kế thừa tư tưởng chuẩn hóa thích ứng của Fu et al. \cite{lead_winner}, Buaprakhong et al. \cite{lead_framework} và Hundman et al. \cite{hundman2018}. Bốn phép biến đổi vi mô phổ biến bao gồm:
+\begin{enumerate}
+    \item Chuẩn hóa $Z$-score cục bộ theo tòa nhà: $z_{\text{local}}(t) = \frac{x_t - \mu_i}{\sigma_i + \epsilon}$, với $\mu_i, \sigma_i$ là trung bình và độ lệch chuẩn của riêng công trình $i$.
+    \item Chuẩn hóa theo loại ngày làm việc hoặc ngày nghỉ: $z_{\text{workday}}(t) = \frac{x_t - \mu_{i, d}}{\sigma_{i, d} + \epsilon}$, với $d$ phân biệt ngày làm việc và ngày nghỉ cuối tuần/lễ.
+    \item Chuẩn hóa kháng ngoại lai dựa trên phân vị: $z_{\text{robust}}(t) = \frac{x_t - \text{Median}_i}{\text{IQR}_i + \epsilon} = \frac{x_t - Q_{50, i}}{Q_{75, i} - Q_{25, i} + \epsilon}$.
+    \item Tương tác phụ tải - nhiệt độ môi trường: $\texttt{temp\_load\_inter}(t) = \ln(1 + x_t) \times \frac{T_{\text{air}}(t) - \mu_T}{\sigma_T + \epsilon}$.
+\end{enumerate}
+
+\textbf{Ưu điểm:}
+\begin{itemize}
+    \item \textbf{Triệt tiêu sai lệch thang đo tuyệt đối:} Cho phép một mô hình duy nhất học đồng thời trên cả các công trình tiêu thụ quy mô lớn lẫn công trình quy mô nhỏ.
+    \item \textbf{Phát hiện dị thường theo bối cảnh sinh hoạt:} Giúp nhận diện chính xác các hành vi tiêu thụ bất thường bị che khuất, ví dụ mức phụ tải cao vào ban đêm hoặc ngày nghỉ lễ (vốn có giá trị tuyệt đối nằm trong dải bình thường của ngày trong tuần).
+    \item \textbf{Kháng nhiễu ngoại lai:} Việc sử dụng trung vị và khoảng tứ phân vị (IQR) giúp tham số chuẩn hóa không bị bóp méo bởi chính các giá trị bất thường cực đoan kéo dài trong quá khứ.
+\end{itemize}
+
+\textbf{Nhược điểm:}
+\begin{itemize}
+    \item \textbf{Nguy cơ rò rỉ dữ liệu (Data Leakage):} Các tham số thống kê ($\mu, \sigma$, Median, IQR) bắt buộc phải ước lượng độc quyền trên dữ liệu quá khứ; việc tính toán trên toàn bộ chuỗi thời gian sẽ gây rò rỉ thông tin tương lai.
+    \item \textbf{Độ trễ khi gặp toà nhà mới:} Đòi hỏi công trình phải có sẵn một khoảng thời gian quan trắc lịch sử tối thiểu để ước lượng tham số thống kê tin cậy.
+\end{itemize}
+
+\subsubsection{Kỹ thuật Phân cụm Hành vi Tiêu thụ Phụ tải (Load Profile Clustering)}\hspace{1cm}
+
+Kỹ thuật phân cụm nhóm các tòa nhà dựa trên mức độ tương đồng của biểu đồ phụ tải ngày hoặc tuần, thay vì dựa vào nhãn công năng danh nghĩa. Mỗi tòa nhà $i$ được biểu diễn bởi một vector hành vi $\mathbf{v}_i \in \mathbb{R}^{D}$ (ví dụ vector $168$ chiều thể hiện mức phụ tải trung bình theo từng giờ trong tuần). Thuật toán phân cụm (tiêu biểu là K-Means \cite{kmeans}) tối ưu hóa hàm mục tiêu:
+\begin{equation*}
+    \mathcal{J} = \sum_{k=1}^{K} \sum_{\mathbf{v}_i \in \mathcal{C}_k} \left\| \mathbf{v}_i - \boldsymbol{\mu}_k \right\|_2^2
+\end{equation*}
+với $\boldsymbol{\mu}_k$ là vector trọng tâm của cụm $\mathcal{C}_k$. Dữ liệu sau phân cụm được dùng để huấn luyện các mô hình phát hiện bất thường chuyên biệt cho từng cụm như đề xuất của Cansever và Konyar \cite{cansever2026} hoặc dùng mã cụm làm đặc trưng bổ trợ.\\
+
+\textbf{Ưu điểm:}
+\begin{itemize}
+    \item \textbf{Phân giải phân phối đa đỉnh:} Tách rời các nhóm công trình có hình thái phụ tải trái ngược nhau (như nhóm văn phòng chỉ dùng giờ hành chính đối lập với nhóm bệnh viện vận hành phẳng liên tục 24/7), giúp mô hình học các mẫu hình sắc nét hơn.
+    \item \textbf{Vượt qua hạn chế của nhãn công năng:} Nhiều tòa nhà có cùng nhãn danh mục (ví dụ \texttt{Education}) nhưng thực tế vận hành khác xa nhau (ký túc xá hoạt động ban đêm, giảng đường chỉ dùng ban ngày). Phân cụm theo dữ liệu đo lường thực tế phản ánh chính xác bản chất tiêu thụ.
+\end{itemize}
+
+\textbf{Nhược điểm:}
+\begin{itemize}
+    \item \textbf{Tăng độ phức tạp vận hành:} Nếu huấn luyện mô hình độc lập cho từng cụm, hệ thống phải duy trì $K$ pipeline song song, làm tăng chi phí quản lý và suy luận.
+    \item \textbf{Nhạy cảm với việc chọn số cụm $K$:} Chất lượng phân cụm phụ thuộc lớn vào việc định cỡ tham số $K$ và độ đo khoảng cách; khoảng cách Euclidean thông thường nhạy cảm với hiện tượng lệch pha thời gian.
+\end{itemize}
+
+\subsubsection{Hàm mất mát Binary Cross-Entropy có Trọng số Lớp (Weighted BCE)}\hspace{1cm}
+
+Nhằm xử lý sự mất cân bằng giữa số lượng quan trắc bình thường và bất thường, hàm mất mát Binary Cross-Entropy có trọng số gán một hệ số phạt $w_+$ cao hơn cho các trường hợp phân loại sai lớp bất thường:
+\begin{equation*}
+    \mathcal{L}_{\text{WBCE}} = -\frac{1}{N}\sum_{i=1}^{N}\left[ w_{+}\, y_i \log \hat{p}_i + (1 - y_i)\log\left(1 - \hat{p}_i\right)\right]
+\end{equation*}
+với $\hat{p}_i$ là xác suất dự đoán và $y_i \in \{0, 1\}$. Đạo hàm của hàm mất mát theo logit $z$ là $\frac{\partial \mathcal{L}}{\partial z} = \hat{p}$ khi $y=0$ và $\frac{\partial \mathcal{L}}{\partial z} = -w_+(1 - \hat{p})$ khi $y=1$.\\
+
+\textbf{Ưu điểm:}
+\begin{itemize}
+    \item \textbf{Đơn giản và dễ tích hợp:} Chỉ cần một siêu tham số duy nhất $w_+$, hỗ trợ sẵn trong hầu hết các thư viện Học máy (\texttt{scale\_pos\_weight} trong XGBoost \cite{xgboost}, LightGBM \cite{lightgbm}, CatBoost \cite{catboost}) và Học sâu (\texttt{pos\_weight}).
+    \item \textbf{Cải thiện độ nhạy (Recall):} Ngăn chặn mô hình hội tụ về giải pháp tầm thường là dự đoán toàn bộ mẫu là lớp đa số bình thường.
+\end{itemize}
+
+\textbf{Nhược điểm:}
+\begin{itemize}
+    \item \textbf{Gây bóp méo xác suất đầu ra:} Đặt $w_+$ quá lớn khiến phân phối điểm số dự đoán bị lệch mạnh về phía $1$, làm suy giảm độ tin cậy xác suất và đòi hỏi phải dịch chuyển ngưỡng phân loại (Threshold Moving).
+    \item \textbf{Nguy cơ bùng nổ cảnh báo giả (False Positives):} Trọng số phạt lớp dương quá cao khiến mô hình cảnh giác quá mức, gán nhãn nhầm nhiều biến động tải bình thường thành bất thường, làm giảm mạnh độ chính xác Precision.
+\end{itemize}
+
+\subsubsection{Hàm mất mát Focal Loss}\hspace{1cm}
+
+Focal Loss \cite{focal_loss} bổ sung một thừa số suy giảm động $(1 - p_t)^\gamma$ vào hàm cross-entropy tiêu chuẩn:
+\begin{equation*}
+    \mathrm{FL}(p_t) = -\alpha_t \left(1 - p_t\right)^{\gamma} \log\left(p_t\right)
+\end{equation*}
+trong đó $p_t$ là xác suất mô hình gán cho lớp đúng, $\alpha_t$ là hệ số cân bằng lớp và $\gamma \geq 0$ là tham số tập trung (focusing parameter).\\
+
+\textbf{Ưu điểm:}
+\begin{itemize}
+    \item \textbf{Triệt tiêu gradient từ mẫu dễ:} Khi một mẫu bình thường được phân loại đúng với độ tự tin cao ($p_t \rightarrow 1$), thành phần $(1 - p_t)^\gamma$ triệt tiêu dần về $0$, ngăn lượng lớn mẫu bình thường áp đảo quá trình học.
+    \item \textbf{Tập trung vào các trường hợp biên khó:} Mô hình tự động hướng năng lực tối ưu vào các mẫu có độ mơ hồ cao hoặc nằm sát ranh giới quyết định giữa bình thường và bất thường.
+\end{itemize}
+
+
+\textbf{Nhược điểm:}
+\begin{itemize}
+    \item \textbf{Thêm siêu tham số cần tinh chỉnh:} Yêu cầu tìm kiếm đồng thời cặp tham số $(\alpha, \gamma)$, làm tăng không gian tìm kiếm siêu tham số.
+    \item \textbf{Điểm số đầu ra không chuẩn tắc:} Xác suất dự báo bị co cụm phi tuyến, khó diễn giải trực tiếp dưới dạng xác suất xác thực nếu không qua bước hiệu chuẩn.
+\end{itemize}
+
+\subsubsection{Mạng Tích chập Thời gian Tự mã hóa (TCN Autoencoder)}\hspace{1cm}
+
+TCN-AE kế thừa kiến trúc mạng tích chập nhân quả mở rộng TCN \cite{tcn} để xây dựng cấu trúc bộ mã hóa (Encoder) và bộ giải mã (Decoder) nén qua một nút thắt cổ chai hẹp. Điểm bất thường được xác định dựa trên sai số tái tạo chuỗi $\mathcal{L}_{\text{rec}} = \|\mathbf{x} - \hat{\mathbf{x}}\|_2^2$ như khảo sát của Handigol và Arjunan \cite{handigol2025}.\\
+
+\textbf{Ưu điểm:}
+\begin{itemize}
+    \item \textbf{Huấn luyện song song vượt trội:} Không bị ràng buộc tính toán tuần tự theo từng bước thời gian như LSTM/GRU, tận dụng tối đa kiến trúc xử lý song song của GPU.
+    \item \textbf{Vùng tiếp nhận mở rộng linh hoạt:} Hệ số giãn nở $d = 2^l$ cho phép mạng bao quát lịch sử phụ tải dài ngày với số lượng tham số ít, kiểm soát tốt gradient.
+    \item \textbf{Nắm bắt tốt bất thường dạng sóng và chuỗi:} Các bộ lọc tích chập cục bộ nhạy bén với sự méo mó biên dạng sóng, bước nhảy tải đột ngột hoặc các đoạn kẹt giá trị bằng phẳng (flatline).
+\end{itemize}
+
+\textbf{Nhược điểm:}
+\begin{itemize}
+    \item \textbf{Rủi ro tái tạo luôn cả bất thường:} Nếu kích thước nút thắt cổ chai không đủ hẹp hoặc mô hình quá mạnh, Autoencoder có thể học cách tái tạo chính xác cả các đoạn dữ liệu bất thường.
+    \item \textbf{Yêu cầu bộ nhớ GPU cao khi chuỗi dài:} Các phép toán tích chập nhiều kênh trên kích thước batch lớn đòi hỏi dung lượng VRAM đáng kể.
+\end{itemize}
+
+\subsubsection{Cơ chế Tự chú ý Đa đầu trong Tái tạo Chuỗi Thời gian (Self-Attention Autoencoder)}\hspace{1cm}
+
+Cơ chế Tự chú ý Đa đầu (Multi-Head Self-Attention) \cite{transformer} tính toán trọng số liên kết trực tiếp giữa mọi cặp thời điểm trong cửa sổ quan sát thông qua các phép chiếu Query, Key, Value, từng được áp dụng thành công trên dữ liệu phụ tải điện trong các công trình của Orvati Nia et al. \cite{orvati2026} và Zhang et al. \cite{zhang2023graph}:
+\begin{equation*}
+    \text{Attention}(\mathbf{Q}, \mathbf{K}, \mathbf{V}) = \text{softmax}\left( \frac{\mathbf{Q}\mathbf{K}^\top}{\sqrt{d_k}} \right) \mathbf{V}
+\end{equation*}
+
+
+\textbf{Ưu điểm:}
+\begin{itemize}
+    \item \textbf{Học liên kết khoảng cách xa không suy giảm:} Kết nối trực tiếp giữa các bước thời gian cách nhau nhiều ngày (ví dụ đối chiếu cùng khung giờ giữa các tuần) mà không gặp hiện tượng suy giảm thông tin qua các bước trung gian.
+    \item \textbf{Khả năng giải thích tương quan thời gian:} Trọng số ma trận chú ý (Attention Map) cho biết mô hình dựa vào thời điểm lịch sử nào trong quá khứ để đưa ra quyết định đánh giá phụ tải hiện tại.
+\end{itemize}
+
+\textbf{Nhược điểm:}
+\begin{itemize}
+    \item \textbf{Độ phức tạp tính toán bậc hai:} Chi phí tính toán và bộ nhớ tăng theo hàm bậc hai $O(w^2)$ theo chiều dài cửa sổ trượt $w$, gây trở ngại khi cần mở rộng cửa sổ ngữ cảnh rất dài.
+    \item \textbf{Dễ quá khớp trên dữ liệu ít đa dạng:} Mạng chú ý đòi hỏi lượng dữ liệu chuỗi phong phú để học ma trận tương quan ổn định, dễ bị quá khớp nếu số lượng công trình huấn luyện hạn chế.
+\end{itemize}
+
+\subsubsection{Hàm mất mát Đo khoảng cách Đàn hồi Soft Dynamic Time Warping (Soft-DTW)}\hspace{1cm}
+
+Soft-DTW \cite{soft_dtw, prabhu2024} thay thế hàm mất mát khoảng cách điểm Euclid truyền thống ($L_2$/MSE) bằng một toán tử khoảng cách chuỗi làm trơn có khả năng co dãn trục thời gian:
+\begin{equation*}
+    \text{Soft-DTW}_\gamma(\mathbf{x}, \hat{\mathbf{x}}) = \operatorname{soft-min}_\gamma \left( \left\{ \langle \mathbf{A}_\pi, \boldsymbol{\Delta}(\mathbf{x}, \hat{\mathbf{x}}) \rangle \right\}_{\pi \in \mathcal{A}} \right)
+\end{equation*}
+với $\boldsymbol{\Delta}$ là ma trận khoảng cách điểm, $\mathcal{A}$ là tập đường căn chỉnh và $\operatorname{soft-min}_\gamma(a) = -\gamma \log \sum \exp(-a_i/\gamma)$ là toán tử cực tiểu mềm khả vi.\\
+
+
+\textbf{Ưu điểm:}
+\begin{itemize}
+    \item \textbf{Triệt tiêu lỗi phạt do lệch pha thời gian (Time-shift Invariance):} Không phạt nặng các trường hợp công trình dời lịch kích hoạt phụ tải trễ một vài giờ (do dời ca làm việc hoặc sinh hoạt), phân biệt chính xác giữa lệch pha bình thường và biến dạng phụ tải sự cố.
+    \item \textbf{Khả vi hoàn toàn:} Cho phép tính đạo hàm giải tích và lan truyền ngược trực tiếp trong quá trình tối ưu mạng nơ-ron hồi quy hoặc tự mã hóa.
+\end{itemize}
+
+\textbf{Nhược điểm:}
+\begin{itemize}
+    \item \textbf{Chi phí tính toán lớn:} Thuật toán quy hoạch động có độ phức tạp thời gian và không gian là $O(w^2)$, khiến tốc độ huấn luyện trên tập dữ liệu hàng triệu bước thời gian chậm hơn nhiều lần so với MSE thông thường.
+    \item \textbf{Nguy cơ bỏ sót bất thường độ trễ:} Nếu bài toán thực tế yêu cầu phát hiện sự cố chậm giờ bật tải, cơ chế co dãn của Soft-DTW có thể vô tình xem sự chậm trễ này là hành vi bình thường.
+\end{itemize}
+
+\subsubsection{Kỹ thuật Nhúng Siêu dữ liệu và Điều biến Đặc trưng vào Mạng Chuỗi (Conditioned Sequence Modeling)}\hspace{1cm}
+
+Kỹ thuật này tích hợp các thông tin định danh tĩnh của công trình (vùng khí hậu $S$, loại công năng $U$, mã tương tác $Z$ hoặc nhãn cụm $C$) vào các tầng biểu diễn chuỗi của mạng nơ-ron \cite{lead_framework}. Phương pháp thực hiện qua không gian nhúng danh mục $\mathbf{e} = \mathbf{E}[Z] \in \mathbb{R}^d$ kết hợp cùng cơ chế điều biến tuyến tính đặc trưng FiLM \cite{film}:
+\begin{equation*}
+    \mathbf{h}_t' = \boldsymbol{\gamma}(\mathbf{e}) \odot \mathbf{h}_t + \boldsymbol{\beta}(\mathbf{e})
+\end{equation*}
+trong đó $\mathbf{h}_t$ là trạng thái biểu diễn chuỗi và $\boldsymbol{\gamma}, \boldsymbol{\beta}$ là các mạng chiếu tuyến tính điều biến độ lợi và độ lệch.\\
+
+\textbf{Ưu điểm:}
+\begin{itemize}
+    \item \textbf{Ngưỡng phán đoán phụ thuộc bối cảnh:} Cho phép một mạng nơ-ron chuỗi duy nhất tự động điều chỉnh ngưỡng phát hiện bất thường linh hoạt theo từng loại công trình và vùng khí hậu cụ thể.
+    \item \textbf{Học biểu diễn ngữ nghĩa không gian:} Bảng ma trận nhúng có khả năng tự động học khoảng cách tương đồng giữa các vùng khí hậu khác nhau trong không gian vector tiềm ẩn.
+\end{itemize}
+
+\textbf{Nhược điểm:}
+\begin{itemize}
+    \item \textbf{Tăng số lượng tham số mô hình:} Thêm các bảng tra cứu nhúng và mạng điều biến FiLM làm tăng kích thước tham số và đòi hỏi điều chuẩn (dropout, weight decay) cẩn thận để tránh ghi nhớ mẫu cục bộ.
+    \item \textbf{Khó khăn khi suy luận không giám sát hoàn toàn:} Cần thông tin siêu dữ liệu công trình đầy đủ tại thời điểm suy luận; khó áp dụng khi gặp công trình hoàn toàn thiếu thông tin ngữ cảnh.
+\end{itemize}
+
+\subsubsection{Kỹ thuật Mô hình Sinh Đối kháng Hồi quy (GAN-LSTM cho Chuỗi Thời gian)}\hspace{1cm}
+
+Mô hình GAN-LSTM kết hợp năng lực nắm bắt phụ thuộc thời gian dài của mạng hồi quy LSTM với khả năng xấp xỉ phân phối xác suất phức tạp của Mạng Sinh Đối kháng \cite{orvati2026}. Cấu trúc bao gồm:
+\begin{itemize}
+    \item \textbf{Mạng sinh (Generator $G$):} Sử dụng các tầng tế bào nhớ LSTM để ánh xạ từ không gian vector tiềm ẩn $\mathbf{z} \sim p_z$ thành một cửa sổ phụ tải điện nhân tạo $\hat{\mathbf{x}} = G(\mathbf{z}) \in \mathbb{R}^W$.
+    \item \textbf{Mạng phân định (Discriminator $D$):} Nhận một cửa sổ chuỗi phụ tải (thực tế $\mathbf{x}$ hoặc sinh ra $\hat{\mathbf{x}}$), sử dụng các tầng LSTM kết hợp tầng tuyến tính để ước lượng xác suất chuỗi thuộc phân phối dữ liệu chuẩn $D(\mathbf{x}) \in [0, 1]$.
+\end{itemize}
+Mục tiêu tối ưu hóa Min-Max được thiết lập:
+\begin{equation*}
+    \min_G \max_D V(D, G) = \mathbb{E}_{\mathbf{x} \sim p_{\text{data}}}[\log D(\mathbf{x})] + \mathbb{E}_{\mathbf{z} \sim p_z}[\log(1 - D(G(\mathbf{z})))]
+\end{equation*}
+Mô hình chỉ được huấn luyện trên các cửa sổ phụ tải bình thường. Tại thời điểm suy luận, điểm bất thường ở mức cửa sổ (window-level) được xác định bằng cách kết hợp sai số tái tạo và mức độ bất đồng do Discriminator phản ánh:
+\begin{equation*}
+    \mathcal{S}(\mathbf{x}) = \lambda \|\mathbf{x} - G(\mathbf{z}^*)\|_1 + (1 - \lambda) (1 - D(\mathbf{x}))
+\end{equation*}
+trong đó $\mathbf{z}^*$ là vector tiềm ẩn xấp xỉ tốt nhất cho chuỗi quan sát $\mathbf{x}$.\\
+
+\textbf{Ưu điểm:}
+\begin{itemize}
+    \item \textbf{Học biểu diễn phụ tải bình thường không cần nhãn:} Tận dụng tối đa lượng lớn dữ liệu vận hành chuẩn, không phụ thuộc vào nhãn bất thường vốn rất khan hiếm trong thực tế.
+    \item \textbf{Nắm bắt quan hệ động học đa bước:} Cơ chế cổng nhớ của LSTM duy trì tính liên tục và hình thái tuần hoàn của chuỗi phụ tải trong suốt chiều dài cửa sổ.
+    \item \textbf{Kháng nhiễu tức thời nhờ đánh giá theo cửa sổ:} Tổng hợp điểm số dị thường trên toàn bộ cửa sổ thời gian giúp giảm thiểu cảnh báo giả gây ra bởi các dao động ngẫu nhiên đơn lẻ ở từng giờ.
+\end{itemize}
+
+\textbf{Nhược điểm:}
+\begin{itemize}
+    \item \textbf{Khó khăn trong cân bằng đối kháng:} Dễ gặp hiện tượng sụp đổ mode (mode collapse) hoặc mất cân bằng gradient giữa Generator và Discriminator trong quá trình tối ưu.
+    \item \textbf{Độ trễ và suy giảm phân giải thời gian:} Đánh giá bất thường theo cửa sổ chỉ phát hiện được khoảng thời gian xảy ra biến cố, khó định vị chính xác thời điểm giờ bắt đầu nếu không kết hợp thêm cơ chế phân giải ngược.
+    \item \textbf{Chi phí suy luận trượt cửa sổ cao:} Việc trượt cửa sổ liên tục qua chuỗi dữ liệu dài ngày đòi hỏi chi phí tính toán đáng kể.
+\end{itemize}
+
+\subsubsection{Kỹ thuật Mạng Tích chập Đối kháng Sâu 1D (1D-DCGAN cho Chuỗi Phụ tải)}\hspace{1cm}
+
+Nhằm nâng cao tốc độ tính toán so với các tế bào hồi quy, kỹ thuật 1D-DCGAN \cite{handigol2025} chuyển đổi toàn bộ kiến trúc sang mạng tích chập một chiều:
+\begin{itemize}
+    \item \textbf{Generator 1D:} Sử dụng các tầng tích chập chuyển vị một chiều (1D Transposed Convolutions) kết hợp chuẩn hóa theo lô (Batch Normalization) để mở rộng kích thước từ vector tiềm ẩn $\mathbf{z}$ thành chuỗi phụ tải thời gian $W$.
+    \item \textbf{Discriminator 1D:} Sử dụng các tầng tích chập có bước nhảy (1D Strided Convolutions) với hàm kích hoạt LeakyReLU để trích xuất đặc trưng hình thái sóng và nén dần về thang đo phân định nhị phân.
+\end{itemize}
+Để ổn định pha huấn luyện và tăng cường độ phân tách, hàm tính điểm bất thường thường sử dụng cơ chế so khớp đặc trưng tầng ẩn (Feature Matching):
+\begin{equation*}
+    \mathcal{S}(\mathbf{x}) = \|\mathbf{f}_D(\mathbf{x}) - \mathbf{f}_D(G(\mathbf{z}^*))\|_2^2
+\end{equation*}
+với $\mathbf{f}_D(\cdot)$ là vector đặc trưng tại tầng ẩn trung gian cuối cùng của Discriminator.\\
+
+\textbf{Ưu điểm:}
+\begin{itemize}
+    \item \textbf{Khả năng song song hóa cao:} Các phép toán tích chập 1D không có phụ thuộc tuần hoàn theo thời gian, tận dụng tối đa năng lực xử lý song song của GPU, tăng tốc độ huấn luyện so với mô hình hồi quy.
+    \item \textbf{Nhạy bén với hình thái sóng phụ tải:} Các bộ lọc tích chập cục bộ phản ứng rất tốt với các dạng bất thường hình thái như gai tải đột ngột, méo mó đỉnh cao điểm hoặc đoạn kẹt giá trị bằng phẳng (flatline).
+    \item \textbf{Trích xuất đặc trưng đa quy mô:} Các tầng tích chập với trường tiếp nhận (receptive fields) tăng dần giúp nắm bắt đồng thời cả dao động vi mô lẫn chu kỳ ngày/tuần.
+\end{itemize}
+
+\textbf{Nhược điểm:}
+\begin{itemize}
+    \item \textbf{Nguy cơ xuất hiện sóng nhân tạo (Checkerboard Artifacts):} Phép tích chập chuyển vị dễ gây ra hiệu ứng răng cưa trên chuỗi phụ tải sinh ra nếu tỉ số giữa kích thước bộ lọc và bước nhảy không được thiết kế tương thích.
+    \item \textbf{Hạn chế trong duy trì phụ thuộc xa:} Trường tiếp nhận phụ thuộc trực tiếp vào số tầng tích chập; việc mở rộng vùng quan sát đòi hỏi tăng mạnh độ sâu mạng, làm tăng kích thước tham số.
+\end{itemize}
+
+\subsubsection{Kỹ thuật Tái tạo Song song Đa điểm (Parallel Multi-Point Reconstruction)}\hspace{1cm}
+
+Trong các mô hình sinh đối kháng cổ điển ứng dụng phát hiện bất thường (tiêu biểu như AnoGAN \cite{anogan}), tại thời điểm suy luận đối với một chuỗi quan sát $\mathbf{x}$, hệ thống phải thực hiện tối ưu hóa lặp thông qua lan truyền ngược để tìm vector tiềm ẩn tối ưu $\mathbf{z}^* = \arg\min_{\mathbf{z}} \mathcal{L}(G(\mathbf{z}), \mathbf{x})$. Quá trình này đòi hỏi hàng trăm bước cập nhật gradient cho mỗi cửa sổ, gây tắc nghẽn tốc độ khi vận hành trên quy mô hàng trăm toà nhà.
+
+Kỹ thuật Tái tạo Song song Đa điểm \cite{prabhu2024} giải quyết triệt để nút thắt cổ chai này bằng cách kết hợp một mạng ánh xạ giải tích (Mapping Network $E$) được huấn luyện đồng thời:
+\begin{equation*}
+    \mathbf{z}^* \approx E(\mathbf{x})
+\end{equation*}
+đồng thời thực hiện tái tạo và so khớp song song toàn bộ các khối cửa sổ trượt liền kề bằng phép tính ma trận khối trên GPU, loại bỏ hoàn toàn các vòng lặp lan truyền ngược tại thời điểm suy luận.\\
+
+
+\textbf{Ưu điểm:}
+\begin{itemize}
+    \item \textbf{Tăng tốc suy luận vượt bậc:} Chuyển đổi pha tìm kiếm vector tiềm ẩn từ vòng lặp tối ưu hóa sang một lượt truyền thẳng (forward pass) duy nhất, đáp ứng yêu cầu giám sát thời gian thực của các hệ thống công tơ đo đếm lớn.
+    \item \textbf{Tái tạo đồng thời và liên tục:} Khả năng tính toán song song nhiều khối thời gian giúp việc so khớp biên độ và đánh giá điểm dị thường giữa các khung giờ liền kề diễn ra đồng bộ và nhất quán.
+\end{itemize}
+
+\textbf{Nhược điểm:}
+\begin{itemize}
+    \item \textbf{Sai số xấp xỉ từ mạng ánh xạ:} Ước lượng giải tích thông qua mạng $E(\mathbf{x})$ có thể mang lại khoảng cách tái tạo lớn hơn so với việc tối ưu hóa đạo hàm trực tiếp từng điểm.
+    \item \textbf{Gia tăng dung lượng bộ nhớ huấn luyện:} Việc huấn luyện đồng thời Generator, Discriminator và Encoder đòi hỏi cấu hình VRAM lớn và điều phối hàm mất mát phức hợp.
+\end{itemize}
+
+\subsubsection{Kỹ thuật Huấn luyện Mô hình Độc lập theo Cụm Phụ tải (Cluster-Specific Local Modeling)}\hspace{1cm}
+
+Xuất phát từ thực tế các nhóm công trình có hành vi vận hành khác biệt sẽ có cơ chế phát sinh bất thường trái ngược nhau, chiến lược huấn luyện độc lập theo cụm \cite{cansever2026} áp dụng nguyên lý chia để trị (divide-and-conquer):
+\begin{enumerate}
+    \item \textbf{Phân hoạch dữ liệu:} Tập hợp các tòa nhà được phân chia thành $K$ cụm hành vi thuần nhất $\{\mathcal{C}_1, \dots, \mathcal{C}_K\}$ thông qua phân cụm K-Means \cite{kmeans} trên vector biểu đồ phụ tải ngày hoặc tuần chuẩn hóa.
+    \item \textbf{Huấn luyện chuyên biệt:} Với mỗi cụm $\mathcal{C}_k$, một mô hình phát hiện bất thường độc lập $\mathcal{M}_k$ (như XGBoost \cite{xgboost}, LightGBM \cite{lightgbm}, CatBoost \cite{catboost} hoặc HistGradientBoosting \cite{hist_gb}) được huấn luyện riêng biệt trên dữ liệu của chỉ các tòa nhà thuộc cụm đó:
+    \begin{equation*}
+        \mathcal{M}_k = \arg\min_{\theta_k} \sum_{b_i \in \mathcal{C}_k} \mathcal{L}(y, f(\mathbf{x}; \theta_k))
+    \end{equation*}
+    \item \textbf{Định tuyến suy luận:} Khi tiếp nhận dữ liệu từ một tòa nhà mới, hệ thống gán công trình vào cụm gần nhất $k^* = \arg\min_k \|\mathbf{v}_{\text{new}} - \boldsymbol{\mu}_k\|_2$ và kích hoạt mô hình chuyên biệt $\mathcal{M}_{k^*}$ để đưa ra dự đoán.
+\end{enumerate}
+
+\textbf{Ưu điểm:}
+\begin{itemize}
+    \item \textbf{Triệt tiêu mâu thuẫn phân phối (Distribution Shift):} Loại bỏ hiện tượng xung đột gradient khi một mô hình toàn cục duy nhất phải thỏa hiệp giữa các dạng công năng có quy luật trái ngược nhau.
+    \item \textbf{Ranh giới phân loại sắc nét:} Mỗi mô hình cụm chỉ cần tối ưu hóa trên một miền biến động hẹp, giúp các lát cắt phân chia của cây quyết định hoặc siêu phẳng phân tách trở nên nhạy bén hơn.
+    \item \textbf{Dễ dàng mở rộng song song:} $K$ mô hình có thể được huấn luyện hoàn toàn độc lập và song song trên các nhân CPU/GPU phân tán.
+\end{itemize}
+
+\textbf{Nhược điểm:}
+\begin{itemize}
+    \item \textbf{Tăng chi phí bảo trì và quản lý mô hình:} Hệ thống phải lưu trữ, theo dõi và phục vụ $K$ tập trọng số mô hình độc lập trong môi trường thực tế.
+    \item \textbf{Mất cân bằng dữ liệu giữa các cụm:} Các cụm chứa ít công trình sẽ có số lượng mẫu bất thường hạn chế, dễ dẫn đến hiện tượng quá khớp nếu sử dụng mô hình có dung lượng tham số lớn.
+    \item \textbf{Lỗi lan truyền từ bước gán cụm:} Việc xác định sai cụm hành vi ban đầu sẽ dẫn đến suy luận hoàn toàn sai lệch từ mô hình chuyên biệt.
+\end{itemize}
+
+\subsubsection{Kỹ thuật Đối chuẩn Đa phương pháp trên Chuỗi Phụ tải (Empirical Multi-Method Time-Series Benchmarking)}\hspace{1cm}
+
+Để nhận diện khách quan năng lực của các thuật toán trong điều kiện chuỗi đo thực tế đầy nhiễu, kỹ thuật đối chuẩn thực nghiệm có hệ thống \cite{lead1, schmidl2022} thiết lập khung kiểm thử chuẩn tắc trên cùng một bộ dữ liệu quy mô lớn (tiêu biểu như LEAD):
+\begin{itemize}
+    \item \textbf{Khảo sát đa hệ hình thuật toán:} Đánh giá đối chứng đồng thời các nhóm phương pháp: không giám sát dựa trên khoảng cách (k-NN), dựa trên mật độ (LOF \cite{lof}), dựa trên phân tách ngẫu nhiên (Isolation Forest \cite{isolation_forest}), dựa trên ranh giới hỗ trợ (OCSVM), mô hình tái tạo nơ-ron (Autoencoder, GAN) và các thuật toán học máy có giám sát dạng cây.
+    \item \textbf{Chuẩn hóa hai cấp độ đánh giá:} Phân định rõ giữa đánh giá theo từng điểm thời gian (point-level) để đo lường độ chính xác tức thời và đánh giá theo cửa sổ thời gian (window-level) nhằm phản ánh đúng bản chất kéo dài theo đợt của các sự cố vận hành năng lượng.
+\end{itemize}
+
+\textbf{Ưu điểm:}
+\begin{itemize}
+    \item \textbf{Thiết lập mốc tham chiếu chuẩn tắc:} Cung cấp đường cơ sở (baseline) tin cậy, giúp nhận diện rõ ràng ưu thế tương đối và giới hạn bản chất của từng họ phương pháp trên dữ liệu công tơ thông minh.
+    \item \textbf{Định hướng thực chứng cho thiết kế giải pháp:} Khảo sát trên diện rộng khẳng định không có một mô hình đơn lẻ nào chiếm ưu thế tuyệt đối trong mọi tình huống (định lý No-Free-Lunch trên chuỗi thời gian), làm cơ sở vững chắc cho các kỹ thuật tổ hợp mô hình (ensemble).
+\end{itemize}
+
+\textbf{Nhược điểm:}
+\begin{itemize}
+    \item \textbf{Chi phí tính toán và thời gian thử nghiệm rất lớn:} Đòi hỏi tài nguyên khổng lồ để tinh chỉnh siêu tham số và đánh giá chéo đồng thời hàng loạt thuật toán trên quy mô hàng triệu bản ghi.
+    \item \textbf{Phức tạp trong việc đồng nhất thang đo suy luận:} Sự khác biệt căn bản giữa thang đo điểm dị thường không giám sát và xác suất phân loại có giám sát gây khó khăn cho việc thiết lập ngưỡng quyết định chung mà không qua các bước chuẩn hóa hậu kỳ.
+\end{itemize}
+
+Toàn bộ 14 kỹ thuật bổ trợ được hệ thống hóa ở trên—từ tương tác vùng khí hậu, chuẩn hóa ngữ cảnh vi mô, phân cụm hành vi tải, các hàm mất mát kháng mất cân bằng, đến các kiến trúc mạng chuỗi sâu và chiến lược đối chuẩn đa phương pháp—chính là cơ sở lý thuyết và phương pháp luận cốt lõi để nhóm xây dựng các pipeline tiền xử lý, huấn luyện và đánh giá thực nghiệm trong các chương tiếp theo.

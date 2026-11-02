@@ -1,0 +1,7 @@
+exp,name,n_features,model,pr_auc,delta_prauc,roc_auc,best_f1,precision,recall,best_threshold,time_sec
+0,Baseline Context,46,XGBoost (GPU),0.6962,+0.0000 (Moc),0.8958,0.7273,0.9378,0.594,0.5713,6.41
+1,"+ Lag 1h/2h, Diff, Ratio",52,XGBoost (GPU),0.8064,+0.1102,0.9474,0.803,0.9211,0.7118,0.3749,8.17
+2,+ flatline_duration,53,XGBoost (GPU),0.8433,+0.1471,0.9513,0.8377,0.9227,0.7671,0.3456,8.17
+3,+ stl_residual,54,XGBoost (GPU),0.8452,+0.1490,0.9535,0.8356,0.9222,0.7638,0.3877,8.34
+4,+ Quad Boosting SLSQP Rank,54,Quad SLSQP Rank,0.8476,+0.1514,0.9536,0.8445,0.9526,0.7585,0.9793,80.46
+5,+ Hysteresis & Gap-Closing Post,54,Quad + Temporal Post-Proc,0.8476,+0.1514,0.9536,0.8335,0.9596,0.7366,0.5,1.07

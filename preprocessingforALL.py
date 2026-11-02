@@ -20,6 +20,7 @@ toàn bộ pipeline theo nguyên lý Zero Data Leakage tuyệt đối:
    - Bộ 1: Baseline (40 cột = 39 đặc trưng cơ sở + 1 nhãn anomaly)
    - Bộ 2: Zone-Enhanced (43 cột = 39 Baseline + 3 đặc trưng vĩ mô phân vùng + 1 nhãn anomaly)
    - Bộ 3: Context-Aware (47 cột = 42 Zone + 4 đặc trưng ngữ cảnh + 1 nhãn anomaly)
+   - Bộ 4: Expanded Champion (55 cột = 46 Context + 8 đặc trưng chuỗi thời gian & STL Residual + 1 nhãn anomaly)
 
 Dễ dàng sử dụng để kiểm toán số liệu, cập nhật biểu đồ và bảng đối chứng trong báo cáo luận văn (Chương 3, Chương 4, Chương 6).
 """
@@ -30,6 +31,7 @@ import json
 import os
 import sys
 import time
+import warnings
 from pathlib import Path
 from typing import Dict, List, Tuple
 
@@ -50,6 +52,80 @@ OUT_ML_DIR = ROOT_DIR / "model_ML" / "data"
 OUT_PROC_DIR = ROOT_DIR / "data" / "processed"
 
 TARGET = "anomaly"
+
+
+def extract_temporal_dynamics_and_stl(
+    df_raw: pd.DataFrame,
+    building_col: str = "building_id",
+    timestamp_col: str = "timestamp",
+    meter_col: str = "meter_reading",
+) -> pd.DataFrame:
+    """
+    Hàm chuẩn hóa trích xuất 8 đặc trưng động học chuỗi thời gian & STL Residual.
+    Tuân thủ 100% Zero Data Leakage: Causal lag shifting và khử chu kỳ 24h nội bộ.
+    Bảo toàn 100% thứ tự dòng gốc của DataFrame ban đầu qua _orig_idx.
+    """
+    df_work = df_raw[[building_col, timestamp_col, meter_col]].copy()
+    df_work["_orig_idx"] = np.arange(len(df_work), dtype=np.int32)
+    df_work[timestamp_col] = pd.to_datetime(df_work[timestamp_col])
+    df_work[meter_col] = df_work[meter_col].astype(np.float32)
+
+    df_sorted = df_work.sort_values([building_col, timestamp_col]).copy()
+    g = df_sorted.groupby(building_col, sort=False)[meter_col]
+
+    # 1. Trễ vi mô 1h và 2h
+    lag_1h = g.shift(1).astype(np.float32)
+    lag_2h = g.shift(2).astype(np.float32)
+
+    # 2. Sai phân bậc 1 và bậc 2 (Tốc độ biến thiên)
+    diff_1h = (df_sorted[meter_col] - lag_1h).astype(np.float32)
+    diff_2h = (df_sorted[meter_col] - lag_2h).astype(np.float32)
+
+    # 3. Tỷ số biến thiên động năng
+    m_val = df_sorted[meter_col].fillna(0.0).values
+    l1_val = lag_1h.fillna(0.0).values
+    l2_val = lag_2h.fillna(0.0).values
+    ratio_1h = ((m_val + 1.0) / (l1_val + 1.0)).astype(np.float32)
+    ratio_2h = ((m_val + 1.0) / (l2_val + 1.0)).astype(np.float32)
+
+    # 4. Thời lượng đóng băng cảm biến (|diff_1h| <= 1e-4)
+    eps = 1e-4
+    diff_val = diff_1h.values
+    m_notna = df_sorted[meter_col].notna().values
+    l1_notna = lag_1h.notna().values
+    is_flat_arr = (np.abs(diff_val) <= eps) & m_notna & l1_notna
+
+    is_flat_s = pd.Series(is_flat_arr, index=df_sorted.index)
+    block_id = (~is_flat_s).cumsum()
+    flatline = is_flat_s.groupby([df_sorted[building_col], block_id]).cumsum().astype(np.int16)
+
+    # 5. Phân rã STL Residual (Khử chu kỳ 24h qua 7 ngày lân cận)
+    shifts_7d = [24, 48, 72, 96, 120, 144, 168]
+    shifted_cols = [g.shift(s).values for s in shifts_7d]
+    shifted_mat = np.column_stack(shifted_cols)
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", category=RuntimeWarning)
+        med_7d = np.nanmedian(shifted_mat, axis=1)
+    med_7d = np.nan_to_num(med_7d, nan=0.0).astype(np.float32)
+    stl_res = (m_val - med_7d).astype(np.float32)
+
+    df_sorted["meter_lag_1h"] = lag_1h
+    df_sorted["meter_lag_2h"] = lag_2h
+    df_sorted["meter_diff_1h"] = diff_1h
+    df_sorted["meter_diff_2h"] = diff_2h
+    df_sorted["meter_ratio_1h"] = ratio_1h
+    df_sorted["meter_ratio_2h"] = ratio_2h
+    df_sorted["flatline_duration"] = flatline
+    df_sorted["stl_residual"] = stl_res
+
+    df_restored = df_sorted.sort_values("_orig_idx").reset_index(drop=True)
+    feature_cols = [
+        "meter_lag_1h", "meter_lag_2h",
+        "meter_diff_1h", "meter_diff_2h",
+        "meter_ratio_1h", "meter_ratio_2h",
+        "flatline_duration", "stl_residual",
+    ]
+    return df_restored[feature_cols]
 
 
 def run_zero_leakage_preprocessing(
@@ -115,6 +191,17 @@ def run_zero_leakage_preprocessing(
 
     df_train_raw = df_raw[train_mask].copy().reset_index(drop=True)
     df_test_raw = df_raw[test_mask].copy().reset_index(drop=True)
+
+    # -------------------------------------------------------------------------
+    # [TRICH XUAT DAC TRUNG DONG HOC CHUOI THOI GIAN & STL (ZERO LEAKAGE)]
+    # -------------------------------------------------------------------------
+    print("\n  [TRICH XUAT 8 DAC TRUNG DONG HOC CHUOI THOI GIAN & STL RESIDUAL (ZERO LEAKAGE)]")
+    t0_ext = time.time()
+    df_temporal_ext = extract_temporal_dynamics_and_stl(df_raw)
+    temp_train = df_temporal_ext[train_mask].reset_index(drop=True)
+    temp_test = df_temporal_ext[test_mask].reset_index(drop=True)
+    del df_temporal_ext
+    print(f"  * Hoan tat trich xuat 8 dac trung trong {time.time() - t0_ext:.1f}s: {list(temp_train.columns)}")
 
     # -------------------------------------------------------------------------
     # [BUOC 2] TACH NHAN ANOMALY
@@ -371,7 +458,22 @@ def run_zero_leakage_preprocessing(
     test_context[TARGET] = y_test.values
 
     # -------------------------------------------------------------------------
-    # XUAT FILE VA KIEM TOAN DANG CHUAN
+    # [BUOC 10/10] TICH HOP BO 4: DYNAMIC-TEMPORAL-EXPANDED (55 COT CHAMPION SOTA)
+    # -------------------------------------------------------------------------
+    print("\n[BUOC 10/10] Tich hop Bo thu 4: Dynamic-Temporal-Expanded (55 cot Champion SOTA)...")
+    train_expanded = train_context.drop(columns=[TARGET]).copy()
+    test_expanded = test_context.drop(columns=[TARGET]).copy()
+
+    for c in temp_train.columns:
+        train_expanded[c] = temp_train[c].values
+        test_expanded[c] = temp_test[c].values
+
+    train_expanded[TARGET] = y_train.values
+    test_expanded[TARGET] = y_test.values
+    del temp_train, temp_test
+
+    # -------------------------------------------------------------------------
+    # XUAT FILE VA KIEM TOAN DANG CHUAN (4 BIEN THE: BASELINE, ZONE, CONTEXT, EXPANDED)
     # -------------------------------------------------------------------------
     files_to_save = {
         "train_chunked_baseline.parquet": (train_base, 40),
@@ -380,6 +482,8 @@ def run_zero_leakage_preprocessing(
         "test_chunked_zone.parquet": (test_zone, 43),
         "train_chunked_context.parquet": (train_context, 47),
         "test_chunked_context.parquet": (test_context, 47),
+        "train_chunked_expanded.parquet": (train_expanded, 55),
+        "test_chunked_expanded.parquet": (test_expanded, 55),
     }
 
     target_dirs = []
@@ -422,9 +526,11 @@ def run_zero_leakage_preprocessing(
         "baseline_features": 39,
         "zone_features": 42,
         "context_features": 46,
+        "expanded_features": 54,
         "columns_baseline": list(train_base.columns),
         "columns_zone": list(train_zone.columns),
         "columns_context": list(train_context.columns),
+        "columns_expanded": list(train_expanded.columns),
     }
 
     for d in target_dirs:
@@ -440,6 +546,7 @@ def run_zero_leakage_preprocessing(
     print(f"  * Baseline : Train={train_base.shape}, Test={test_base.shape}")
     print(f"  * Zone     : Train={train_zone.shape}, Test={test_zone.shape}")
     print(f"  * Context  : Train={train_context.shape}, Test={test_context.shape}")
+    print(f"  * Expanded : Train={train_expanded.shape}, Test={test_expanded.shape}")
     return saved_paths
 
 
@@ -503,7 +610,15 @@ def save_preprocessing_step_log(target_dirs: List[Path]) -> None:
             "columns_added": 4
         },
         {
-            "step": "Xuất 6 bộ Parquet (Baseline, Zone, Context - Train & Test)",
+            "step": "Tích hợp Động học Chuỗi thời gian & STL Residual (Expanded 55 cột Champion)",
+            "train_rows_before": 1147089, "train_rows_after": 1147089,
+            "train_rows_added": 0, "train_rows_removed": 0, "train_rows_affected": 1147089, "train_values_changed": 9176712,
+            "test_rows_before": 372993, "test_rows_after": 372993,
+            "test_rows_added": 0, "test_rows_removed": 0, "test_rows_affected": 372993, "test_values_changed": 2983944,
+            "columns_added": 8
+        },
+        {
+            "step": "Xuất 8 bộ Parquet (Baseline, Zone, Context, Expanded - Train & Test)",
             "train_rows_before": 1147089, "train_rows_after": 1147089,
             "train_rows_added": 0, "train_rows_removed": 0, "train_rows_affected": 0, "train_values_changed": 0,
             "test_rows_before": 372993, "test_rows_after": 372993,
@@ -519,19 +634,191 @@ def save_preprocessing_step_log(target_dirs: List[Path]) -> None:
 
 
 def generate_eda_plots() -> None:
-    """Sinh va cap nhat cac bieu do EDA chuan xuat ban vao report_p4aids/IMAGE/."""
-    from model_ML.generate_distribution_diagrams import (
-        generate_eda_histogram_distribution,
-        generate_train_test_distribution_diagram,
-        plot_preprocessing_history,
-    )
+    """Sinh va cap nhat cac bieu do EDA chuan xuat ban khoa hoc (300 DPI) vao report_p4aids/IMAGE/."""
+    import matplotlib.pyplot as plt
+    import seaborn as sns
+
+    IMAGE_DIR = ROOT_DIR / "report_p4aids" / "IMAGE"
+    IMAGE_DIR.mkdir(parents=True, exist_ok=True)
+
+    tr_path = OUT_PROC_DIR / "train_chunked_expanded.parquet"
+    te_path = OUT_PROC_DIR / "test_chunked_expanded.parquet"
+    if not tr_path.exists():
+        tr_path = OUT_ML_DIR / "train_chunked_expanded.parquet"
+        te_path = OUT_ML_DIR / "test_chunked_expanded.parquet"
+
     print("\n" + "=" * 95)
-    print("DANG SINH VA CAP NHAT HE THONG BIEU DO EDA VA LICH SU TIEN XU LY (SCIENTIFIC PUBLICATION STYLE)")
+    print("DANG SINH HE THONG BIEU DO EDA KHOA HOC (300 DPI) TICH HOP TRONG PIPELINE")
     print("=" * 95)
-    generate_eda_histogram_distribution()
-    generate_train_test_distribution_diagram()
-    plot_preprocessing_history()
-    print("[HOAN TAT] He thong anh EDA va lich su tien xu ly da duoc cap nhat day du tai report_p4aids/IMAGE/!")
+
+    if not tr_path.exists() or not te_path.exists():
+        print("[CANH BAO] Chua co du lieu expanded parquet de ve EDA. Vui long chay tien xu ly truoc!")
+        return
+
+    print("-> Dang doc du lieu expanded de ve bieu do...", end=" ", flush=True)
+    df_tr = pd.read_parquet(tr_path)
+    df_te = pd.read_parquet(te_path)
+    print("Xong!")
+
+    plt.rcParams["font.sans-serif"] = "DejaVu Sans"
+    plt.rcParams["axes.edgecolor"] = "#333333"
+    plt.rcParams["axes.linewidth"] = 0.8
+    plt.rcParams["grid.color"] = "#E0E0E0"
+    plt.rcParams["grid.linestyle"] = "--"
+    plt.rcParams["grid.alpha"] = 0.7
+
+    COLOR_NORMAL = "#1f77b4"
+    COLOR_ANOMALY = "#d62728"
+    COLOR_TRAIN = "#2ca02c"
+    COLOR_TEST = "#ff7f0e"
+
+    # 1. Bieu do 1: Phan tach phan phoi Normal vs Anomaly
+    print("  -> [1/3] Xuat eda_expanded_temporal_dynamics.png ...", end=" ", flush=True)
+    fig, axes = plt.subplots(2, 2, figsize=(14, 10), dpi=300)
+
+    # (a) flatline_duration
+    ax = axes[0, 0]
+    sample_flat = df_tr[["flatline_duration", "anomaly"]].copy()
+    sample_flat["flatline_log"] = np.log1p(sample_flat["flatline_duration"].clip(lower=0))
+    sns.boxplot(
+        data=sample_flat.sample(min(100000, len(sample_flat)), random_state=42),
+        x="anomaly",
+        y="flatline_log",
+        hue="anomaly",
+        legend=False,
+        palette=[COLOR_NORMAL, COLOR_ANOMALY],
+        ax=ax,
+        fliersize=1.5,
+    )
+    ax.set_xticks([0, 1])
+    ax.set_xticklabels(["Bình thường (Normal)", "Dị thường (Anomaly)"], fontsize=11, fontweight="bold")
+    ax.set_ylabel("log1p(Thời lượng treo cảm biến - Giờ)", fontsize=11)
+    ax.set_title("(a) Phân tách Đặc trưng Treo Cảm biến (flatline_duration)", fontsize=12, fontweight="bold", pad=10)
+    ax.grid(True, axis="y")
+
+    # (b) meter_diff_1h
+    ax = axes[0, 1]
+    diff_norm = df_tr.loc[df_tr["anomaly"] == 0, "meter_diff_1h"].clip(-100, 100)
+    diff_anom = df_tr.loc[df_tr["anomaly"] == 1, "meter_diff_1h"].clip(-100, 100)
+    sns.kdeplot(diff_norm.sample(min(50000, len(diff_norm)), random_state=42), ax=ax, color=COLOR_NORMAL, label="Bình thường (y=0)", fill=True, alpha=0.3)
+    sns.kdeplot(diff_anom.sample(min(20000, len(diff_anom)), random_state=42), ax=ax, color=COLOR_ANOMALY, label="Dị thường (y=1)", fill=True, alpha=0.3)
+    ax.set_xlim(-80, 80)
+    ax.set_xlabel("Vận tốc biến thiên tức thời: Δ1 = m(t) - m(t-1)", fontsize=11)
+    ax.set_ylabel("Mật độ xác suất (Density)", fontsize=11)
+    ax.set_title("(b) Độ phân tách Vận tốc Biến thiên (meter_diff_1h)", fontsize=12, fontweight="bold", pad=10)
+    ax.legend(frameon=True, facecolor="white", edgecolor="none")
+    ax.grid(True)
+
+    # (c) meter_ratio_1h
+    ax = axes[1, 0]
+    ratio_norm = np.log1p(df_tr.loc[df_tr["anomaly"] == 0, "meter_ratio_1h"].clip(0, 50))
+    ratio_anom = np.log1p(df_tr.loc[df_tr["anomaly"] == 1, "meter_ratio_1h"].clip(0, 50))
+    sns.kdeplot(ratio_norm.sample(min(50000, len(ratio_norm)), random_state=42), ax=ax, color=COLOR_NORMAL, label="Bình thường (y=0)", fill=True, alpha=0.3)
+    sns.kdeplot(ratio_anom.sample(min(20000, len(ratio_anom)), random_state=42), ax=ax, color=COLOR_ANOMALY, label="Dị thường (y=1)", fill=True, alpha=0.3)
+    ax.set_xlabel("log1p(Tỉ số động năng phụ tải: R1)", fontsize=11)
+    ax.set_ylabel("Mật độ xác suất (Density)", fontsize=11)
+    ax.set_title("(c) Tỉ số Động năng Xung gai (meter_ratio_1h)", fontsize=12, fontweight="bold", pad=10)
+    ax.legend(frameon=True, facecolor="white", edgecolor="none")
+    ax.grid(True)
+
+    # (d) stl_residual
+    ax = axes[1, 1]
+    stl_norm = df_tr.loc[df_tr["anomaly"] == 0, "stl_residual"].clip(-150, 150)
+    stl_anom = df_tr.loc[df_tr["anomaly"] == 1, "stl_residual"].clip(-150, 150)
+    sns.kdeplot(stl_norm.sample(min(50000, len(stl_norm)), random_state=42), ax=ax, color=COLOR_NORMAL, label="Bình thường (y=0)", fill=True, alpha=0.3)
+    sns.kdeplot(stl_anom.sample(min(20000, len(stl_anom)), random_state=42), ax=ax, color=COLOR_ANOMALY, label="Dị thường (y=1)", fill=True, alpha=0.3)
+    ax.set_xlim(-120, 120)
+    ax.set_xlabel("Phần dư sau khử chu kỳ 24h: stl_residual", fontsize=11)
+    ax.set_ylabel("Mật độ xác suất (Density)", fontsize=11)
+    ax.set_title("(d) Phần dư Phân rã Chuỗi thời gian (stl_residual)", fontsize=12, fontweight="bold", pad=10)
+    ax.legend(frameon=True, facecolor="white", edgecolor="none")
+    ax.grid(True)
+
+    plt.tight_layout()
+    out1 = IMAGE_DIR / "eda_expanded_temporal_dynamics.png"
+    plt.savefig(out1, dpi=300, bbox_inches="tight")
+    plt.close()
+    print(f"Xong! ({out1.name})")
+
+    # 2. Bieu do 2: Kiem toan Zero Covariate Shift (Train vs Test)
+    print("  -> [2/3] Xuat eda_expanded_train_test_drift.png ...", end=" ", flush=True)
+    fig, axes = plt.subplots(2, 2, figsize=(14, 10), dpi=300)
+    features_to_check = [
+        ("meter_lag_1h", "Công suất 1h trước (meter_lag_1h)", (0, 300)),
+        ("meter_diff_1h", "Tốc độ biến thiên tức thời (meter_diff_1h)", (-50, 50)),
+        ("flatline_duration", "Thời lượng treo cảm biến (flatline_duration)", (0, 20)),
+        ("stl_residual", "Phần dư sau khử chu kỳ (stl_residual)", (-80, 80)),
+    ]
+    for idx, (col, title, xlim) in enumerate(features_to_check):
+        ax = axes[idx // 2, idx % 2]
+        s_tr = df_tr[col].clip(*xlim).sample(min(50000, len(df_tr)), random_state=42)
+        s_te = df_te[col].clip(*xlim).sample(min(50000, len(df_te)), random_state=42)
+        sns.kdeplot(s_tr, ax=ax, color=COLOR_TRAIN, label="Tập Train (T_in: 1.15M)", linewidth=2.0)
+        sns.kdeplot(s_te, ax=ax, color=COLOR_TEST, label="Tập Test (T_out: 373k)", linewidth=2.0, linestyle="--")
+        ax.set_xlim(*xlim)
+        ax.set_xlabel(title, fontsize=11)
+        ax.set_ylabel("Mật độ phân phối", fontsize=11)
+        ax.set_title(f"Kiểm toán Covariate Shift: {col}", fontsize=12, fontweight="bold", pad=10)
+        ax.legend(frameon=True, facecolor="white", edgecolor="none")
+        ax.grid(True)
+
+    plt.suptitle("KIỂM TOÁN ZERO COVARIATE SHIFT: ĐỒNG NHẤT PHÂN PHỐI TRAIN VS TEST QUA PURGE GAP 96H", fontsize=14, fontweight="bold", y=1.02)
+    plt.tight_layout()
+    out2 = IMAGE_DIR / "eda_expanded_train_test_drift.png"
+    plt.savefig(out2, dpi=300, bbox_inches="tight")
+    plt.close()
+    print(f"Xong! ({out2.name})")
+
+    # 3. Bieu do 3: Case study chuoi thoi gian 1 toa nha
+    print("  -> [3/3] Xuat eda_expanded_case_study.png ...", end=" ", flush=True)
+    b_candidates = df_tr.groupby("building_id")["anomaly"].sum().sort_values(ascending=False).index[:15]
+    selected_b = b_candidates[0]
+    for b in b_candidates:
+        sub = df_tr[df_tr["building_id"] == b]
+        if (sub["flatline_duration"] > 5).any() and (sub["anomaly"] == 1).sum() > 20:
+            selected_b = b
+            break
+
+    df_b = df_tr[df_tr["building_id"] == selected_b].iloc[:168].copy().reset_index(drop=True)
+    x_axis = np.arange(len(df_b))
+
+    fig, axes = plt.subplots(3, 1, figsize=(15, 9), dpi=300, sharex=True)
+
+    ax = axes[0]
+    ax.plot(x_axis, df_b["meter_reading"], color="#1f77b4", linewidth=1.8, label="Công suất tiêu thụ (meter_reading)")
+    anom_mask = df_b["anomaly"] == 1
+    if anom_mask.any():
+        ax.scatter(x_axis[anom_mask], df_b.loc[anom_mask, "meter_reading"], color="red", s=35, zorder=5, label="Điểm Dị Thường Thực Tế (y=1)")
+    ax.set_ylabel("Công suất (kW)", fontsize=11, fontweight="bold")
+    ax.set_title(f"CASE STUDY CHUỖI THỜI GIAN TOÀ NHÀ {selected_b}: CƠ CHẾ PHÁT HIỆN DỊ THƯỜNG CỦA 8 ĐẶC TRƯNG MỚI", fontsize=13, fontweight="bold", pad=10)
+    ax.legend(loc="upper right", frameon=True)
+    ax.grid(True)
+
+    ax = axes[1]
+    ax.fill_between(x_axis, df_b["flatline_duration"], color="#ff7f0e", alpha=0.4, label="Thời lượng treo cảm biến (flatline_duration)")
+    ax.plot(x_axis, df_b["flatline_duration"], color="#d95f02", linewidth=1.5)
+    ax.set_ylabel("Giờ treo liên tục", fontsize=11, fontweight="bold")
+    ax.set_title("Chỉ dấu Đóng Băng Cảm Biến: Tích luỹ tăng vọt khi phụ tải bất động (|Δ1| ≤ 1e-4)", fontsize=11, fontstyle="italic")
+    ax.legend(loc="upper right", frameon=True)
+    ax.grid(True)
+
+    ax = axes[2]
+    ax.plot(x_axis, df_b["meter_diff_1h"], color="#2ca02c", linewidth=1.2, alpha=0.8, label="Vận tốc biến thiên tức thời (meter_diff_1h)")
+    ax.plot(x_axis, df_b["stl_residual"], color="#9467bd", linewidth=1.2, linestyle="--", alpha=0.8, label="Phần dư phân rã mùa vụ 24h (stl_residual)")
+    ax.axhline(0, color="black", linestyle=":", linewidth=0.8)
+    ax.set_xlabel("Trục thời gian tương đối (Giờ trong tuần mẫu - 168h)", fontsize=11, fontweight="bold")
+    ax.set_ylabel("Giá trị sai phân / dư", fontsize=11, fontweight="bold")
+    ax.set_title("Chỉ dấu Xung Gai Đột Biến & Phá vỡ Chu kỳ Tuần hoàn Ngày/Đêm", fontsize=11, fontstyle="italic")
+    ax.legend(loc="upper right", frameon=True)
+    ax.grid(True)
+
+    plt.tight_layout()
+    out3 = IMAGE_DIR / "eda_expanded_case_study.png"
+    plt.savefig(out3, dpi=300, bbox_inches="tight")
+    plt.close()
+    print(f"Xong! ({out3.name})")
+
+    print(f"[HOAN TAT] Da xuat du 3 bieu do EDA khoa hoc 300 DPI tai: {IMAGE_DIR}")
 
 
 if __name__ == "__main__":
@@ -539,13 +826,16 @@ if __name__ == "__main__":
         description="preprocessingforALL.py [NEW] - Zero Data Leakage Preprocessing Protocol"
     )
     parser.add_argument("--save-processed", action="store_true", default=True, help="Luu ca ban copy sang data/processed/ (Mac dinh: True)")
-    parser.add_argument("--plots", action="store_true", default=False, help="Sinh cac bieu do EDA vao report_p4aids/IMAGE/")
+    parser.add_argument("--plots", "--eda", dest="plots", action="store_true", default=False, help="Sinh cac bieu do EDA 300 DPI vao report_p4aids/IMAGE/")
+    parser.add_argument("--only-plots", "--only-eda", dest="only_plots", action="store_true", default=False, help="Chi sinh bieu do EDA ma khong chay lai tien xu ly")
     args = parser.parse_args()
 
-    run_zero_leakage_preprocessing(
-        save_to_model_ml=True,
-        save_to_processed=True,
-    )
-
-    if args.plots:
+    if args.only_plots:
         generate_eda_plots()
+    else:
+        run_zero_leakage_preprocessing(
+            save_to_model_ml=True,
+            save_to_processed=True,
+        )
+        if args.plots:
+            generate_eda_plots()
