@@ -1,0 +1,7 @@
+model_ensemble,strategy,components,pr_auc,roc_auc,f1,precision,recall,threshold
+Trio Soft Voting (XGB + CAT + LGB),Soft Voting,XGB + CAT + LGB (XGB(with_iforest_score) + CAT(with_kmeans) + LGB(with_iforest_and_kmeans) + HIST(with_kmeans)),0.8468,0.9541,0.843,0.9361,0.7667,0.2559
+Trio Rank (XGB + CAT + LGB),Rank Averaging,XGB + CAT + LGB (XGB(with_iforest_score) + CAT(with_kmeans) + LGB(with_iforest_and_kmeans) + HIST(with_kmeans)),0.8464,0.9537,0.777,0.9962,0.6368,0.9844
+Quad Harmonic Mean (+ IF/K-Means),Harmonic Mean,XGB(with_iforest_score) + CAT(with_kmeans) + LGB(with_iforest_and_kmeans) + HIST(with_kmeans),0.8463,0.9537,0.8438,0.925,0.7757,0.1731
+Quad Geometric Mean (+ IF/K-Means),Geometric Mean,XGB(with_iforest_score) + CAT(with_kmeans) + LGB(with_iforest_and_kmeans) + HIST(with_kmeans),0.8462,0.954,0.843,0.9286,0.7719,0.2072
+Quad Equal Rank 0.25 (+ IF/K-Means),Rank Averaging,XGB(with_iforest_score) + CAT(with_kmeans) + LGB(with_iforest_and_kmeans) + HIST(with_kmeans),0.8459,0.9539,0.7708,0.996,0.6286,0.9846
+Quad Equal Prob Soft Voting (+ IF/K-Means),Soft Voting,XGB(with_iforest_score) + CAT(with_kmeans) + LGB(with_iforest_and_kmeans) + HIST(with_kmeans),0.8452,0.9542,0.8437,0.9582,0.7536,0.3271

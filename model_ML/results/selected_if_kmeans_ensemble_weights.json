@@ -1,0 +1,10 @@
+{
+  "ap_weight_xgb": 0.25147583822852954,
+  "ap_weight_cat": 0.24994272292887246,
+  "ap_weight_lgbm": 0.2507123992754365,
+  "ap_weight_hist": 0.24786903956716158,
+  "slsqp_weight_xgb": 0.25012329576304315,
+  "slsqp_weight_cat": 0.25037056641815664,
+  "slsqp_weight_lgbm": 0.24975306890940013,
+  "slsqp_weight_hist": 0.24975306890940013
+}

@@ -3,7 +3,7 @@
 
 Các tòa nhà hiện đại tiêu thụ một lượng lớn năng lượng và được trang bị nhiều công tơ điện thông minh. Các thiết bị này liên tục ghi nhận mức tiêu thụ điện theo thời gian, tạo ra một lượng lớn dữ liệu chuỗi thời gian. Việc phân tích các dữ liệu này có thể hỗ trợ phát hiện những trường hợp sử dụng năng lượng bất thường, từ đó góp phần xác định các vấn đề như sự cố thiết bị, thiết bị xuống cấp, cấu hình không phù hợp hoặc các hành vi sử dụng năng lượng không hiệu quả.
 
-Trong báo cáo này, nhóm tập trung vào bài toán \textit{Energy Anomaly Detection}, nhằm phát hiện các điểm bất thường trong dữ liệu tiêu thụ điện. Một điểm dữ liệu được xem là bất thường (\textit{anomaly}) khi mức tiêu thụ điện tại thời điểm đó khác biệt đáng kể so với trạng thái sử dụng điện thông thường, ngược lại được xem là bình thường (\textit{normal}).
+Trong báo cáo này, nhóm tập trung vào bài toán phát hiện dị thường trong dữ liệu tiêu thụ điện năng, nhằm phát hiện kịp thời các hành vi phụ tải khác biệt hoặc đột biến. Một điểm dữ liệu được xem là bất thường khi mức tiêu thụ điện tại thời điểm đó khác biệt đáng kể so với trạng thái vận hành thông thường, ngược lại được phân loại là trạng thái bình thường.
 
 Về mặt hình thức, bài toán được thiết lập dưới dạng phân lớp có giám sát trên không gian đặc trưng đa chiều. Mỗi quan trắc của một tòa nhà tại thời điểm $t$ được mã hóa thành một vector đặc trưng $\mathbf{x} \in \mathbb{R}^D$ tích hợp đa tầng từ nhiều nguồn dữ liệu:
 \begin{align*}
@@ -15,28 +15,17 @@ Mục tiêu của các mô hình là học một hàm ánh xạ phân lớp $f: 
 \begin{equation*}
     \hat{y} = f(\mathbf{x}) \in \{0, 1\}
 \end{equation*}
-trong đó $\hat{y} = 1$ tương ứng với trạng thái bất thường (\textit{Anomaly}) và $\hat{y} = 0$ tương ứng với trạng thái bình thường (\textit{Normal}).
+trong đó $\hat{y} = 1$ tương ứng với trạng thái bất thường và $\hat{y} = 0$ tương ứng với trạng thái bình thường.
 
-Để giải quyết bài toán này, nhóm tiến hành nghiên cứu, huấn luyện mô hình trên cả hai lĩnh vực Machine Learning và Deep Learning, đồng thời so sánh nhằm tìm ra được ưu, nhược điểm trong cách giải quyết bài toán của chúng, kết hợp các kỹ thuật xử lý nâng cao để cải thiện chất lượng của mô hình.
+Để giải quyết bài toán này, đề tài tiến hành nghiên cứu, xây dựng và huấn luyện mô hình trên cả hai nhánh tiếp cận học máy truyền thống và học sâu, đồng thời so sánh đối chứng toàn diện nhằm tìm ra giải pháp tối ưu cho việc giám sát phụ tải thực tế, kết hợp các kỹ thuật xử lý nâng cao để nâng cao độ chính xác dự báo.
 
 \subsection{Mô tả tập dữ liệu}
 
-Dữ liệu thực nghiệm của bài toán được cung cấp chính thức thông qua cuộc thi \textbf{Large-scale Energy Anomaly Detection (LEAD)} trên nền tảng Kaggle tại liên kết: \url{https://www.kaggle.com/competitions/energy-anomaly-detection/data}. Bộ dữ liệu này được xây dựng dựa trên nguồn dữ liệu tiêu thụ năng lượng của cuộc thi \textit{ASHRAE - Great Energy Predictor III} và được mở rộng bằng cách gán nhãn bất thường cho các điểm đo điện theo từng giờ trong suốt năm 2016, thời gian bắt đầu từ 00:00 ngày 01/01/2016 đến 23:00 ngày 31/12/2016, tại nhiều tòa nhà thương mại.
+Dữ liệu thực nghiệm của đề tài được thu thập từ cuộc thi phát hiện bất thường năng lượng quy mô lớn LEAD trên nền tảng Kaggle tại liên kết \url{https://www.kaggle.com/competitions/energy-anomaly-detection/data}. Bộ dữ liệu này được kế thừa và phát triển từ nguồn dữ liệu phụ tải của cuộc thi ASHRAE, trong đó các điểm đo điện theo từng giờ tại các tòa nhà thương mại trong suốt năm 2016 (từ 00:00 ngày 01/01/2016 đến 23:00 ngày 31/12/2016) đã được gán nhãn bất thường.
 
-Theo công bố từ ban tổ chức cuộc thi trên nền tảng Kaggle với tổng dung lượng khoảng $1{,}34$\,GB, bộ dữ liệu hoàn chỉnh bao gồm 5 tệp dữ liệu:
-\begin{itemize}
-    \item \textbf{\texttt{train.csv}:} Tệp chuỗi thời gian thô của tập huấn luyện, chỉ chứa các trường \texttt{building\_id}, \texttt{timestamp}, \texttt{meter\_reading} và nhãn bất thường \texttt{anomaly}.
-    \item \textbf{\texttt{test.csv}:} Tệp chuỗi thời gian thô của tập kiểm tra, không chứa cột nhãn \texttt{anomaly}.
-    \item \textbf{\texttt{sample\_submission.csv}:} Tệp mẫu định dạng nộp kết quả dự đoán bao gồm 2 cột \texttt{row\_id} và \texttt{anomaly} lên hệ thống chấm điểm trực tuyến của cuộc thi.
-    \item \textbf{\texttt{test\_features.csv}:} Tệp kiểm tra mở rộng gồm $206$ tòa nhà độc lập với $1{.}800{.}567$ bản ghi và $57$ thuộc tính đã được ghép nối thông tin công trình và điều kiện thời tiết, nhưng không có cột nhãn mục tiêu \texttt{anomaly}.
-    \item \textbf{\texttt{train\_features.csv}:} Tệp huấn luyện mở rộng hoàn chỉnh gồm dữ liệu đo đạc của $200$ tòa nhà với $1{.}749{.}494$ bản ghi chuỗi thời gian và $57$ thuộc tính tích hợp sẵn mức tiêu thụ điện, đặc tính tòa nhà, điều kiện khí hậu, các biến trễ thời gian và nhãn bất thường \texttt{anomaly}.
-\end{itemize}
+Theo công bố từ ban tổ chức cuộc thi trên nền tảng Kaggle với tổng dung lượng khoảng $1{,}34$\,GB, bộ dữ liệu hoàn chỉnh bao gồm 5 tệp thành phần phục vụ các giai đoạn phát triển và đánh giá mô hình. Trong đó, hai tệp chuỗi thời gian thô gồm \textbf{\texttt{train.csv}} (chỉ lưu các trường cơ sở \texttt{building\_id}, \texttt{timestamp}, \texttt{meter\_reading} và nhãn \texttt{anomaly}) và \textbf{\texttt{test.csv}} (cấu trúc tương tự tập train thô nhưng khuyết cột nhãn). Tệp \textbf{\texttt{sample\_submission.csv}} đóng vai trò là biểu mẫu định dạng kết quả nộp bài gồm hai cột \texttt{row\_id} và \texttt{anomaly} để hệ thống Kaggle chấm điểm trực tuyến. Bên cạnh dữ liệu thô, ban tổ chức cung cấp hai tệp mở rộng đã được ghép nối thông tin công trình và điều kiện thời tiết: \textbf{\texttt{test\_features.csv}} bao gồm dữ liệu của $206$ tòa nhà độc lập với $1{.}800{.}567$ bản ghi và $57$ thuộc tính (không có cột nhãn mục tiêu), và \textbf{\texttt{train\_features.csv}} gồm dữ liệu đo đạc của $200$ tòa nhà với $1{.}749{.}494$ bản ghi chuỗi thời gian cùng $57$ thuộc tính tích hợp sẵn mức phụ tải, đặc tính vật lý công trình, điều kiện khí hậu, các biến trễ nhiệt độ và nhãn bất thường \texttt{anomaly}.
 
-\textbf{Phạm vi dữ liệu sử dụng trong nghiên cứu:} Mặc dù ban tổ chức cuộc thi cung cấp đầy đủ 5 tệp dữ liệu nêu trên, trong toàn bộ nghiên cứu và thực nghiệm của báo cáo này, nhóm chỉ sử dụng duy nhất một tệp là \texttt{train\_features.csv}. Lý do:
-\begin{itemize}
-    \item \textit{Bảo toàn nhãn kiểm chứng khách quan:} Tệp \texttt{test\_features.csv} là tập dữ liệu ẩn của cuộc thi, hoàn toàn không công bố nhãn \texttt{anomaly} nhằm mục đích bảo mật cho bảng xếp hạng trực tuyến. Do đó, để có thể chủ động đánh giá chất lượng mô hình, nhóm cần một tập dữ liệu có đầy đủ nhãn \texttt{anomaly}.
-    \item \textit{Tận dụng các đặc trưng làm giàu chất lượng cao:} So với tệp thô \texttt{train.csv}, tệp \texttt{train\_features.csv} đã được tích hợp sẵn các đặc trưng bối cảnh vật lý công trình và dữ liệu khí tượng chuẩn hóa, cung cấp nền tảng vững chắc để xây dựng các kỹ thuật Feature Engineering chuyên sâu.
-\end{itemize}
+Về phạm vi dữ liệu sử dụng trong nghiên cứu, mặc dù ban tổ chức cuộc thi cung cấp đầy đủ cả 5 tệp dữ liệu nêu trên, trong toàn bộ quy trình thực nghiệm của đề tài, nhóm quyết định chỉ sử dụng duy nhất tệp \textbf{\texttt{train\_features.csv}}. Quyết định này xuất phát từ hai nguyên nhân kỹ thuật then chốt. Thứ nhất, tệp \texttt{test\_features.csv} là tập kiểm tra ẩn được ban tổ chức ẩn cột nhãn nhằm bảo mật bảng xếp hạng trực tuyến; do đó, để chủ động thiết lập giao thức kiểm thử khách quan và đo lường chính xác các chỉ số hiệu năng như PR-AUC, F1-Score và ma trận nhầm lẫn, đề tài bắt buộc phải sử dụng tập dữ liệu có đầy đủ nhãn kiểm chứng thực tế. Thứ hai, so với tệp thô \texttt{train.csv}, tệp \texttt{train\_features.csv} đã được tiền xử lý ghép nối sẵn các thuộc tính bối cảnh vật lý công trình và dữ liệu khí tượng chuẩn hóa, tạo nền tảng vững chắc cho việc phát triển các nhóm đặc trưng không gian và động học chuỗi thời gian chuyên sâu ở các giai đoạn sau.
 
 Tệp dữ liệu \texttt{train\_features.csv} bao gồm $57$ thuộc tính, kết hợp giữa các thông tin đo lường phụ tải cơ sở và hệ thống đặc trưng đa chiều phong phú phục vụ quá trình mô hình hóa. Chi tiết các thuộc tính cốt lõi và các nhóm đặc trưng bổ sung được tổng hợp tại Bảng~\ref{tab:dataset_features}.
 
@@ -44,28 +33,28 @@ Tệp dữ liệu \texttt{train\_features.csv} bao gồm $57$ thuộc tính, k�
 \centering
 \caption{Tổng hợp hệ thống thuộc tính và nhóm đặc trưng trong tệp \texttt{train\_features.csv}}
 \label{tab:dataset_features}
-\renewcommand{\arraystretch}{1.2}
-\resizebox{\textwidth}{!}{
-\begin{tabular}{|l|p{4.8cm}|p{8.4cm}|}
+\renewcommand{\arraystretch}{1.15}
+\resizebox{0.96\textwidth}{!}{
+\begin{tabular}{|l|>{\raggedright\arraybackslash}p{5.0cm}|>{\raggedright\arraybackslash}p{8.5cm}|}
 \hline
 \textbf{Phân nhóm} & \textbf{Tên thuộc tính / Đại diện} & \textbf{Ý nghĩa và Mô tả thực tế} \\ \hline
 \multirow{4}{*}{\textbf{Thuộc tính cốt lõi}} 
 & \texttt{building\_id} & Mã định danh duy nhất của tòa nhà nơi dữ liệu phụ tải được ghi nhận. \\ \cline{2-3}
 & \texttt{timestamp} & Mốc thời gian ghi nhận mức tiêu thụ điện (chu kỳ 1 giờ, xuyên suốt năm 2016). \\ \cline{2-3}
 & \texttt{meter\_reading} & Mức tiêu thụ điện năng thực tế của công trình tại thời điểm tương ứng ($\text{kWh}$). \\ \cline{2-3}
-& \texttt{anomaly} & Biến mục tiêu phân loại. \\ \hline
+& \texttt{anomaly} & Biến mục tiêu phân loại nhị phân ($0$: bình thường, $1$: bất thường). \\ \hline
 \textbf{Thông tin công trình} & \texttt{site\_id}, \texttt{primary\_use}, \texttt{square\_feet}, \texttt{year\_built}, \texttt{floor\_count} & Thông số vật lý công trình: vị trí khu vực, công năng sử dụng, diện tích sàn ($\text{sqft}$), năm xây dựng và số tầng. \\ \hline
-\textbf{Điều kiện thời tiết} & \texttt{air\_temperature}, \texttt{dew\_temperature}, \texttt{cloud\_coverage}, \texttt{precip\_depth\_1\_hr}, \texttt{sea\_level\_pressure}, \texttt{wind\_direction}, \texttt{wind\_speed} & Dữ liệu khí tượng tức thời quan trắc từ các trạm thời tiết (nhiệt độ không khí, điểm sương, độ che phủ mây, lượng mưa, áp suất, hướng và tốc độ gió). \\ \hline
-\textbf{Thời gian \& Chu kỳ} & \texttt{hour}, \texttt{weekday}, \texttt{month}, \texttt{year}, \texttt{weekday\_hour}, \texttt{is\_holiday}, \texttt{hour\_x/y}, \texttt{month\_x/y}, \texttt{weekday\_x/y} & Đặc trưng lịch biểu (giờ, thứ, tháng, chỉ báo ngày lễ) và các biến mã hóa chu kỳ lượng giác ($\sin/\cos$) mô hình hóa nhịp sinh hoạt ngày/đêm. \\ \hline
-\textbf{Trễ chuỗi thời gian} & \texttt{air\_temperature -\_mean\_lag7/73}, \texttt{max\_lag7/73}, \texttt{min\_lag7/73}, \texttt{std\_lag7/73} & Các đặc trưng thống kê nhiệt độ môi trường qua các cửa sổ quá khứ 7 giờ và 73 giờ ($\approx 3$ ngày), nắm bắt quán tính nhiệt công trình. \\ \hline
+\textbf{Điều kiện thời tiết} & \texttt{air\_temperature}, \texttt{dew\_temperature}, \texttt{cloud\_coverage}, \texttt{precip\_depth\_1\_hr}, \texttt{sea\_level\_pressure}, \texttt{wind\_direction}, \texttt{wind\_speed} & Dữ liệu khí tượng tức thời quan trắc từ các trạm thời tiết: nhiệt độ không khí, điểm sương, độ che phủ mây, lượng mưa, áp suất, hướng và tốc độ gió. \\ \hline
+\textbf{Thời gian \& Chu kỳ} & \texttt{hour}, \texttt{weekday}, \texttt{month}, \texttt{year}, \texttt{weekday\_hour}, \texttt{is\_holiday}, \texttt{hour\_x/y}, \texttt{month\_x/y}, \texttt{weekday\_x/y} & Đặc trưng lịch biểu gồm giờ, thứ, tháng, chỉ báo ngày lễ và các biến mã hóa chu kỳ lượng giác ($\sin/\cos$) mô hình hóa nhịp sinh hoạt ngày đêm. \\ \hline
+\textbf{Trễ chuỗi thời gian} & \texttt{air\_temperature\_}\allowbreak\texttt{mean\_lag7/73}, \texttt{max\_lag7/73}, \texttt{min\_lag7/73}, \texttt{std\_lag7/73} & Các đặc trưng thống kê nhiệt độ môi trường qua các cửa sổ quá khứ 7 giờ và 73 giờ (khoảng 3 ngày), nắm bắt quán tính nhiệt công trình. \\ \hline
 \textbf{Tương tác tòa nhà} & \texttt{building\_hour}, \texttt{building\_weekday}, \texttt{building\_month}, \texttt{building\_weekday\_hour}, \texttt{building\_meter} & Kết hợp đặc thù vận hành của từng công trình theo từng khung giờ và ngày trong tuần. \\ \hline
-\textbf{Mã hóa mục tiêu (GTE)} & 16 đặc trưng mang tiền tố \texttt{gte\_} (\texttt{gte\_hour}, \texttt{gte\_building\_id}, \texttt{gte\_primary\_use}, \texttt{gte\_meter}, \dots) & Nhóm đặc trưng Group Target Encoding: mã hóa tỷ lệ dị thường kỳ vọng theo từng nhóm bối cảnh không gian và thời gian. \\ \hline
+\textbf{Mã hóa mục tiêu} & 16 đặc trưng tiền tố \texttt{gte\_} như \texttt{gte\_hour}, \texttt{gte\_site\_id}, \texttt{gte\_primary\_use}, \texttt{gte\_meter}\dots & Kỹ thuật mã hóa mục tiêu theo nhóm: ước lượng tỷ lệ dị thường kỳ vọng theo từng nhóm bối cảnh không gian và thời gian. \\ \hline
 \end{tabular}
 }
 \end{table}
 
 Trong đó, thuộc tính \texttt{anomaly} đóng vai trò là biến mục tiêu cần dự đoán. Kết quả thống kê trên toàn bộ $1{.}749{.}494$ bản ghi của tệp dữ liệu cho thấy có $1{.}712{.}198$ bản ghi thuộc lớp bình thường ($\texttt{anomaly}=0$) và $37{.}296$ bản ghi thuộc lớp bất thường ($\texttt{anomaly}=1$). Như vậy, bài toán mang tính chất mất cân bằng nhãn sâu sắc với tỷ lệ dị thường thực tế chỉ chiếm khoảng $2{,}13\%$.
 
-Bên cạnh đó, các nhóm đặc trưng bổ sung giúp mô hình nắm bắt toàn diện bối cảnh vật lý công trình, thời tiết khí tượng và nhịp điệu sinh hoạt theo thời gian. Đây là nguồn tín hiệu đầu vào phong phú được nhóm nghiên cứu sàng lọc, chuẩn hóa và tối ưu hóa trong các giai đoạn Tiền xử lý và Xây dựng mô hình ở các chương tiếp theo.
+Bên cạnh đó, các nhóm đặc trưng bổ sung giúp mô hình nắm bắt toàn diện bối cảnh vật lý công trình, thời tiết khí tượng và nhịp điệu sinh hoạt theo thời gian. Đây là nguồn tín hiệu đầu vào phong phú được nhóm nghiên cứu sàng lọc, chuẩn hóa và tối ưu hóa trong các giai đoạn tiền xử lý và xây dựng mô hình ở các chương tiếp theo.
 
-Qua quá trình kiểm tra trên tệp \texttt{train\_features.csv}, thuộc tính \texttt{meter\_reading} xuất hiện các giá trị bị thiếu với 107.653 bản ghi, tương đương khoảng $6{,}15\%$ tổng số bản ghi của tập dữ liệu. Vì vậy, dữ liệu thiếu cần được xem xét và xử lý trong bước tiền xử lý trước khi đưa vào các mô hình Học máy và Học sâu. Ngoài \texttt{meter\_reading}, các thuộc tính còn lại trong tệp \texttt{train\_features.csv} đều đầy đủ và không ghi nhận giá trị thiếu trong suốt quá trình kiểm tra.
+Qua quá trình kiểm tra trên tệp \texttt{train\_features.csv}, thuộc tính \texttt{meter\_reading} xuất hiện các giá trị bị thiếu với $107{.}653$ bản ghi, tương đương khoảng $6{,}15\%$ tổng số bản ghi của tập dữ liệu. Vì vậy, dữ liệu thiếu cần được xem xét và xử lý trong bước tiền xử lý trước khi đưa vào các mô hình học máy và học sâu. Ngoài \texttt{meter\_reading}, các thuộc tính còn lại trong tệp \texttt{train\_features.csv} đều đầy đủ và không ghi nhận giá trị thiếu trong suốt quá trình kiểm tra.

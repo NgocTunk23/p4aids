@@ -261,6 +261,17 @@ def tune_model(
         direction="maximize",
         sampler=sampler,
     )
+
+    # Nap diem khoi dau am (Warm-start) tu sieu tham so Champion da toi uu tot nhat truoc do
+    existing_champion = load_best_params(model_name)
+    if existing_champion:
+        try:
+            study.enqueue_trial(existing_champion)
+            print(f"  -> [WARM-START] Da nap cau hinh Champion khoi diem (Trial 1) tu hyperparameters truoc do!")
+            print(f"     Sieu tham so goc: {existing_champion}", flush=True)
+        except Exception as e:
+            print(f"  -> [CANH BAO] Khong the nap warm-start: {e}", flush=True)
+
     study.optimize(objective, n_trials=n_trials, timeout=timeout_min * 60)
     tuning_duration = time.time() - t_start
 
@@ -312,7 +323,13 @@ def tune_model(
         "best_params": best_p,
     }
     with open(out_json, "w", encoding="utf-8") as f:
-        json.dump(result_data, f, indent=2, ensure_ascii=False)
+        json.dump(
+            result_data,
+            f,
+            indent=2,
+            ensure_ascii=False,
+            default=lambda o: o.tolist() if hasattr(o, "tolist") else float(o) if isinstance(o, (np.floating, np.integer)) else str(o),
+        )
 
     print("\n" + "=" * 95)
     print(f"KET QUA CUOI CUNG TREN TEST [{model_name.upper()} - EXPANDED 54 FEATURES]:")
@@ -580,7 +597,7 @@ def run_ensemble_benchmark(
         metadata = {
             "dataset": "expanded_54_features",
             "n_features": len(feature_cols),
-            "feature_names": feature_cols,
+            "feature_names": list(feature_cols),
             "models": {
                 "xgb": {"file": "XGB_Expanded_Champion.pkl", "params": p_xgb},
                 "cat": {"file": "CAT_Expanded_Champion.pkl", "params": p_cat},
@@ -591,7 +608,13 @@ def run_ensemble_benchmark(
             "optimal_threshold_tau": float(champion_tau),
         }
         with open(meta_path, "w", encoding="utf-8") as f:
-            json.dump(metadata, f, indent=2, ensure_ascii=False)
+            json.dump(
+                metadata,
+                f,
+                indent=2,
+                ensure_ascii=False,
+                default=lambda o: o.tolist() if hasattr(o, "tolist") else float(o) if isinstance(o, (np.floating, np.integer)) else str(o),
+            )
         print("Xong!")
         print(f"  -> Da luu du 4 file model .pkl va metadata vao: {SAVED_MODELS_DIR}")
 

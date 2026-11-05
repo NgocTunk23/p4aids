@@ -1,20 +1,20 @@
 {
   "model": "CAT",
   "dataset": "expanded",
-  "n_features": 54,
-  "best_pr_auc": 0.8376,
-  "roc_auc": 0.9482,
-  "best_f1": 0.8409,
-  "precision": 0.9393,
-  "recall": 0.7611,
-  "best_threshold": 0.2495,
-  "total_trials": 30,
-  "total_time_sec": 265.55,
+  "n_features": 53,
+  "best_pr_auc": 0.8388,
+  "roc_auc": 0.9459,
+  "best_f1": 0.8433,
+  "precision": 0.9488,
+  "recall": 0.759,
+  "best_threshold": 0.2593,
+  "total_trials": 50,
+  "total_time_sec": 398.81,
   "best_params": {
-    "iterations": 300,
+    "iterations": 350,
     "depth": 9,
-    "learning_rate": 0.043017299862514555,
-    "l2_leaf_reg": 2.019177539823455,
-    "random_strength": 0.01316488553432139
+    "learning_rate": 0.07257005393234332,
+    "l2_leaf_reg": 2.472831712674456,
+    "random_strength": 0.0050290756785594925
   }
 }

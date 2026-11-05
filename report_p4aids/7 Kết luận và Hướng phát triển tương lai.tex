@@ -1,10 +1,38 @@
-\section{Kết luận và Hướng phát triển tương lai}
+\section{Kết luận và Hướng phát triển Tương lai}
 
-\subsection{Kết luận}
+\subsection{Kết luận Toàn diện Đề tài}
 
+% Nghiên cứu này đã hoàn thành mục tiêu xây dựng một quy trình toàn diện, có tính khoa học và thực tiễn cao cho bài toán phát hiện dị thường phụ tải điện quy mô lớn trên $200$ toà nhà thương mại từ bộ dữ liệu LEAD1.0, tích hợp thông tin siêu dữ liệu tòa nhà và thời tiết. Các đóng góp cốt lõi của đề tài được tổng kết qua năm nội dung chính:
+
+% \begin{enumerate}
+%     \item \textbf{Chuẩn hóa quy trình tiền xử lý và giao thức kiểm định không rò rỉ (100\% Zero Data Leakage):} Đề tài đã thiết lập một chuẩn mực đánh giá nghiêm ngặt nhằm mô phỏng trung thực kịch bản vận hành thực tế. Dữ liệu được phân chia theo chu kỳ mùa vụ: tập huấn luyện $T_{\text{in}}$ (ngày 1--20 hàng tháng), khoảng đệm cách ly $96$ giờ (ngày 21--24) để triệt tiêu hiện tượng rò rỉ tự tương quan trễ dài hạn, và tập kiểm tra ngoài mẫu độc lập $T_{\text{out}}$ gồm $372.993$ mẫu (ngày 25 đến cuối tháng). Mọi tham số chuẩn hóa, bảng tra cứu siêu tham số và ngưỡng quyết định $\tau^*$ đều được hiệu chuẩn khép kín $100\%$ trên dữ liệu huấn luyện/kiểm định nội bộ trước khi áp dụng cố định trên $T_{\text{out}}$.
+%     \item \textbf{Chứng minh vai trò quyết định của kỹ nghệ đặc trưng đa cấp độ:} Thông qua việc khảo sát tuần tự $4$ không gian dữ liệu (Baseline $\rightarrow$ Zone-Enhanced $\rightarrow$ Context-Aware $\rightarrow$ Expanded), nghiên cứu khẳng định rằng việc làm giàu dữ liệu bằng các đặc trưng ngữ cảnh vi mô ($z$-score chuẩn hóa theo giờ, thứ và trạng thái vận hành) và các đặc trưng động học chuỗi thời gian (sai phân trễ, phân rã mùa vụ STL và bộ đếm thời lượng treo cảm biến \texttt{flatline\_duration}) là nhân tố then chốt tạo nên bước nhảy vọt hiệu năng phát hiện.
+%     \item \textbf{Phát triển và tối ưu hóa toàn diện phân hệ Học máy (Gradient Boosting):} Triển khai và tối ưu hóa siêu tham số bằng Optuna TPE trên bộ tứ thuật toán (XGBoost, LightGBM, CatBoost, HistGradientBoosting). Trên không gian Expanded (53 đặc trưng), các mô hình cây đơn lẻ đạt PR-AUC từ $0{,}838$ đến $0{,}840$. Khi áp dụng các kỹ thuật dung hợp đa mô hình (Soft Voting, Geometric Mean, Rank Averaging), tổ hợp dung hợp xác lập đỉnh cao hiệu năng với $\text{PR-AUC} = \mathbf{0{,}8450}$, $F_1 = 0{,}8437$ (Precision $= 94{,}05\%$, Recall $= 76{,}50\%$) cùng thời gian huấn luyện siêu tốc dưới $35$ giây trên CPU thông thường.
+%     \item \textbf{Mô hình hóa chuỗi thời gian chuyên sâu với phân hệ Học sâu (Deep Learning):} Khảo sát đa hệ hình nơ-ron qua $5$ kiến trúc đại diện (MLP, Causal TCN, BiGRU, BiLSTM, LSTM-AE). Trên cùng không gian Context-Aware, mạng hồi quy hai chiều BiGRU với cửa sổ trượt $420$ giờ (bao gồm $252$ giờ ngữ cảnh lịch sử) và hàm mất mát BCE có trọng số điều chỉnh $w_{+} = 20$ đã đạt $\text{PR-AUC} = \mathbf{0{,}7535}$ và $\text{ROC-AUC} = \mathbf{0{,}9646}$, vượt trội hoàn toàn so với mô hình Học máy mạnh nhất trên cùng không gian ($+0{,}0725$ PR-AUC). Tổ hợp dung hợp BiGRU + BiLSTM đạt kỷ lục của phân hệ học sâu với $\text{PR-AUC} = \mathbf{0{,}7574}$.
+%     \item \textbf{Làm sáng tỏ cơ chế bắt lỗi theo hình thái và đánh đổi kinh tế kỹ thuật:} Nghiên cứu đã bóc tách bản chất hiệu năng theo ba nhóm hình thái dị thường (đột biến cực trị, ngữ cảnh chu kỳ, và treo cảm biến phẳng), giải thích thuyết phục nguyên nhân thất bại của mô hình tái tạo không giám sát LSTM-AE, đồng thời cung cấp bức tranh đối chứng toàn diện về sự đánh đổi giữa độ chuẩn xác Precision, độ nhạy Recall, chi phí tính toán phần cứng và khả năng nhúng triển khai thực tế tại biên (Edge/BEMS).
+% \end{enumerate}
+
+\subsection{Các Giới hạn Cốt lõi của Nghiên cứu}
+
+% Nhằm đảm bảo tính khách quan khoa học, nhóm nghiên cứu ghi nhận các giới hạn của hiện thực mã nguồn và dữ liệu thực nghiệm:
+% \begin{enumerate}
+%     \item \textbf{Giới hạn kiểm thử đa hạt giống (Multi-Seed Testing):} Các thực nghiệm hiện tại của cả hai phân hệ chủ yếu được vận hành trên một hạt giống ngẫu nhiên cố định (seed 42). Dù các kiểm định chéo theo fold đều thể hiện sự ổn định cao, việc chạy lặp lại trên tối thiểu $3$--$5$ hạt giống ngẫu nhiên khác nhau là cần thiết để báo cáo khoảng tin cậy thống kê chính xác tuyệt đối.
+%     \item \textbf{Học sâu chưa được huấn luyện trên không gian Expanded (53 đặc trưng):} Do chi phí tính toán huấn luyện chuỗi lớn, phân hệ Học sâu trong khuôn khổ đề tài mới chỉ dừng lại ở không gian Context-Aware ($35$ kênh) mà chưa được huấn luyện trên không gian Expanded (chứa đặc trưng STL và \texttt{flatline\_duration}). Đây là lý do chính khiến điểm số PR-AUC cao nhất của Học sâu ($0{,}7574$) chưa bắt kịp Học máy Expanded ($0{,}8450$).
+%     \item \textbf{Kiến trúc tự giải mã LSTM-AE chưa tối ưu:} Mạng LSTM-AE thiếu vắng một điểm thắt thông tin hẹp (bottleneck), dẫn tới nguy cơ học thành phép ánh xạ đồng nhất; đồng thời hàm tổn thất MSE bị chi phối bởi biên độ tiêu thụ, khiến mô hình gần như bỏ sót hoàn toàn các đoạn dị thường treo phẳng cảm biến.
+%     \item \textbf{Dung hợp liên hệ hình (Cross-Paradigm Ensembling) chưa tự động hóa:} Phép kết hợp giữa cây quyết định Boosting và mạng nơ-ron chuỗi thời gian mới chỉ dừng lại ở phân tích tiềm năng lý thuyết và hậu xử lý rời rạc, chưa được đóng gói thành một pipeline thực thi đồng bộ duy nhất.
+%     \item \textbf{Dịch chuyển phân phối của đặc trưng chuẩn hóa $z$-score:} Do thống kê chuẩn hóa $z$-score được ước lượng trên toàn bộ $T_{\text{in}}$ (chứa cả các điểm dị thường nội suy), có sự dịch chuyển nhẹ về phân phối sang $T_{\text{out}}$, tạo ra khoảng chênh lệch nhất định giữa điểm kiểm định OOF và điểm ngoài mẫu $T_{\text{out}}$.
+% \end{enumerate}
 
 \subsection{Hướng phát triển Tương lai}
 
+% Từ các kết quả đạt được và các giới hạn đã nhận diện, nhóm nghiên cứu đề xuất năm hướng mở rộng trọng tâm:
+% \begin{enumerate}
+%     \item \textbf{Huấn luyện phân hệ Học sâu trên không gian Expanded 53 đặc trưng:} Tích hợp toàn bộ $8$ đặc trưng động học chuỗi thời gian (thành phần dư thừa mùa vụ STL, sai phân trễ và bộ đếm đóng băng \texttt{flatline\_duration}) vào tensor đầu vào của BiGRU/BiLSTM. Đây được kỳ vọng sẽ là bước đột phá giúp Học sâu khai phóng tối đa sức mạnh và thiết lập đỉnh cao hiệu năng mới.
+%     \item \textbf{Tự động hóa tối ưu siêu tham số cho mạng nơ-ron bằng Optuna:} Mở rộng quy trình tìm kiếm không gian siêu tham số nơ-ron bằng thuật toán TPE (tương tự như đã thực hiện thành công ở Chương~4 cho Học máy), tinh chỉnh tự động tốc độ học, kích thước ẩn, hệ số dropout, chiều sâu tầng hồi quy và hệ số giãn nở của TCN.
+%     \item \textbf{Khảo sát các hàm mục tiêu chuyên biệt cho mất cân bằng lớp cực đoan:} Triển khai và so sánh hàm tổn thất Focal Loss (\texttt{FocalLoss}) và Generalized Cross-Entropy để tăng cường khả năng tập trung vào các mẫu phụ tải biên khó phân loại, thay thế cho hàm BCE có trọng số tĩnh.
+%     \item \textbf{Hiện thực hóa khung dung hợp liên hệ hình (Cross-Paradigm Ensembling):} Xây dựng mô hình siêu học (Meta-Learner / Stacking) kết hợp xác suất dự đoán của XGBoost, LightGBM và BiGRU, đồng thời áp dụng cơ chế ngưỡng động theo từng loại công trình và từng khu vực khí hậu.
+%     \item \textbf{Đóng gói ứng dụng và triển khai thực tế trên nền tảng BEMS/SCADA:} Tối ưu hóa mô hình bằng TensorRT / ONNX Runtime và phát triển dịch vụ cảnh báo dị thường thời gian thực qua giao diện API RESTful hoặc bảng điều khiển trực quan (Dashboard), phục vụ trực tiếp cho công tác quản lý và tối ưu hóa hiệu quả sử dụng năng lượng toà nhà.
+% \end{enumerate}
 
 \newpage
 \addcontentsline{toc}{section}{TÀI LIỆU THAM KHẢO}

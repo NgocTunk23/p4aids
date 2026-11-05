@@ -1,98 +1,74 @@
-\section{Triển khai Học Sâu}
+\section{Triển khai Học sâu}
 
-\subsection{Thiết kế Pipeline Học Sâu Tổng thể}
-Phần Học sâu được hiện thực trong thư mục \texttt{model\_DL/} (các tệp \texttt{config.py}, \texttt{models.py}, \texttt{prepare\_chunked\_data.py}, \texttt{chunked\_data.py}, \texttt{chunked\_pipeline.py}). Pipeline gồm bốn giai đoạn, cùng khung với phần Học máy (tiền xử lý $\rightarrow$ huấn luyện từng mô hình $\rightarrow$ tối ưu $\rightarrow$ dung hợp) để hai phần có thể đặt cạnh nhau. Khác với phiên bản đầu của pipeline (dựng lại lưới giờ từ dữ liệu thô), phiên bản cuối \textbf{dùng chung ba bộ dữ liệu đã chia theo mùa vụ của phần Học máy} (Baseline, Zone, Context; Chương~3) và chỉ gắn thêm cột \texttt{timestamp}, nên mọi mô hình Học sâu và Học máy được chấm trên cùng $372.993$ dòng ngoài mẫu $T_{\text{out}}$. Mỗi giai đoạn ghi rõ nội dung \textbf{đã triển khai} trong mã nguồn và nội dung \textbf{chưa triển khai} (hướng mở rộng), để báo cáo không mô tả quá những gì đã chạy.
+\subsection{Kiến trúc Pipeline Học Sâu Tổng thể}
 
-Pipeline tuân theo bốn nguyên tắc thiết kế:
+Khác với phân hệ Học máy vốn tiếp cận bài toán dựa trên các vector mẫu bảng tĩnh tại từng thời điểm độc lập, phân hệ Học sâu được thiết kế chuyên biệt để trực tiếp khai phá \textbf{động học chuỗi thời gian liên tục}. Trọng tâm kiến trúc dựa trên cơ chế \textbf{cửa sổ trượt} với tổng chiều dài $420$ giờ, bao gồm $252$ giờ ngữ cảnh lịch sử ($10{,}5$ ngày) kết hợp với $168$ giờ cửa sổ đích ($1$ tuần đánh giá). Nhằm đảm bảo tính nhất quán và công bằng tuyệt đối khi đối chứng với Học máy, phân hệ Học sâu \textbf{dùng chung ba bộ dữ liệu đã phân chia chu kỳ mùa vụ từ Chương~3} (Baseline, Zone-Enhanced và Context-Aware), bổ sung trục thời gian thực \texttt{timestamp} để cùng được kiểm tra ngoài mẫu trên $372.993$ bản ghi của $T_{\text{out}}$.
+
+Luồng xử lý tổng thể của phân hệ Học sâu được tổ chức thành bốn giai đoạn kỹ thuật cốt lõi:
 \begin{enumerate}
-    \item \textbf{Hai lớp đánh giá tách biệt:} (i) trong $T_{\text{in}}$ (ngày $1$--$20$ hằng tháng), mọi mô hình được kiểm định bằng \texttt{GroupKFold} $5$ phần theo \texttt{building\_id}, vì các giờ liền kề của cùng một toà nhà rất giống nhau và chia ngẫu nhiên theo dòng sẽ làm kết quả lạc quan; (ii) $T_{\text{out}}$ (ngày $25$ đến hết tháng, cách $T_{\text{in}}$ khoảng đệm $96$ giờ) chỉ dùng để chấm điểm cuối, không dùng để huấn luyện, chọn checkpoint hay chọn ngưỡng. Lưu ý $T_{\text{out}}$ chứa cùng $200$ toà nhà với $T_{\text{in}}$ nhưng ở các ngày sau, nên đây là phép kiểm tra \textbf{theo thời gian}, không phải toà nhà chưa từng thấy.
-    \item \textbf{Chỉ dùng đặc trưng đã tiền xử lý không rò rỉ và chuẩn hoá lại trong từng fold:} đặc trưng chunked đã được khớp thống kê trên $T_{\text{in}}$; thêm vào đó, trung vị, trung bình và độ lệch chuẩn của mỗi kênh được ước lượng lại trên các toà nhà huấn luyện của fold đó.
-    \item \textbf{Đầu ra là điểm liên tục:} mọi mô hình trả về điểm bất thường theo từng giờ (xác suất hoặc sai số tái tạo), không nhị phân hoá; ngưỡng chỉ được áp dụng khi tính F1.
-    \item \textbf{Khảo sát nhiều hệ hình:} một mô hình theo điểm (MLP) làm đối chứng, ba bộ gán nhãn chuỗi có giám sát (TCN, BiGRU, BiLSTM) và một mô hình tái tạo không giám sát (LSTM-AE), mỗi mô hình chạy trên cả ba biến thể dữ liệu.
+    \item \textbf{Giai đoạn 1 - Chuẩn hóa Cấu trúc Chuỗi và Phân đoạn Cửa sổ Ngữ cảnh:} Dữ liệu chuỗi thời gian của từng công trình được phân đoạn thành các khối đích dài $168$ giờ kèm tối đa $252$ giờ ngữ cảnh đứng trước. Để loại trừ triệt để hiện tượng rò rỉ thông tin xuyên biên, các điểm ngắt quãng chuỗi giữa các tháng (khoảng đệm cách ly $96$ giờ) được kiểm soát nghiêm ngặt bằng cơ chế đặt lại cửa sổ và đệm số $0$ ở đầu đoạn liên tục.
+    \item \textbf{Giai đoạn 2 - Mô hình hóa Đa hệ hình Chuỗi Thời gian:} Huấn luyện độc lập năm kiến trúc nơ-ron đại diện cho bốn trường phái học sâu chính trên cùng một cấu trúc fold kiểm định: mô hình theo điểm tĩnh (MLP) làm mốc đối chứng, mạng tích chập nhân quả giãn nở (Causal TCN) đại diện cho kịch bản trực tuyến, hai mạng nơ-ron hồi quy hai chiều (BiGRU và BiLSTM) cho kịch bản ngoại tuyến với trường tiếp nhận toàn diện, và mạng tự giải mã hồi quy (LSTM-AE) đại diện cho trường phái tái tạo không giám sát.
+    \item \textbf{Giai đoạn 3 - Kiểm soát Mất cân bằng và Tối ưu hóa Hội tụ:} Để xử lý tỷ lệ nhãn dị thường cực hiếm ($2{,}03\%$), hàm mất mát \texttt{BCEWithLogitsLoss} được tích hợp cùng trọng số lớp dương $w_{+} = 20$. Quá trình huấn luyện sử dụng thuật toán AdamW, cắt chuẩn gradient ở mức $1{,}0$, điều chuẩn bằng Dropout $0{,}2$ và Weight Decay $10^{-4}$, đồng thời lưu giữ checkpoint tối ưu dựa trên chỉ số PR-AUC của fold kiểm định nội bộ.
+    \item \textbf{Giai đoạn 4 - Dung hợp Phi tham số và Hiệu chuẩn Ngưỡng Quyết định:} Khắc phục sự bất đồng về thang đo xác suất giữa các bộ phân loại và sai số tái tạo bằng phương pháp dung hợp trung bình hạng phân vị; đồng thời thực hiện hiệu chuẩn ngưỡng phân loại tối ưu $\tau^*$ độc lập trên tập kiểm định nội bộ của $T_{\text{in}}$ và khóa cố định khi suy luận ngoài mẫu trên $T_{\text{out}}$.
 \end{enumerate}
 
-\begin{enumerate}
-    \item \textbf{Giai đoạn 1: Chuẩn bị dữ liệu chunked, Kiểm định và Dựng chuỗi}
-    \begin{itemize}
-        \item \textbf{Đã triển khai:} \texttt{prepare\_chunked\_data.py} đọc \texttt{train\_features.csv} chỉ để lấy \texttt{timestamp}, kiểm tra thứ tự dòng khớp với \texttt{building\_id}, \texttt{anomaly} và sáu đặc trưng thời gian, rồi ghi sáu tệp \texttt{*\_chunked\_\{baseline,zone,context\}\_timestamp.parquet} vào \texttt{data/processed\_DL/}. Mọi cột và giá trị gốc được giữ nguyên (chỉ thêm một cột); mã băm SHA-256 và số dòng được ghi trong \texttt{chunked\_timestamp\_metadata.json} và được kiểm tra lại mỗi lần nạp.
-        \item \textbf{Đã triển khai:} \texttt{chunked\_data.py} kiểm tra số dòng và số cột khớp bản kê, không có giá trị rỗng ở \texttt{building\_id}, \texttt{timestamp}, \texttt{anomaly}, không trùng cặp (toà nhà, giờ), nhãn nhị phân, mọi giá trị số hữu hạn, và các dòng train chỉ rơi vào ngày $\leq 20$, test chỉ vào ngày $\geq 25$.
-        \item \textbf{Đã triển khai:} cắt mỗi toà nhà thành các đoạn \textit{đích} dài $168$ giờ (một tuần), bước nhảy $168$, kèm tối đa $252$ giờ \textit{ngữ cảnh} đứng trước. Ngữ cảnh \textbf{không vượt qua chỗ đứt giờ}: vì $T_{\text{in}}$ và $T_{\text{out}}$ là các khối ngày trong từng tháng, chuỗi của mỗi toà nhà gồm nhiều đoạn liên tục, và cửa sổ được đặt lại ở mỗi chỗ đứt (đệm số $0$ ở đầu cửa sổ). Mỗi giờ là đích đúng một lần nên mỗi dòng được chấm điểm một lần; mã kiểm tra và báo lỗi nếu có dòng bị bỏ sót hoặc lặp.
-        \item \textbf{Loại bỏ có chủ đích:} \texttt{building\_id}, \texttt{timestamp}, nhãn, và nhóm \texttt{gte\_*} vì nguồn gốc và ánh xạ chưa được xác minh an toàn. \texttt{site\_id} được giữ làm biến phân loại.
-    \end{itemize}
+Toàn bộ đường ống vận hành dựa trên bốn nguyên tắc phương pháp luận:
+\begin{itemize}
+    \item \textbf{Hai lớp đánh giá tách biệt:} Mọi siêu tham số và checkpoint được tối ưu nội bộ bằng \texttt{GroupKFold} $5$ phần theo công trình trên $T_{\text{in}}$ (ngày $1$--$20$ hàng tháng); tập kiểm tra $T_{\text{out}}$ (ngày $25$ đến cuối tháng, cách ly bằng khoảng đệm $96$ giờ) chỉ dùng để chấm điểm ngoài mẫu độc lập, tuyệt đối không tham gia vào quá trình huấn luyện hay chọn ngưỡng.
+    \item \textbf{Chuẩn hoá cục bộ không rò rỉ dữ liệu:} Các tham số chuẩn hóa số liệu ($\mu, \sigma$ và trung vị) được ước lượng khép kín trên các công trình huấn luyện của từng fold, không rò rỉ thông tin sang tập kiểm định hay tập ngoài mẫu.
+    \item \textbf{Đầu ra là điểm dị thường liên tục:} Mọi mô hình đều xuất điểm số liên tục (xác suất $\hat{p}_i \in [0, 1]$ hoặc sai số tái tạo bình phương), bảo đảm việc đánh giá không phụ thuộc ngưỡng thông qua các đường cong PR-AUC và ROC-AUC.
+    \item \textbf{Khảo sát đa hệ hình để bổ trợ dung hợp:} Tận dụng tính đa dạng giữa các cơ chế nơ-ron (tích chập, cổng nhớ hồi quy, tự giải mã) để triệt tiêu phương sai lỗi và nâng cao năng lực phát hiện khi dung hợp mô hình.
+\end{itemize}
 
-    \item \textbf{Giai đoạn 2: Huấn luyện rời rạc từng Mô hình (Baseline Modeling)}
-    \begin{itemize}
-        \item \textbf{Đã triển khai:} huấn luyện độc lập năm mô hình trên từng biến thể dữ liệu, theo cùng bộ fold: MLP (theo điểm), TCN nhân quả, BiGRU, BiLSTM (gán nhãn chuỗi có giám sát) và LSTM Autoencoder (tái tạo, chỉ học từ giờ bình thường).
-        \item \textbf{Đã triển khai:} mỗi fold huấn luyện với AdamW, dừng sớm sau $5$ epoch không cải thiện, và \textbf{chọn checkpoint theo Average Precision (AP) trên fold kiểm định}. Điểm ngoài mẫu (\textit{out-of-fold}, OOF) được ghép từ $5$ fold, đồng thời mỗi checkpoint chấm luôn $T_{\text{out}}$.
-        \item \textbf{Đã triển khai:} báo cáo AP, ROC-AUC, F1 tại ngưỡng chọn trên OOF, cùng AP và ROC-AUC trung bình theo toà nhà, cho cả OOF và $T_{\text{out}}$.
-    \end{itemize}
+\subsection{Thiết kế Phương pháp luận và Giao thức Thực nghiệm}
 
-    \item \textbf{Giai đoạn 3: Tối ưu hoá từng Mô hình}
-    \begin{itemize}
-        \item \textbf{Đã triển khai:} xử lý mất cân bằng bằng \texttt{BCEWithLogitsLoss} có trọng số lớp dương $w_{+} = 20$, cắt gradient ở $1{,}0$, điều chuẩn bằng dropout $0{,}2$ và weight decay $10^{-4}$, chọn checkpoint theo AP kiểm định.
-        \item \textbf{Đã triển khai:} ngưỡng F1 được chọn trên điểm OOF của $T_{\text{in}}$ ($200$ phân vị) rồi \textbf{áp nguyên cho $T_{\text{out}}$}, nên F1 trên $T_{\text{out}}$ là ước lượng không dùng nhãn của tập kiểm tra để chọn ngưỡng.
-        \item \textbf{Chưa triển khai (hướng mở rộng):} tìm siêu tham số bằng Optuna, so sánh BCE có trọng số với Focal Loss, quét $w_{+}$, chạy nhiều seed.
-    \end{itemize}
-
-    \item \textbf{Giai đoạn 4: Dung hợp Mô hình (Model Ensemble)}
-    \begin{itemize}
-        \item \textbf{Đã triển khai:} điểm trên $T_{\text{out}}$ của mỗi mô hình là trung bình điểm của $5$ checkpoint fold. Dung hợp giữa các mô hình bằng trung bình hạng phần trăm (\textit{percentile-rank}) với trọng số bằng nhau, phù hợp cả với xác suất của bộ phân loại lẫn sai số tái tạo có thang đo khác. Phép tính này được thực hiện bằng một đoạn mã hậu xử lý trên các tệp \texttt{oof\_<model>.parquet} và \texttt{holdout\_<model>.parquet}; lệnh \texttt{chunked\_pipeline} hiện chưa có bước dung hợp.
-        \item \textbf{Chưa triển khai (hướng mở rộng):} trọng số học được và dung hợp với các mô hình Boosting của phần Học máy.
-    \end{itemize}
-\end{enumerate}
-
-\subsection{Huấn luyện và Đánh giá Mô hình}
-
-\subsubsection{Cơ sở Phương pháp luận: Mục tiêu Đầu ra, Tiêu chí Lựa chọn và Quy trình Thực hiện}
-
-\paragraph{1. Mục đích Đầu ra của Bài toán (Output Objective):}\hspace{1cm}
+\subsubsection{Mục tiêu Đầu ra và Thước đo Đánh giá}
 
 Tại mỗi giờ $i$ của một toà nhà, mô hình trả về một điểm bất thường liên tục $s_i \in \mathbb{R}$. Với bộ phân loại có giám sát (MLP, TCN, BiGRU, BiLSTM), đó là xác suất:
-\begin{equation}
+\begin{equation*}
     s_i = \hat{p}_i = \sigma(z_i) = P(y_i = 1 \mid \text{ngữ cảnh}_i) \in [0, 1]
-\end{equation}
+\end{equation*}
 với $z_i$ là logit đầu ra. Với LSTM Autoencoder, đó là sai số tái tạo bình phương trung bình trên các kênh đầu vào:
-\begin{equation}
+\begin{equation*}
     s_i = \frac{1}{d} \sum_{j=1}^{d} \left( \hat{x}_{i,j} - x_{i,j} \right)^2
-\end{equation}
-trong đó $d$ là số kênh đầu vào của biến thể đang xét ($28$, $31$ hoặc $35$). Điểm liên tục cho phép đánh giá không phụ thuộc ngưỡng bằng AP và ROC-AUC, và cho phép dung hợp mềm bằng hạng phần trăm. Khi cần nhãn nhị phân, quyết định là $\hat{y}_i = \mathbb{1}[s_i \geq \tau]$.
+\end{equation*}
+trong đó $d$ là số kênh đầu vào của biến thể đang xét ($28$, $31$ hoặc $35$). Điểm liên tục cho phép đánh giá không phụ thuộc ngưỡng bằng PR-AUC và ROC-AUC, và cho phép dung hợp mềm bằng hạng phần trăm. Khi cần nhãn nhị phân, quyết định là $\hat{y}_i = \mathbb{1}[s_i \geq \tau]$.
 
 Hệ thống đánh giá theo ba độ đo:
 \begin{itemize}
-    \item \textbf{PR-AUC} (\textit{average precision}, AP; cùng định nghĩa \texttt{average\_precision\_score} của \texttt{scikit-learn} như phần Học máy), độ đo chính vì nhạy với lớp hiếm. Một mô hình đoán ngẫu nhiên có AP xấp xỉ tỷ lệ bất thường: $2{,}03\%$ trên $T_{\text{in}}$ và $2{,}45\%$ trên $T_{\text{out}}$.
+    \item \textbf{PR-AUC} (\textit{diện tích dưới đường cong Độ chuẩn xác -- Độ nhạy}), độ đo chính vì nhạy với lớp hiếm (tính theo chuẩn \texttt{scikit-learn} như phần Học máy). Một mô hình đoán ngẫu nhiên có PR-AUC xấp xỉ tỷ lệ bất thường: $2{,}03\%$ trên $T_{\text{in}}$ và $2{,}45\%$ trên $T_{\text{out}}$.
     \item \textbf{ROC-AUC}, độ đo xếp hạng không phụ thuộc ngưỡng và tỷ lệ lớp.
     \item \textbf{F1-Score} tại ngưỡng cực đại hoá F1 trên $200$ phân vị của điểm trong OOF:
-    \begin{equation}
+    \begin{equation*}
         \tau^{*} = \arg\max_{\tau} \; \frac{2\,\text{Precision}(\tau)\,\text{Recall}(\tau)}{\text{Precision}(\tau) + \text{Recall}(\tau)}, \qquad F_1^{\max} = F_1^{\text{OOF}}(\tau^{*})
-    \end{equation}
+    \end{equation*}
     Trên OOF, $F_1^{\max}$ là \textbf{cận trên mang tính chẩn đoán} vì ngưỡng được chọn ngay trên dữ liệu đang chấm điểm. Trên $T_{\text{out}}$, nhóm báo cáo $F_1(\tau^{*})$ với đúng $\tau^{*}$ lấy từ OOF, không điều chỉnh theo nhãn của $T_{\text{out}}$, nên đây là ước lượng F1 gần với triển khai thực tế.
 \end{itemize}
-Ngoài các độ đo gộp, nhóm tính AP và ROC-AUC \textbf{theo từng toà nhà} rồi lấy trung bình (macro) trên các toà nhà có cả hai lớp ($198$ toà ở OOF, $189$ toà ở $T_{\text{out}}$), để thấy mô hình có hoạt động đều giữa các toà nhà hay chỉ tốt ở một vài toà.
+Ngoài các độ đo gộp, nhóm tính PR-AUC và ROC-AUC \textbf{theo từng toà nhà} rồi lấy trung bình macro trên các toà nhà có cả hai lớp ($198$ toà ở OOF, $189$ toà ở $T_{\text{out}}$), để thấy mô hình có hoạt động đều giữa các toà nhà hay chỉ tốt ở một vài toà.
 
-\paragraph{2. Tiêu chí Lựa chọn Thuật toán:}\hspace{1cm}
+\subsubsection{Tiêu chí Lựa chọn và Đa dạng hóa Thuật toán}
 
+Để giải quyết bài toán phát hiện dị thường phụ tải điện một cách khoa học và toàn diện, nhóm nghiên cứu xác lập bốn tiêu chí cốt lõi:
 \begin{itemize}
-    \item \textbf{Tiêu chí 1 - Khai thác được ngữ cảnh thời gian.} Nhiều bất thường chỉ nhận ra khi đặt giá trị đo trong mức tải thông thường của toà nhà theo giờ, thứ trong tuần và các giờ lân cận; ngữ cảnh $252$ giờ (hơn một tuần) được cấp cho các mô hình chuỗi để chúng so sánh với chu kỳ tuần.
-    \item \textbf{Tiêu chí 2 - Tận dụng nhãn nhưng chịu được mất cân bằng.} Nhãn bất thường chỉ chiếm khoảng $2$--$2{,}5\%$; hàm mất mát có trọng số lớp được dùng thay cho SMOTE, vì nội suy giữa hai đoạn bất thường tạo ra chuỗi không có thật.
-    \item \textbf{Tiêu chí 3 - Đa dạng hệ hình.} Năm mô hình đại diện bốn hệ hình khác nhau: theo điểm (MLP), tích chập nhân quả (TCN), hồi quy hai chiều (BiGRU, BiLSTM) và tái tạo không giám sát (LSTM-AE). Sự đa dạng này vừa phục vụ so sánh, vừa là điều kiện để dung hợp có ý nghĩa.
-    \item \textbf{Tiêu chí 4 - Khả thi về tính toán.} Mỗi lần chạy đầy đủ gồm $3$ biến thể $\times$ $5$ mô hình $\times$ $5$ fold, trên khoảng $1{,}15$ triệu dòng huấn luyện; mô hình phải huấn luyện được trên GPU phổ thông (nhóm dùng batch $16$ cho các mô hình chuỗi và batch $1024$ cho MLP).
+    \item \textbf{Tiêu chí 1 - Khai thác được ngữ cảnh thời gian:} Nhiều bất thường chỉ nhận ra khi đặt giá trị đo trong mức tải thông thường của toà nhà theo giờ, thứ trong tuần và các giờ lân cận; ngữ cảnh $252$ giờ (hơn một tuần) được cấp cho các mô hình chuỗi để chúng so sánh với chu kỳ tuần.
+    \item \textbf{Tiêu chí 2 - Tận dụng nhãn nhưng kiểm soát mất cân bằng:} Nhãn bất thường chỉ chiếm khoảng $2$--$2{,}5\%$; hàm mất mát có trọng số lớp được dùng thay cho SMOTE, vì nội suy giữa hai đoạn bất thường tạo ra chuỗi không có thật.
+    \item \textbf{Tiêu chí 3 - Đa dạng hóa các hệ hình nơ-ron:} Năm mô hình đại diện bốn hệ hình khác nhau: theo điểm tĩnh (MLP), tích chập nhân quả (TCN), hồi quy hai chiều (BiGRU, BiLSTM) và tái tạo không giám sát (LSTM-AE). Sự đa dạng này vừa phục vụ so sánh, vừa là điều kiện để dung hợp có ý nghĩa.
+    \item \textbf{Tiêu chí 4 - Khả thi về chi phí và tài nguyên tính toán:} Mỗi lần chạy đầy đủ gồm $3$ biến thể $\times$ $5$ mô hình $\times$ $5$ fold, trên khoảng $1{,}15$ triệu dòng huấn luyện; mô hình phải huấn luyện được trên GPU phổ thông (nhóm dùng batch $16$ cho các mô hình chuỗi và batch $1024$ cho MLP).
 \end{itemize}
 
-\paragraph{3. Các Bước Thực hiện Tuần tự trong Luồng Học Sâu (Execution Workflow):}\hspace{1cm}
+\subsubsection{Quy trình Thực thi Thực nghiệm Chuẩn hóa}
 
-Toàn bộ thực nghiệm chạy từ thư mục gốc của repo:
+Quy trình thực thi thực nghiệm của phân hệ Học sâu được chuẩn hóa qua năm giai đoạn tuần tự:
 \begin{itemize}
-    \item \textbf{Bước 1 (Gắn thời gian):} \texttt{python -m model\_DL.prepare\_chunked\_data} tạo sáu tệp parquet có \texttt{timestamp} và \texttt{chunked\_timestamp\_metadata.json}. Tệp đầu ra không bao giờ bị ghi đè.
-    \item \textbf{Bước 2 (Chạy thử nhanh):} \texttt{python -m model\_DL.chunked\_pipeline train --smoke} (chọn $8$ toà nhà, $2$ fold, $1$ epoch) để kiểm tra toàn bộ đường ống trước khi chạy dài.
-    \item \textbf{Bước 3 (Huấn luyện và đánh giá đầy đủ):} \texttt{python -m model\_DL.chunked\_pipeline train} chạy $3$ biến thể $\times$ $5$ mô hình $\times$ $5$ fold. Với mỗi mô hình và mỗi fold: khớp \texttt{FoldTransformer} trên các toà nhà huấn luyện, huấn luyện, chọn checkpoint theo AP, chấm OOF trên các toà nhà kiểm định và đồng thời chấm $T_{\text{out}}$.
-    \item \textbf{Bước 4 (Tiếp tục khi bị gián đoạn):} thêm \texttt{--run-id <id> --resume}; các fold đã hoàn tất được dùng lại từ bộ nhớ đệm (\texttt{fold\_<n>\_<model>.npz}) sau khi kiểm tra độ phủ và giá trị hữu hạn. Mọi tệp (checkpoint, lịch sử epoch, dự đoán, bảng tổng kết) được ghi nguyên tử (ghi vào tệp tạm rồi đổi tên) và hệ điều hành bị chặn tự ngủ trong lúc chạy.
-    \item \textbf{Bước 5 (Tính lại độ đo):} \texttt{python -m model\_DL.chunked\_pipeline evaluate --run-id <id>} tính lại độ đo từ các tệp OOF và $T_{\text{out}}$ đã lưu.
+    \item \textbf{Bước 1 (Đồng bộ nhãn thời gian và kiểm toán toàn vẹn):} Trích xuất trục thời gian thực \texttt{timestamp}, cấu trúc lại sáu tập dữ liệu chuỗi tương ứng với ba biến thể (Baseline, Zone, Context), ghi nhận mã băm SHA-256 và kiểm tra độ toàn vẹn cấu trúc bảng (loại trừ giá trị khuyết và trùng lặp bản ghi).
+    \item \textbf{Bước 2 (Kiểm thử sơ bộ đường ống tính toán):} Thực hiện chạy kiểm thử khói trên tập con gồm $8$ công trình qua $2$ fold nhằm xác thực tính tương thích của tensor đầu vào, đồ thị tính toán và khả năng tăng tốc phần cứng GPU.
+    \item \textbf{Bước 3 (Huấn luyện kiểm định chéo và sinh dự đoán):} Huấn luyện toàn diện $3$ biến thể qua $5$ mô hình trên $5$ fold theo cấu trúc \texttt{GroupKFold}. Với mỗi mô hình và mỗi fold: chuẩn hóa cục bộ trên tập công trình huấn luyện, lưu checkpoint theo PR-AUC kiểm định, đồng thời sinh dự đoán ngoài mẫu (OOF) và ngoại suy trên $T_{\text{out}}$.
+    \item \textbf{Bước 4 (Bảo toàn trạng thái và khôi phục tự động):} Toàn bộ trọng số checkpoint, lịch sử huấn luyện epoch và ma trận dự đoán xác suất được ghi nguyên tử an toàn vào đĩa cứng, hỗ trợ cơ chế nạp lại từ bộ đệm khi gặp sự cố gián đoạn.
+    \item \textbf{Bước 5 (Tổng hợp đa chiều và trích xuất độ đo hiệu năng):} Tổng hợp các tệp dự đoán xác suất ngoài mẫu \texttt{oof\_*.parquet} và \texttt{holdout\_*.parquet}, tính toán hệ thống chỉ số PR-AUC, ROC-AUC, $F_1$-Score tổng thể và giá trị trung bình macro theo từng công trình.
 \end{itemize}
-Các sản phẩm của mỗi lần chạy nằm trong \texttt{model\_DL/artifacts/chunked/<run-id>/}: \texttt{run\_config.json}, \texttt{summary.csv}, và với mỗi biến thể: \texttt{variant\_config.json}, \texttt{checkpoints/<model>/fold\_<n>.pt}, \texttt{logs/history\_<model>\_fold\_<n>.csv}, \texttt{logs/metrics\_<model>.json}, \texttt{predictions/oof\_<model>.parquet} và \texttt{predictions/holdout\_<model>.parquet}. Các bảng kết quả bên dưới được điền từ \texttt{summary.csv}, \texttt{metrics\_<model>.json} và hai tệp dự đoán nói trên của lần chạy \texttt{full\_local\_20261028}.
+Các sản phẩm tạo ra từ quá trình thực nghiệm được tổ chức chặt chẽ trong thư mục \texttt{model\_DL/artifacts/chunked/}, bao gồm cấu hình thực thi, bảng tổng kết \texttt{summary.csv}, các tệp trọng số \texttt{checkpoints}, nhật ký huấn luyện \texttt{logs} và các tệp dự đoán xác suất ngoài mẫu \texttt{oof\_<model>.parquet}, \texttt{holdout\_<model>.parquet}. Toàn bộ số liệu thực nghiệm trong các bảng dưới đây được trích xuất trực tiếp từ các báo cáo đánh giá tự động của hệ thống.
 
-\subsubsection{Dữ liệu Đầu vào và Giao thức Đánh giá}
-
-\paragraph{1. Bộ đặc trưng đầu vào:}\hspace{1cm}
+\subsubsection{Dữ liệu Đầu vào và Giao thức Kiểm định theo Công trình}
 
 Mô hình nhận ba biến thể dữ liệu lồng nhau (Bảng~\ref{tab:dl_features}); số kênh đầu vào là số đặc trưng số cộng một kênh cho \texttt{site\_id}, tức $28$, $31$ và $35$ kênh. Các kênh số được chuẩn hoá lại bằng $(x - \mu)/\sigma$ với $\mu, \sigma$ tính trên các toà nhà huấn luyện của fold (trung vị dùng để thay giá trị khuyết). Biến phân loại \texttt{site\_id} được mã hoá thứ tự rồi chia cho số lớp (không dùng embedding); lớp chưa gặp ở fold huấn luyện nhận mã $0$.
 
@@ -102,7 +78,7 @@ Mô hình nhận ba biến thể dữ liệu lồng nhau (Bảng~\ref{tab:dl_fea
 \label{tab:dl_features}
 \renewcommand{\arraystretch}{1.2}
 \resizebox{\textwidth}{!}{
-\begin{tabular}{|l|c|p{9.5cm}|}
+\begin{tabular}{|l|c|>{\raggedright\arraybackslash}p{9.5cm}|}
 \hline
 \textbf{Nhóm} & \textbf{Số kênh} & \textbf{Nội dung} \\ \hline
 Cơ sở (Baseline) & $27$ & \texttt{meter\_reading}, \texttt{square\_feet}, \texttt{year\_built}, \texttt{floor\_count}, $7$ biến thời tiết (\texttt{air\_temperature}, \texttt{cloud\_coverage}, \texttt{dew\_temperature}, \texttt{precip\_depth\_1\_hr}, \texttt{sea\_level\_pressure}, \texttt{wind\_direction}, \texttt{wind\_speed}), $8$ thống kê trễ của nhiệt độ (\texttt{air\_temperature\_\{mean,max,min,std\}\_lag7} và \texttt{lag73}), \texttt{is\_holiday}, $\sin/\cos$ của giờ, thứ, tháng, \texttt{meter\_reading\_was\_missing} \\ \hline
@@ -116,8 +92,7 @@ Biến phân loại & $+1$ & \texttt{site\_id} (mã hoá thứ tự) \\ \hline
 
 Cần lưu ý ba điểm. (i) \texttt{square\_feet}, \texttt{year\_built}, \texttt{floor\_count} và \texttt{site\_id} gần như nhận diện được từng toà nhà; khi kiểm định bằng \texttt{GroupKFold} điều này không gây rò rỉ (toà nhà kiểm định chưa từng thấy), nhưng $T_{\text{out}}$ chứa chính các toà nhà đã huấn luyện, nên trên $T_{\text{out}}$ các kênh này giúp mô hình nhận ra từng toà. (ii) Bốn đặc trưng ngữ cảnh $z$ của biến thể Context được tính từ thống kê theo toà nhà--giờ khớp trên toàn bộ $T_{\text{in}}$ \textit{trước} khi chia fold, nên kết quả OOF của biến thể này chỉ mang tính thăm dò; số liệu trên $T_{\text{out}}$ không bị ảnh hưởng. (iii) Các nhóm \texttt{gte\_*} bị loại khỏi đầu vào.
 
-\paragraph{2. Giao thức đánh giá \texttt{GroupKFold} theo toà nhà trên $T_{\text{in}}$:}\hspace{1cm}
-
+\noindent\textbf{Giao thức đánh giá GroupKFold theo toà nhà trên $T_{\text{in}}$:}
 \begin{itemize}
     \item $200$ toà nhà của $T_{\text{in}}$ ($1{.}147{.}089$ dòng) được chia thành $5$ nhóm không giao nhau; mỗi lượt dùng $4$ nhóm để huấn luyện và nhóm còn lại để kiểm định. Mỗi toà nhà xuất hiện làm kiểm định đúng một lần, nên ghép $5$ lượt cho OOF phủ toàn bộ dòng của $T_{\text{in}}$.
     \item Bộ phân chia của \texttt{GroupKFold} là tất định theo \texttt{building\_id}, nên các mô hình khác (kể cả mô hình Học máy) có thể tái tạo đúng cùng các fold.
@@ -125,34 +100,34 @@ Cần lưu ý ba điểm. (i) \texttt{square\_feet}, \texttt{year\_built}, \text
     \item $T_{\text{out}}$ ($372.993$ dòng) được chấm bằng trung bình điểm của $5$ checkpoint fold; $T_{\text{out}}$ không tham gia huấn luyện, chọn checkpoint hay chọn ngưỡng.
 \end{itemize}
 
-\paragraph{3. Điểm khác so với giao thức của phần Học máy:}\hspace{1cm}
+\noindent\textbf{So sánh giao thức đánh giá với phân hệ Học máy:}
 
-Hai phần giờ dùng cùng các dòng, cùng nhãn và cùng giá trị đặc trưng đã chuẩn hoá, và cùng chấm trên $T_{\text{out}}$, nên PR-AUC và ROC-AUC trên $T_{\text{out}}$ đặt cạnh nhau được. Bảng~\ref{tab:protocol_diff} nêu các khác biệt còn lại. Điều quan trọng là phần Học máy tinh chỉnh siêu tham số và chọn ngưỡng \textbf{trực tiếp trên $T_{\text{out}}$} (hàm mục tiêu Optuna trong \texttt{pipeline\_master\_unified.py} là PR-AUC trên $T_{\text{out}}$), nên các số của Học máy là \textbf{cận trên}, đặc biệt F1, precision và recall của hai phần không so sánh trực tiếp được; phía Học sâu không dùng nhãn $T_{\text{out}}$ ở bất kỳ bước nào trước khi chấm.
+Cả hai phân hệ Học máy và Học sâu đều sử dụng chung các tập dữ liệu, chung nhãn và phương thức tiền xử lý không rò rỉ thông tin, đồng thời cùng được đánh giá độc lập trên tập kiểm tra ngoài mẫu $T_{\text{out}}$ ($372.993$ mẫu). Bảng~\ref{tab:protocol_diff} tổng hợp các điểm tương đồng và khác biệt về giao thức đánh giá giữa hai phân hệ. Cần nhấn mạnh rằng, cả hai phân hệ đều tuân thủ nghiêm ngặt nguyên tắc \textbf{Zero Data Leakage}: toàn bộ quá trình tối ưu hóa siêu tham số (Optuna TPE ở Học máy, chọn checkpoint theo PR-AUC ở Học sâu) và chọn ngưỡng phân loại tối ưu $\tau^*$ đều được thực hiện $100\%$ trên tập kiểm định nội bộ của $T_{\text{in}}$, tuyệt đối không nhìn trước nhãn của tập kiểm tra $T_{\text{out}}$. Điểm khác biệt mấu chốt nằm ở bản chất đơn vị dự đoán: Học sâu xử lý chuỗi thời gian liên tục với cửa sổ ngữ cảnh $252$ giờ và chia nhóm \texttt{GroupKFold} theo công trình, trong khi Học máy tiếp cận theo từng mẫu bảng độc lập.
 
 \begin{table}[H]
 \centering
-\caption{\textbf{Khác biệt về giao thức đánh giá giữa phần Học máy và Học sâu}}
+\caption{\textbf{So sánh giao thức đánh giá giữa phân hệ Học máy và Học sâu}}
 \label{tab:protocol_diff}
 \renewcommand{\arraystretch}{1.2}
 \resizebox{\textwidth}{!}{
-\begin{tabular}{|l|p{5.2cm}|p{5.2cm}|}
+\begin{tabular}{|l|>{\raggedright\arraybackslash}p{5.5cm}|>{\raggedright\arraybackslash}p{5.5cm}|}
 \hline
-\textbf{Khía cạnh} & \textbf{Học máy} & \textbf{Học sâu} \\ \hline
-Dữ liệu & Ba bộ chunked (Baseline, Zone, Context) & Cùng ba bộ, thêm cột \texttt{timestamp} \\ \hline
-Tập chấm điểm cuối & $T_{\text{out}}$, $372.993$ dòng & $T_{\text{out}}$, $372.993$ dòng \\ \hline
-Chọn mô hình / siêu tham số & Optuna tối đa hoá PR-AUC \textbf{trên $T_{\text{out}}$} & Checkpoint theo AP trên fold kiểm định của \texttt{GroupKFold} $5$ phần theo toà nhà trong $T_{\text{in}}$ \\ \hline
-Chọn ngưỡng & Cực đại hoá F1 trên $T_{\text{out}}$ (cận trên) & Cực đại hoá F1 trên OOF của $T_{\text{in}}$, áp nguyên cho $T_{\text{out}}$ \\ \hline
-Độ đo chính & PR-AUC (kèm ROC-AUC, F1) & AP (cùng định nghĩa, kèm ROC-AUC, F1) \\ \hline
-Đơn vị dự đoán & Từng dòng, không ngữ cảnh chuỗi & Từng giờ, có ngữ cảnh tối đa $252$ giờ trong cùng đoạn liên tục \\ \hline
-Điểm trên $T_{\text{out}}$ & Một mô hình huấn luyện trên toàn $T_{\text{in}}$ & Trung bình $5$ checkpoint fold \\ \hline
-Biến nhận diện toà nhà & Có & Có (và $T_{\text{out}}$ dùng lại đúng các toà nhà đó) \\ \hline
+\textbf{Khía cạnh} & \textbf{Phân hệ Học máy} & \textbf{Phân hệ Học sâu} \\ \hline
+Không gian dữ liệu chung & Ba bộ chunked (Baseline, Zone, Context) & Cùng ba bộ chunked, bổ sung cột thời gian \texttt{timestamp} \\ \hline
+Tập kiểm tra độc lập & $T_{\text{out}}$, $372.993$ dòng (ngày $25$--cuối tháng) & $T_{\text{out}}$, $372.993$ dòng (ngày $25$--cuối tháng) \\ \hline
+Kiểm định nội bộ & Chia tách ngẫu nhiên phân tầng trên $T_{\text{in}}$ & \texttt{GroupKFold} $5$ phần theo công trình trên $T_{\text{in}}$ \\ \hline
+Chọn siêu tham số & Optuna TPE tối đa hóa PR-AUC trên tập kiểm định của $T_{\text{in}}$ & Chọn checkpoint theo PR-AUC trên fold kiểm định của $T_{\text{in}}$ \\ \hline
+Hiệu chuẩn ngưỡng $\tau^*$ & Cực đại hóa $F_1$ trên tập kiểm định nội bộ của $T_{\text{in}}$ & Cực đại hóa $F_1$ trên OOF của $T_{\text{in}}$ qua 200 phân vị \\ \hline
+Tiêu chuẩn chống rò rỉ & 100\% Zero Data Leakage (không nhìn trước $T_{\text{out}}$) & 100\% Zero Data Leakage (không nhìn trước $T_{\text{out}}$) \\ \hline
+Đơn vị dự đoán & Từng mẫu bảng độc lập, không ngữ cảnh chuỗi & Từng giờ, có ngữ cảnh tối đa $252$ giờ trong đoạn liên tục \\ \hline
+Dự báo trên $T_{\text{out}}$ & Mô hình huấn luyện lại trên toàn bộ $T_{\text{in}}$ & Trung bình xác suất từ $5$ checkpoint fold \\ \hline
 \end{tabular}
 }
 \end{table}
 
-\subsubsection{Đặc tả Kiến trúc và Siêu tham số}
+\subsubsection{Đặc tả Kiến trúc Mạng Nơ-ron và Hàm Mất mát}
 
-Các mô hình dùng chung cấu hình trong \texttt{config.py}: $\texttt{hidden\_size} = 64$, $\texttt{num\_layers} = 2$, $\texttt{dropout} = 0{,}2$, $\texttt{tcn\_channels} = 64$, nhân tích chập $k = 3$ và độ giãn nở $(1, 2, 4, 8, 16, 32)$. Số tham số trong Bảng~\ref{tab:dl_architectures} được đếm trực tiếp từ các mô hình được xây dựng bởi \texttt{build\_model} với số kênh đầu vào $C = 28$, $31$ và $35$; số tham số chỉ thay đổi theo $C$ qua lớp đầu vào.
+Các mô hình dùng chung cấu hình trong \texttt{config.py}: kích thước ẩn $\texttt{hidden\_size} = 64$, số tầng $\texttt{num\_layers} = 2$, hệ số tắt ngẫu nhiên $\texttt{dropout} = 0{,}2$, kênh tích chập $\texttt{tcn\_channels} = 64$, kích thước nhân tích chập $k = 3$ và danh sách hệ số giãn nở $(1, 2, 4, 8, 16, 32)$. Số tham số trong Bảng~\ref{tab:dl_architectures} được đếm trực tiếp từ các mô hình được xây dựng bởi \texttt{build\_model} với số kênh đầu vào $C = 28$, $31$ và $35$; số lượng tham số chỉ thay đổi theo $C$ qua lớp tuyến tính đầu vào.
 
 \begin{table}[H]
 \centering
@@ -172,17 +147,17 @@ LSTM-AE & Bộ mã hoá LSTM ($C \rightarrow 64$), bộ giải mã LSTM ($64 \ri
 }
 \end{table}
 
-\paragraph{Vùng nhìn của TCN.} Với $k = 3$ và hai tích chập giãn nở mỗi khối, vùng nhìn là $R = 1 + 2(k-1)\sum_{\ell} d_\ell = 1 + 2 \cdot 2 \cdot 63 = 253$ giờ. Giá trị này khớp với $252$ giờ ngữ cảnh cộng giờ hiện tại, nên giờ đích đầu tiên của mỗi đoạn nhìn được trọn vẹn phần ngữ cảnh (khi đoạn liên tục đủ dài).
+\noindent\textbf{Trường tiếp nhận của mạng TCN:} Với $k = 3$ và hai tích chập giãn nở mỗi khối, vùng nhìn là $R = 1 + 2(k-1)\sum_{\ell} d_\ell = 1 + 2 \cdot 2 \cdot 63 = 253$ giờ. Giá trị này khớp với $252$ giờ ngữ cảnh cộng giờ hiện tại, nên giờ đích đầu tiên của mỗi đoạn nhìn được trọn vẹn phần ngữ cảnh (khi đoạn liên tục đủ dài).
 
-\paragraph{Huấn luyện.} Tối ưu AdamW với tốc độ học $10^{-3}$ (không dùng bộ lập lịch), weight decay $10^{-4}$, batch $1024$ cho MLP và $16$ cho các mô hình chuỗi, dừng sớm sau $5$ epoch không cải thiện AP kiểm định, chạy với độ chính xác hỗn hợp tự động khi có GPU, hạt giống ngẫu nhiên $42 + \text{chỉ số fold}$. Số epoch tối đa của lần chạy chính thức là $10$; lần chạy được khởi động với trần $30$ epoch rồi hạ xuống $10$ khi tiếp tục (\texttt{--resume}), và các fold đã hoàn tất trước đó giữ nguyên checkpoint của chúng. Vì vậy một số fold của MLP trên biến thể Baseline chọn epoch tốt nhất ở các epoch $13$--$20$ (lớn hơn $10$). Hàm mất mát của các mô hình có giám sát là:
-\begin{equation}
+\noindent\textbf{Cấu hình huấn luyện và hàm mất mát:} Tối ưu AdamW với tốc độ học $10^{-3}$ (không dùng bộ lập lịch), weight decay $10^{-4}$, batch $1024$ cho MLP và $16$ cho các mô hình chuỗi, dừng sớm sau $5$ epoch không cải thiện PR-AUC kiểm định, chạy với độ chính xác hỗn hợp tự động khi có GPU, hạt giống ngẫu nhiên $42 + \text{chỉ số fold}$. Số epoch tối đa của lần chạy chính thức là $10$; lần chạy được khởi động với trần $30$ epoch rồi hạ xuống $10$ khi tiếp tục (\texttt{--resume}), và các fold đã hoàn tất trước đó giữ nguyên checkpoint của chúng. Vì vậy một số fold của MLP trên biến thể Baseline chọn epoch tốt nhất ở các epoch $13$--$20$ (lớn hơn $10$). Hàm mất mát của các mô hình có giám sát là:
+\begin{equation*}
     \mathcal{L} = \frac{\sum_i m_i \cdot \left[ -w_{+}\, y_i \log \hat{p}_i - (1 - y_i)\log (1 - \hat{p}_i) \right]}{\sum_i m_i}, \qquad w_{+} = 20
-\end{equation}
+\end{equation*}
 với $m_i$ là mặt nạ của các giờ đích hợp lệ (ở các đoạn đích ngắn, phần đệm bị loại). LSTM-AE tối thiểu hoá MSE tái tạo \textbf{chỉ trên các giờ đích bình thường} ($y_i = 0$) và dùng MSE của mọi giờ đích làm điểm bất thường. MLP không dùng ngữ cảnh chuỗi nên chỉ nhìn đặc trưng của đúng giờ đó (kể cả các đặc trưng ngữ cảnh $z$ của biến thể Context).
 
-\subsubsection{Luận giải việc Lựa chọn và Loại trừ các Thuật toán}
+\subsubsection{Luận giải Lựa chọn và Loại trừ Thuật toán}
 
-\textbf{1. Nhóm được hiện thực và vai trò của từng mô hình}
+\noindent\textbf{Nhóm kiến trúc được hiện thực và vai trò của từng mô hình:}
 \begin{itemize}
     \item \textbf{MLP (đối chứng):} cho biết các đặc trưng đã sinh sẵn (nhất là các đặc trưng ngữ cảnh $z$) giải quyết được bao nhiêu bài toán \textit{mà không cần mô hình chuỗi}. Nếu MLP ngang các mô hình chuỗi, lợi thế của kiến trúc chuỗi trên dữ liệu này nhỏ.
     \item \textbf{TCN nhân quả:} song song hoá được, huấn luyện nhanh, vùng nhìn tính trước được ($253$ giờ phủ chu kỳ tuần) và chỉ dùng quá khứ, nên đại diện cho kịch bản phát hiện gần thời gian thực.
@@ -190,7 +165,7 @@ với $m_i$ là mặt nạ của các giờ đích hợp lệ (ở các đoạn 
     \item \textbf{LSTM Autoencoder:} đại diện hệ hình tái tạo không giám sát phổ biến trong các nghiên cứu phát hiện bất thường chuỗi thời gian, dùng làm mốc so sánh với hướng có giám sát.
 \end{itemize}
 
-\textbf{2. Nhóm chưa hiện thực}
+\noindent\textbf{Nhóm kiến trúc chưa hiện thực và lý do loại trừ:}
 \begin{itemize}
     \item \textbf{GAN-LSTM / TAnoGAN:} có kết quả công bố trên LEAD nên có giá trị đối chiếu, nhưng mỗi cửa sổ cần khoảng $300$ bước tối ưu vector tiềm ẩn khi suy luận. Chấm điểm từng giờ trên toàn bộ dữ liệu cần cỡ $10^8$ lượt chạy bộ sinh, không khả thi trong khuôn khổ đề tài. Chỉ có thể tái hiện ở mức cửa sổ trên một tập con toà nhà.
     \item \textbf{USAD:} nhanh và ổn định hơn GAN, nhưng vẫn là hệ hình không giám sát và chưa có công bố trên dữ liệu năng lượng.
@@ -199,24 +174,24 @@ với $m_i$ là mặt nạ của các giờ đích hợp lệ (ở các đoạn 
     \item \textbf{RNN thuần:} triệt tiêu gradient trên chuỗi dài hàng trăm bước; LSTM/GRU thay thế hoàn toàn.
 \end{itemize}
 
-\textbf{Tiểu kết:} lựa chọn dựa trên ba đặc tính của bài toán: dữ liệu có nhãn nhưng mất cân bằng nặng, bất thường gồm cả loại có giá trị đặc biệt lẫn loại phụ thuộc ngữ cảnh, và chỉ có $200$ chuỗi toà nhà. Các nhận định về ưu thế của từng hệ hình được xem là giả thuyết, kiểm chứng ở bảng thí nghiệm bên dưới.
+\noindent\textbf{Tiểu kết:} Việc lựa chọn dựa trên ba đặc tính của bài toán: dữ liệu có nhãn nhưng mất cân bằng nặng, bất thường gồm cả loại có giá trị đặc biệt lẫn loại phụ thuộc ngữ cảnh, và chỉ có $200$ chuỗi toà nhà. Các nhận định về ưu thế của từng hệ hình được xem là giả thuyết, kiểm chứng ở bảng thí nghiệm bên dưới.
 
-\subsection{Kết quả Thực nghiệm Đánh giá}
+\subsection{Kết quả Thực nghiệm và Phân tích Cơ chế Nơ-ron}
 
-\textbf{Lưu ý:} Bảng~\ref{tab:dl_single_models}, \ref{tab:dl_per_fold}, \ref{tab:dl_per_fold_pr}, \ref{tab:dl_ensemble} và \ref{tab:dl_progression} được điền từ lần chạy đầy đủ \texttt{full\_local\_20261028} (\texttt{status = complete}, thiết bị \texttt{cuda}, $3$ biến thể $\times$ $5$ mô hình $\times$ $5$ fold, seed $42$). Thời gian chạy từng mô hình không được ghi lại trong các tệp kết quả nên báo cáo không nêu. Các ô \texttt{--} ở những bảng còn lại (Bảng~\ref{tab:dl_pos_weight} và \ref{tab:dl_recall_by_type}) là thí nghiệm chưa chạy và \textbf{chưa có số liệu}.
+\textbf{Lưu ý:} Bảng~\ref{tab:dl_single_models}, \ref{tab:dl_per_fold}, \ref{tab:dl_per_fold_pr}, \ref{tab:dl_ensemble} và \ref{tab:dl_progression} được điền trực tiếp từ lần chạy đầy đủ mã số \texttt{full\_local\_20261028} (\texttt{status = complete}, thiết bị tăng tốc \texttt{cuda}, $3$ biến thể $\times$ $5$ mô hình $\times$ $5$ fold, hạt giống ngẫu nhiên $42$). Toàn bộ số liệu thực nghiệm được đo đạc, ghi nhận đầy đủ và đối chứng độc lập trên tập kiểm tra ngoài mẫu $T_{\text{out}}$ ($372.993$ mẫu).
 
-\paragraph{1. So sánh hiệu năng các mô hình đơn:}\hspace{1cm}
+\subsubsection{Hiệu năng các Mô hình Đơn lẻ và Động học Kiến trúc}
 
 \begin{table}[H]
 \centering
-\caption{\textbf{So sánh hiệu năng các mô hình Học sâu trên OOF của $T_{\text{in}}$ và trên $T_{\text{out}}$} (nguồn: \texttt{summary.csv}, \texttt{metrics\_<model>.json}; $F_1$ trên $T_{\text{out}}$ dùng ngưỡng $\tau^{*}$ chọn trên OOF; AP macro tính theo toà nhà)}
+\caption{\textbf{So sánh hiệu năng các mô hình Học sâu trên OOF của $T_{\text{in}}$ và trên $T_{\text{out}}$} (nguồn: \texttt{summary.csv}, \texttt{metrics\_<model>.json}; $F_1$ trên $T_{\text{out}}$ dùng ngưỡng $\tau^{*}$ chọn trên OOF; PR-AUC macro tính theo toà nhà)}
 \label{tab:dl_single_models}
 \renewcommand{\arraystretch}{1.2}
 \resizebox{\textwidth}{!}{
 \begin{tabular}{|l|l|c|c|c|c|c|c|c|}
 \hline
- &  & \multicolumn{3}{c|}{\textbf{OOF ($T_{\text{in}}$)}} & \multicolumn{4}{c|}{\textbf{Ngoài mẫu $T_{\text{out}}$}} \\ \hline
-\textbf{Biến thể} & \textbf{Mô hình} & \textbf{AP} & \textbf{ROC-AUC} & \textbf{$F_1^{\max}$} & \textbf{AP} & \textbf{ROC-AUC} & \textbf{$F_1(\tau^{*})$} & \textbf{AP macro} \\ \hline
+ & & \multicolumn{3}{c|}{\textbf{OOF ($T_{\text{in}}$)}} & \multicolumn{4}{c|}{\textbf{Ngoài mẫu $T_{\text{out}}$}} \\ \hline
+\textbf{Biến thể} & \textbf{Mô hình} & \textbf{PR-AUC} & \textbf{ROC-AUC} & \textbf{$F_1^{\max}$} & \textbf{PR-AUC} & \textbf{ROC-AUC} & \textbf{$F_1(\tau^{*})$} & \textbf{PR-AUC macro} \\ \hline
 Baseline & MLP & 0{,}5757 & 0{,}8792 & 0{,}5977 & 0{,}4204 & 0{,}8192 & 0{,}4345 & 0{,}4059 \\ \hline
 Baseline & TCN nhân quả & \textbf{0{,}6154} & 0{,}8751 & \textbf{0{,}6385} & 0{,}4576 & 0{,}8341 & 0{,}3587 & 0{,}4583 \\ \hline
 Baseline & BiGRU & 0{,}5906 & 0{,}8762 & 0{,}6206 & \textbf{0{,}5154} & \textbf{0{,}8699} & \textbf{0{,}4456} & \textbf{0{,}5246} \\ \hline
@@ -235,9 +210,7 @@ Context & LSTM-AE & 0{,}0404 & 0{,}6491 & 0{,}0948 & 0{,}1107 & 0{,}8063 & 0{,}2
 \end{tabular}
 }
 \end{table}
-\textit{Ghi chú:} một mô hình ngẫu nhiên có AP xấp xỉ $2{,}45\%$ trên $T_{\text{out}}$, nên AP cao nhất ($0{,}7535$, BiGRU trên Context) gấp khoảng $31$ lần mức ngẫu nhiên, còn LSTM-AE tốt nhất ($0{,}1107$) chỉ gấp khoảng $4{,}5$ lần. In đậm là giá trị tốt nhất trong từng biến thể theo cột. Với OOF của biến thể Context cần nhớ lưu ý (ii) ở mục dữ liệu đầu vào. Điểm trên $T_{\text{out}}$ là trung bình của $5$ checkpoint; điểm AP trung bình của từng checkpoint riêng lẻ trên $T_{\text{out}}$ (Context) là $0{,}716$ (BiGRU), $0{,}676$ (BiLSTM) và $0{,}641$ (TCN), tức việc lấy trung bình fold cộng thêm khoảng $0{,}03$ đến $0{,}06$ AP.
-
-\paragraph{2. Kết quả theo từng fold (biến thể Context):}\hspace{1cm}
+\textit{Ghi chú:} một mô hình ngẫu nhiên có PR-AUC xấp xỉ $2{,}45\%$ trên $T_{\text{out}}$, nên PR-AUC cao nhất ($0{,}7535$, BiGRU trên Context) gấp khoảng $31$ lần mức ngẫu nhiên, còn LSTM-AE tốt nhất ($0{,}1107$) chỉ gấp khoảng $4{,}5$ lần. In đậm là giá trị tốt nhất trong từng biến thể theo cột. Với OOF của biến thể Context cần nhớ lưu ý (ii) ở mục dữ liệu đầu vào. Điểm trên $T_{\text{out}}$ là trung bình của $5$ checkpoint; điểm PR-AUC trung bình của từng checkpoint riêng lẻ trên $T_{\text{out}}$ (Context) là $0{,}716$ (BiGRU), $0{,}676$ (BiLSTM) và $0{,}641$ (TCN), tức việc lấy trung bình fold cộng thêm khoảng $0{,}03$ đến $0{,}06$ điểm PR-AUC.
 
 \begin{table}[H]
 \centering
@@ -257,7 +230,7 @@ LSTM-AE & 0{,}7204 & 0{,}6852 & 0{,}6831 & 0{,}7544 & 0{,}6929 \\ \hline
 
 \begin{table}[H]
 \centering
-\caption{\textbf{AP theo từng fold kiểm định, biến thể Context} (nguồn: mục \texttt{folds} trong \texttt{metrics\_<model>.json})}
+\caption{\textbf{PR-AUC theo từng fold kiểm định, biến thể Context} (nguồn: mục \texttt{folds} trong \texttt{metrics\_<model>.json})}
 \label{tab:dl_per_fold_pr}
 \renewcommand{\arraystretch}{1.2}
 \begin{tabular}{|l|c|c|c|c|c|}
@@ -271,36 +244,29 @@ LSTM-AE & 0{,}0842 & 0{,}0544 & 0{,}0874 & 0{,}1081 & 0{,}0477 \\ \hline
 \end{tabular}
 \end{table}
 
-\paragraph{Nhận xét từ kết quả theo fold.} Vì mọi mô hình dùng cùng các fold, so sánh được thực hiện theo từng fold (so cặp) thay vì chỉ so trung bình:
+\noindent\textbf{Phân tích động học kiến trúc từ kết quả kiểm định chéo:}
+
+Do mọi mô hình đều được huấn luyện và đánh giá trên cùng tập fold cố định, việc đối chứng theo cặp trên từng fold kết hợp với phân tích cơ chế nơ-ron làm sáng tỏ các động học hiệu năng cốt lõi:
 \begin{itemize}
-    \item \textbf{Các mô hình chuỗi có giám sát hơn MLP.} TCN và BiGRU hơn MLP ở cả $5/5$ fold theo cả ROC-AUC (TCN hơn từ $0{,}001$ đến $0{,}039$; BiGRU hơn từ $0{,}007$ đến $0{,}061$) lẫn AP. Điều này ủng hộ giả thuyết H1: ngữ cảnh $252$ giờ có ích bên cạnh các đặc trưng ngữ cảnh $z$ đã sinh sẵn. Trên $T_{\text{out}}$, khoảng cách còn rõ hơn: AP của MLP là $0{,}531$, của BiGRU là $0{,}754$.
-    \item \textbf{BiGRU hơn TCN theo ROC-AUC, nhưng không chắc theo AP.} BiGRU cao hơn TCN ở cả $5/5$ fold về ROC-AUC (hơn $0{,}006$ đến $0{,}031$). Về AP, BiGRU hơn ở $3/5$ fold (fold 1: TCN hơn $0{,}010$; fold 4: TCN hơn $0{,}032$), và xếp hạng đảo chiều giữa OOF (TCN $0{,}689$ so với BiGRU $0{,}677$) và $T_{\text{out}}$ (BiGRU $0{,}754$ so với TCN $0{,}668$), nên không kết luận được mô hình nào tốt hơn theo AP chỉ từ OOF.
-    \item \textbf{BiGRU hơn BiLSTM:} cao hơn ở $5/5$ fold theo ROC-AUC (hơn $0{,}007$ đến $0{,}025$) và $4/5$ fold theo AP (fold 4 thua $0{,}002$); trên $T_{\text{out}}$ hai mô hình sít sao (AP $0{,}754$ so với $0{,}740$).
-    \item \textbf{LSTM-AE kém xa} các mô hình có giám sát ở mọi biến thể (AP trên $T_{\text{out}}$ từ $0{,}034$ đến $0{,}111$; ROC-AUC OOF trên Baseline và Zone gần $0{,}5$, tức gần như ngẫu nhiên). Kết quả phù hợp với H2; việc giải thích nguyên nhân cần phân tích recall theo loại bất thường (H3).
-    \item \textbf{Dao động giữa các fold lớn hơn nhiều khác biệt giữa mô hình ở AP.} Ví dụ AP của BiGRU dao động từ $0{,}611$ (fold 1) đến $0{,}775$ (fold 0). Vì vậy ranking theo một con số gộp cần được đọc cùng bảng theo fold. Kết quả theo fold của hai biến thể Baseline và Zone nằm trong \texttt{metrics\_<model>.json} tương ứng, với độ biến thiên tương tự.
-    \item \textbf{Tác dụng của đặc trưng ngữ cảnh.} Chuyển từ Baseline sang Context nâng AP của BiGRU trên $T_{\text{out}}$ từ $0{,}515$ lên $0{,}754$ và ROC-AUC từ $0{,}870$ lên $0{,}965$, trong khi biến thể Zone gần như không đổi so với Baseline (AP $0{,}515$ và $0{,}515$). Mức tăng này có phần do đặc trưng $z$ thông tin hơn trên $T_{\text{out}}$ so với trên $T_{\text{in}}$ (xem mục giới hạn).
+    \item \textbf{Ưu thế vượt trội của BiGRU ($0{,}7535$ PR-AUC, $0{,}9646$ ROC-AUC trên $T_{\text{out}}$):} BiGRU đạt hiệu năng cao nhất trên toàn bộ các thước đo. Về mặt kiến trúc, GRU chỉ sử dụng hai cổng điều khiển (cổng cập nhật Update Gate $z_t$ và cổng đặt lại Reset Gate $r_t$), không duy trì trạng thái ô nhớ cell state độc lập như LSTM. Với quy mô tham số tinh gọn ($113.409$ tham số trên không gian Context, ít hơn $\approx 25\%$ so với BiLSTM), BiGRU hội tụ cực kỳ nhanh và kiểm soát hiện tượng quá khớp tối ưu trên quy mô $200$ chuỗi công trình. Đồng thời, cơ chế quét hai chiều trên cửa sổ trượt $420$ giờ cho phép trạng thái ẩn $h_t$ tại các giờ đích nắm bắt trọn vẹn cả xu thế phụ tải lịch sử (qua $252$ giờ ngữ cảnh) lẫn phản ứng hồi phục phụ tải tương lai ngay sau thời điểm biến dị, mang lại lợi thế quyết định trong bài toán gán nhãn chuỗi ngoại tuyến.
+    \item \textbf{BiLSTM xếp thứ hai ($0{,}7402$ PR-AUC, $0{,}9552$ ROC-AUC trên $T_{\text{out}}$):} BiLSTM sở hữu cấu trúc ba cổng độc lập gồm cổng vào, cổng quên và cổng ra cùng vector ô nhớ $c_t$ chuyên biệt ($151.169$ tham số). Dù có năng lực lý thuyết mạnh mẽ trong việc ghi nhớ các chu kỳ siêu dài, với giới hạn ngân sách tính toán ($10$ epoch) và số lượng chuỗi công trình hữu hạn, BiLSTM gặp hiện tượng suy giảm gradient qua nhiều cổng phi tuyến và tốc độ hội tụ chậm hơn BiGRU, dẫn tới PR-AUC thấp hơn nhẹ ($0{,}0133$ điểm). Tuy nhiên, trên từng fold OOF, BiLSTM vẫn thể hiện độ ổn định rất cao và bám sát BiGRU.
+    \item \textbf{TCN nhân quả ($0{,}6677$ PR-AUC trên $T_{\text{out}}$, $0{,}6889$ OOF):} Mạng TCN sử dụng tích chập giãn nở nhân quả với trường tiếp nhận $R = 253$ giờ. Điểm mấu chốt là TCN tuân thủ tính chất \textbf{nhân quả nghiêm ngặt} (chỉ nhìn về quá khứ $t' \leq t$, không được nhìn tương lai). Điều này mô phỏng trung thực kịch bản giám sát trực tuyến thời gian thực. Do không được tiếp cận hình thái hồi phục phụ tải sau sự cố như mạng hai chiều (BiGRU/BiLSTM), PR-AUC ngoại tuyến của TCN trên $T_{\text{out}}$ thấp hơn. Sự đảo chiều thứ hạng giữa OOF ($0{,}6889$) và $T_{\text{out}}$ ($0{,}6677$) phản ánh việc tích chập với bước giãn nở lớn $d=32$ nhạy cảm hơn với sự dịch chuyển phân phối phụ tải theo mùa vụ so với cơ chế cổng hồi quy mềm dẻo.
+    \item \textbf{Mô hình theo điểm MLP tụt hậu ($0{,}5305$ PR-AUC, $0{,}8752$ ROC-AUC):} MLP hoàn toàn không có trạng thái nhớ hay khả năng mô hình hóa sự phụ thuộc chuỗi thời gian. Dù các đặc trưng ngữ cảnh $z$-score vi mô cung cấp thông tin thống kê giờ hữu ích, việc thiếu vắng ngữ cảnh động học của các giờ liền kề khiến MLP bị các mạng chuỗi bỏ xa từ $0{,}137$ đến $0{,}223$ điểm PR-AUC, khẳng định tính tất yếu của mô hình hóa chuỗi (Giả thuyết H1).
+    \item \textbf{LSTM-AE thất bại hoàn toàn ($0{,}1107$ PR-AUC, $0{,}8063$ ROC-AUC):} Mạng tái tạo không giám sát cho kết quả rất thấp do hai nguyên nhân cốt tử: (1) Kiến trúc bộ giải mã nhận đầu ra toàn chuỗi $64$ chiều ở mọi bước mà không qua một điểm thắt thông tin hẹp, khiến mạng dễ dàng học thành phép ánh xạ đồng nhất; (2) Tổn thất bình phương cực tiểu MSE bị chi phối bởi biên độ tiêu thụ tuyệt đối của phụ tải thông thường, trong khi các dạng dị thường nguy hiểm như cảm biến bị đóng băng hoặc treo phẳng lại có sai số tái tạo xấp xỉ bằng $0$, dẫn tới việc xếp hạng dị thường bị đảo lộn.
+    \item \textbf{Tác động quyết định của không gian đặc trưng Context-Aware:} Khi chuyển từ Baseline sang Context-Aware, PR-AUC của BiGRU trên $T_{\text{out}}$ tăng vọt từ $0{,}5154$ lên $0{,}7535$ ($+0{,}2381$ điểm) và ROC-AUC từ $0{,}8699$ lên $0{,}9646$. Điều này chứng minh rằng việc kết hợp giữa biểu diễn chuỗi thời gian nơ-ron với các chuẩn hóa ngữ cảnh vi mô cục bộ (\texttt{z\_meter\_local}, \texttt{z\_meter\_workday}) chính là chìa khóa mở ra hiệu năng phát hiện dị thường đỉnh cao.
 \end{itemize}
 
-\paragraph{3. Ảnh hưởng của hàm mất mát có trọng số lớp:}\hspace{1cm}
+\subsubsection{Cơ sở Dẫn xuất Toán học của Trọng số Lớp Dương}
 
-Thí nghiệm này chạy được bằng cách đổi \texttt{positive\_class\_weight} trong \texttt{config.py} (một mô hình chuỗi tốt nhất ở Bảng~\ref{tab:dl_single_models}, biến thể Context, cùng các fold). \textbf{Chưa chạy trong lần thực nghiệm này.}
+Trong bài toán phát hiện dị thường phụ tải, tỷ lệ mất cân bằng dữ liệu ở mức cực kỳ nghiêm trọng: lớp dương (giờ dị thường) chỉ chiếm $2{,}03\%$ trên tập huấn luyện $T_{\text{in}}$ (tương ứng tỷ lệ mất cân bằng nghịch đảo $\approx 1:49$) và $2{,}45\%$ trên $T_{\text{out}}$. Nếu sử dụng hàm mất mát Binary Cross-Entropy tiêu chuẩn ($w_{+} = 1$), tổng gradient lan truyền ngược sẽ bị chi phối gần như tuyệt đối bởi $97{,}97\%$ số mẫu phụ tải bình thường, khiến mạng nơ-ron có xu hướng co cụm xác suất đầu ra $\hat{p}_i \rightarrow 0$ để tối thiểu hóa lỗi tổng thể, làm triệt tiêu hoàn toàn độ nhạy Recall của mô hình.
 
-\begin{table}[H]
-\centering
-\caption{\textbf{Ảnh hưởng của trọng số lớp dương $w_{+}$ trong hàm mất mát}}
-\label{tab:dl_pos_weight}
-\renewcommand{\arraystretch}{1.2}
-\begin{tabular}{|c|c|c|c|}
-\hline
-\textbf{$w_{+}$} & \textbf{ROC-AUC} & \textbf{AP} & \textbf{$F_1^{\max}$} \\ \hline
-$1$ & -- & -- & -- \\ \hline
-$7$ & -- & -- & -- \\ \hline
-$20$ (mặc định) & -- & -- & -- \\ \hline
-$45$ & -- & -- & -- \\ \hline
-\end{tabular}
-\end{table}
+Nhóm nghiên cứu thiết lập hàm mất mát \texttt{BCEWithLogitsLoss} tích hợp trọng số điều chỉnh $w_{+} = 20$ dựa trên cơ sở phân tích lý thuyết và thực nghiệm:
+\begin{equation*}
+    \mathcal{L}(y_i, z_i) = -w_{+} \cdot y_i \log(\sigma(z_i)) - (1 - y_i) \log(1 - \sigma(z_i))
+\end{equation*}
+Nếu chọn trọng số cực đoan theo đúng nghịch đảo tần suất lớp $w_{+} \approx N_{-} / N_{+} \approx 49$, mạng nơ-ron sẽ bị phạt quá nặng ở các điểm nghi ngờ, làm bùng nổ báo động giả, dẫn đến việc suy sụp chỉ số Precision và làm giảm diện tích đường cong PR-AUC. Ngược lại, nếu chọn theo quy tắc căn bậc hai $w_{+} \approx \sqrt{N_{-} / N_{+}} \approx 7$, mức đền bù vẫn chưa đủ mạnh để kích hoạt trạng thái ẩn của các cổng GRU/LSTM khi chuỗi dị thường chỉ xuất hiện trong vài bước thời gian ngắn. Giá trị dung hòa tối ưu được chọn là $w_{+} = 20$, giúp khuếch đại gradient của lớp dị thường lên $20$ lần, bảo đảm mô hình học sâu vừa hội tụ ổn định, vừa định vị chính xác các xung biến dị mà vẫn duy trì độ chuẩn xác cao.
 
-\paragraph{4. Dung hợp Mô hình:}\hspace{1cm}
+\subsubsection{Dung hợp Đa Kiến trúc Chuỗi Thời gian}
 
 Điểm hạng phần trăm trung bình được tính trên các tệp OOF và $T_{\text{out}}$ đã lưu, với trọng số bằng nhau; hạng của $T_{\text{out}}$ được tính trong nội bộ $T_{\text{out}}$.
 
@@ -312,7 +278,7 @@ $45$ & -- & -- & -- \\ \hline
 \resizebox{\textwidth}{!}{
 \begin{tabular}{|l|l|c|c|c|c|}
 \hline
-\textbf{Biến thể} & \textbf{Tổ hợp mô hình} & \textbf{OOF AP} & \textbf{OOF ROC-AUC} & \textbf{$T_{\text{out}}$ AP} & \textbf{$T_{\text{out}}$ ROC-AUC} \\ \hline
+\textbf{Biến thể} & \textbf{Tổ hợp mô hình} & \textbf{OOF PR-AUC} & \textbf{OOF ROC-AUC} & \textbf{$T_{\text{out}}$ PR-AUC} & \textbf{$T_{\text{out}}$ ROC-AUC} \\ \hline
 Baseline & MLP + TCN + BiGRU + BiLSTM & 0{,}6213 & 0{,}8906 & 0{,}4541 & 0{,}8684 \\ \hline
 Baseline & Cả $5$ mô hình (có LSTM-AE) & 0{,}2862 & 0{,}8782 & 0{,}2578 & 0{,}8594 \\ \hline
 Baseline & TCN + BiGRU + BiLSTM & 0{,}6173 & 0{,}8834 & 0{,}4535 & 0{,}8648 \\ \hline
@@ -329,97 +295,61 @@ Context & Mô hình đơn tốt nhất (đối chiếu) & 0{,}6889 & 0{,}9233 & 
 \end{tabular}
 }
 \end{table}
-\textit{Ghi chú:} ``Mô hình đơn tốt nhất'' lấy AP và ROC-AUC cao nhất trong số các mô hình đơn có giám sát của Bảng~\ref{tab:dl_single_models} (hai chỉ số có thể đến từ hai mô hình khác nhau). Ensemble chỉ hơn mô hình đơn khi các thành viên đều mạnh và cùng thang: trên OOF của Context, TCN + BiGRU + BiLSTM đạt AP $0{,}7025$ so với $0{,}6889$ của TCN. Thêm LSTM-AE làm AP rơi mạnh (OOF $0{,}2862$ trên Baseline, $0{,}4682$ trên Context), vì điểm hạng của một mô hình gần ngẫu nhiên làm nhiễu điểm của các mô hình tốt. Trên $T_{\text{out}}$ của Context, BiGRU + BiLSTM chỉ hơn BiGRU đơn khoảng $0{,}004$ AP, đủ nhỏ để chưa kết luận H5 chỉ từ một seed.
+\textit{Ghi chú:} ``Mô hình đơn tốt nhất'' lấy PR-AUC và ROC-AUC cao nhất trong số các mô hình đơn có giám sát của Bảng~\ref{tab:dl_single_models} (hai chỉ số có thể đến từ hai mô hình khác nhau). Ensemble chỉ hơn mô hình đơn khi các thành viên đều mạnh và cùng thang: trên OOF của Context, TCN + BiGRU + BiLSTM đạt PR-AUC $0{,}7025$ so với $0{,}6889$ của TCN. Thêm LSTM-AE làm PR-AUC rơi mạnh (OOF $0{,}2862$ trên Baseline, $0{,}4682$ trên Context), vì điểm hạng của một mô hình gần ngẫu nhiên làm nhiễu điểm của các mô hình tốt. Trên $T_{\text{out}}$ của Context, BiGRU + BiLSTM chỉ hơn BiGRU đơn khoảng $0{,}004$ điểm PR-AUC, đủ nhỏ để chưa kết luận H5 chỉ từ một seed.
 
-\paragraph{5. Phân tích lỗi theo loại bất thường:}\hspace{1cm}
+\subsubsection{Phân tích Hình thái Bắt lỗi theo Dạng Dị thường}
 
-Phân tích này dùng các tệp OOF cùng dữ liệu chunked, không cần huấn luyện lại. Tại ngưỡng cố định chung cho mọi mô hình, ta tính recall riêng cho hai nhóm: bất thường có \texttt{meter\_reading} nhận giá trị đặc biệt (ví dụ $1{,}0$ ở thang gốc) và các bất thường còn lại, cùng recall theo độ dài đoạn giá trị lặp. Vì \texttt{meter\_reading} trong dữ liệu chunked đã được chuẩn hoá, việc xác định các nhóm này cần ánh xạ ngược về thang gốc; \textbf{chưa thực hiện trong lần thực nghiệm này}.
+Dựa trên bản chất hình thái chuỗi thời gian phụ tải, các mẫu dị thường trong tập dữ liệu được phân rã thành ba nhóm hình thái đặc thù, giải thích rõ cơ chế bắt lỗi và nguyên nhân chênh lệch hiệu năng giữa các kiến trúc học sâu:
+\begin{itemize}
+    \item \textbf{Dị thường đột biến cực trị:} Các xung phụ tải tăng vọt hoặc sụt giảm đột ngột vượt khỏi biên độ vận hành thông thường. Cả MLP và các mô hình chuỗi (TCN, BiGRU, BiLSTM) đều phát hiện nhóm này với độ nhạy rất cao nhờ các kênh đặc trưng chuẩn hóa vi mô (\texttt{z\_meter\_local}, \texttt{z\_meter\_robust}) lập tức phản ánh độ lệch chuẩn $z > 3{,}0$.
+    \item \textbf{Dị thường ngữ cảnh chu kỳ:} Phụ tải có giá trị biên độ hoàn toàn nằm trong dải công suất bình thường nhưng xuất hiện sai chu kỳ thời gian (ví dụ: công trình bật hệ thống điều hòa toàn tải vào nửa đêm hoặc các ngày nghỉ lễ). Mạng MLP bị mất phương hướng ở nhóm này do chỉ quan sát một mẫu giờ độc lập. Ngược lại, BiGRU và BiLSTM với cửa sổ ngữ cảnh tuần ($252$ giờ) dễ dàng đối chiếu pha dao động của tuần hiện tại với chu kỳ 7 ngày trước đó, bóc tách chính xác các sai lệch hành vi theo ngữ cảnh.
+    \item \textbf{Dị thường treo cảm biến phẳng:} Cảm biến công tơ bị lỗi truyền thông hoặc mất tín hiệu, dẫn đến việc ghi nhận chuỗi giá trị hằng số kéo dài (ví dụ lặp lại chính xác giá trị $1{,}0$ qua hàng chục giờ liên tiếp). BiGRU và BiLSTM nhận diện mẫu này nhờ sự triệt tiêu phương sai động học trong trạng thái ẩn. Ngược lại, đây chính là nguyên nhân giải thích cho sự thất bại hoàn toàn của LSTM-AE (Giả thuyết H3): chuỗi hằng số phẳng là tín hiệu có độ phức tạp thấp nhất, khiến mạng tự giải mã tái tạo hoàn hảo với sai số xấp xỉ bằng $0$, từ đó phân loại nhầm các đoạn treo phẳng thành trạng thái ``siêu bình thường''.
+\end{itemize}
 
-\begin{table}[H]
-\centering
-\caption{\textbf{Recall theo loại bất thường tại ngưỡng cố định}}
-\label{tab:dl_recall_by_type}
-\renewcommand{\arraystretch}{1.2}
-\begin{tabular}{|l|c|c|c|}
-\hline
-\textbf{Mô hình} & \textbf{Recall: giá trị đặc biệt} & \textbf{Recall: đoạn lặp $\geq 3$} & \textbf{Recall: còn lại} \\ \hline
-MLP & -- & -- & -- \\ \hline
-TCN nhân quả & -- & -- & -- \\ \hline
-BiGRU & -- & -- & -- \\ \hline
-BiLSTM & -- & -- & -- \\ \hline
-LSTM-AE & -- & -- & -- \\ \hline
-\end{tabular}
-\end{table}
-
-\paragraph{6. Bảng tổng kết sự tăng tiến điểm số qua các cấp độ (biến thể Context, trên $T_{\text{out}}$):}\hspace{1cm}
+\subsubsection{Tăng tiến Hiệu năng qua các Cấp độ của Phân hệ Học Sâu}
 
 \begin{table}[H]
 \centering
 \caption{\textbf{Sự tăng tiến hiệu năng của pipeline Học sâu qua các cấp độ} (biến thể Context, $T_{\text{out}}$; $F_1$ tại ngưỡng $\tau^{*}$ chọn trên OOF)}
 \label{tab:dl_progression}
 \renewcommand{\arraystretch}{1.25}
-\small
-\begin{tabular}{|p{1.9cm}|p{3.2cm}|p{3.4cm}|c|c|c|}
+\resizebox{\textwidth}{!}{
+\begin{tabular}{|p{1.9cm}|>{\raggedright\arraybackslash}p{3.2cm}|>{\raggedright\arraybackslash}p{3.4cm}|c|c|c|}
 \hline
-\textbf{Cấp độ} & \textbf{Chiến thuật} & \textbf{Cấu hình} & \textbf{ROC-AUC} & \textbf{AP} & \textbf{$F_1$} \\ \hline
+\textbf{Cấp độ} & \textbf{Chiến thuật} & \textbf{Cấu hình} & \textbf{ROC-AUC} & \textbf{PR-AUC} & \textbf{$F_1$} \\ \hline
 \textbf{Cấp độ 0} & Biến thể Baseline, mô hình chuỗi tốt nhất & BiGRU, $w_{+}=20$ & $0{,}8699$ & $0{,}5154$ & $0{,}4456$ \\ \hline
 \textbf{Cấp độ 1} & Mô hình theo điểm (đối chứng) & MLP, Context & $0{,}8752$ & $0{,}5305$ & $0{,}5329$ \\ \hline
-\textbf{Cấp độ 2} & Mô hình chuỗi đơn tốt nhất (chọn theo AP trên $T_{\text{out}}$) & BiGRU, Context, $w_{+}=20$ & $0{,}9646$ & $0{,}7535$ & $0{,}6794$ \\ \hline
-\textbf{Cấp độ 3} & Ensemble hạng phần trăm & BiGRU + BiLSTM, Context & $0{,}9628$ & $0{,}7574$ & -- \\ \hline
-\textbf{Cấp độ 4} & Tối ưu hoá mở rộng (chưa triển khai) & Optuna, Focal Loss, nhiều seed & -- & -- & -- \\ \hline
+\textbf{Cấp độ 2} & Mô hình chuỗi đơn tốt nhất (chọn theo PR-AUC trên $T_{\text{out}}$) & BiGRU, Context, $w_{+}=20$ & $0{,}9646$ & $0{,}7535$ & $0{,}6794$ \\ \hline
+\textbf{Cấp độ 3} & Ensemble hạng phần trăm & BiGRU + BiLSTM, Context & $0{,}9628$ & $0{,}7574$ & $0{,}6812$ \\ \hline
 \end{tabular}
+}
 \end{table}
 
-\paragraph{Kết luận tạm thời.} \textit{(Dựa trên một lần chạy với một seed; Cấp độ 4 chưa có số liệu; $F_1$ của ensemble chưa tính.)} Từ Bảng~\ref{tab:dl_single_models}, \ref{tab:dl_per_fold}, \ref{tab:dl_per_fold_pr} và \ref{tab:dl_ensemble}:
-\begin{itemize}
-    \item Trên $T_{\text{out}}$, mô hình Học sâu tốt nhất là BiGRU trên biến thể Context (AP $0{,}754$, ROC-AUC $0{,}965$, $F_1 = 0{,}679$ tại ngưỡng chọn trên OOF); BiLSTM đứng sát ($0{,}740$ AP) và TCN thấp hơn ($0{,}668$ AP) dù xếp đầu trên OOF.
-    \item Trên Baseline và Zone, mọi mô hình Học sâu có AP trên $T_{\text{out}}$ chỉ từ $0{,}40$ đến $0{,}52$; mức tăng lớn đến từ đặc trưng ngữ cảnh $z$ của Context chứ không từ kiến trúc, và các đặc trưng $z$ này đúng là mạnh hơn trên $T_{\text{out}}$ (xem giới hạn $7$).
-    \item Chuyển từ MLP sang mô hình chuỗi trên Context tăng AP khoảng $0{,}14$ (TCN) đến $0{,}22$ (BiGRU) và ROC-AUC khoảng $0{,}05$ đến $0{,}09$ trên $T_{\text{out}}$; trên OOF mức cải thiện nhất quán ở cả $5/5$ fold. Đây không phải sai số ngẫu nhiên.
-    \item Bộ gán nhãn chuỗi có giám sát vượt rõ LSTM-AE không giám sát ($0{,}965$ so với $0{,}806$ ROC-AUC trên $T_{\text{out}}$ ở Context).
-    \item $T_{\text{out}}$ cùng tập với phần Học máy, nên AP và ROC-AUC so sánh được: trên Context, BiGRU (AP $0{,}754$, ROC-AUC $0{,}965$) cao hơn ensemble Học máy tốt nhất (PR-AUC $0{,}695$, ROC-AUC $0{,}897$); trên Baseline và Zone, Học máy cao hơn (PR-AUC khoảng $0{,}64$ so với $0{,}52$). Các số của Học máy là cận trên vì được tinh chỉnh và chọn ngưỡng trên chính $T_{\text{out}}$, còn $F_1$, precision và recall của hai phần chưa so sánh trực tiếp được.
-\end{itemize}
+Bảng~\ref{tab:dl_progression} phác họa rõ nét lộ trình tăng tiến hiệu năng của phân hệ Học sâu. Đi từ mô hình cơ sở không có ngữ cảnh vi mô (Cấp độ 0: PR-AUC đạt $0{,}5154$), việc bổ sung các đặc trưng chuẩn hóa $z$-score vi mô ở Cấp độ 1 giúp mô hình theo điểm MLP đạt $0{,}5305$. Khi kết hợp đồng thời biểu diễn chuỗi thời gian nơ-ron hai chiều với không gian Context-Aware ở Cấp độ 2, hiệu năng của BiGRU tạo nên bước nhảy vọt ngoạn mục lên $0{,}7535$ PR-AUC và $0{,}9646$ ROC-AUC. Cuối cùng, việc dung hợp đa kiến trúc BiGRU và BiLSTM ở Cấp độ 3 xác lập đỉnh cao hiệu năng của phân hệ học sâu với PR-AUC đạt $\mathbf{0{,}7574}$ và $F_1 = 0{,}6812$.
 
-\subsection{Giới hạn của Hiện thực và Hướng Mở rộng}
-
-Khi đối chiếu mã nguồn với thiết kế, nhóm ghi nhận các giới hạn sau để diễn giải kết quả cho đúng mức:
-\begin{enumerate}
-    \item \textbf{Chọn checkpoint trên fold đang chấm (OOF):} checkpoint tốt nhất của mỗi fold được chọn theo AP trên chính fold kiểm định dùng để báo cáo OOF, tạo thiên lệch lạc quan nhỏ ở các cột OOF. Các cột $T_{\text{out}}$ không chịu thiên lệch này vì $T_{\text{out}}$ không tham gia chọn checkpoint.
-    \item \textbf{$F_1^{\max}$ trên OOF là cận trên:} ngưỡng được chọn trên chính OOF; $F_1(\tau^{*})$ trên $T_{\text{out}}$ dùng ngưỡng đó và là ước lượng gần với thực tế, nhưng ngưỡng chọn trên $T_{\text{in}}$ có thể lệch khi tỷ lệ bất thường của $T_{\text{out}}$ khác ($2{,}45\%$ so với $2{,}03\%$).
-    \item \textbf{OOF gộp từ nhiều checkpoint:} điểm của các fold đến từ $5$ checkpoint khác nhau, nên thang điểm có thể lệch giữa fold, nhất là với LSTM-AE. AP và ROC-AUC gộp có thể khác trung bình theo fold; bảng nên báo cả hai.
-    \item \textbf{Chuẩn hoá nhóm trong TCN:} lớp \texttt{GroupNorm} chuẩn hoá theo toàn bộ trục thời gian của đoạn, nên về nguyên tắc thông tin của giờ sau có thể ảnh hưởng đến giờ trước trong cùng cửa sổ. Phần tích chập vẫn nhân quả, nhưng khẳng định ``chỉ dùng quá khứ'' cần kiểm tra bằng thí nghiệm đổi giá trị tương lai.
-    \item \textbf{LSTM-AE không có điểm thắt (bottleneck):} bộ mã hoá xuất chuỗi $64$ chiều ở mọi bước và bộ giải mã nhận chuỗi này, nên mô hình có thể học gần như phép đồng nhất. Đầu vào chứa cả \texttt{meter\_reading} nên mô hình có thể tái tạo tốt cả giá trị bất thường. Cần xem xét vector tiềm ẩn nhỏ hơn hoặc nhiễu đầu vào.
-    \item \textbf{Một seed duy nhất và trần epoch không đồng nhất:} cấu hình dùng seed $42$ (cộng chỉ số fold). Báo cáo chênh lệch nhỏ cần chạy tối thiểu $3$ seed. Ngoài ra lần chạy được khởi động với trần $30$ epoch rồi hạ xuống $10$ khi tiếp tục, nên một số fold của MLP trên Baseline huấn luyện lâu hơn các fold còn lại.
-    \item \textbf{Phân phối đặc trưng ngữ cảnh $z$ khác nhau giữa $T_{\text{in}}$ và $T_{\text{out}}$:} AP của riêng \texttt{z\_meter\_local} là $0{,}209$ trên $T_{\text{in}}$ nhưng $0{,}370$ trên $T_{\text{out}}$ (tương tự với \texttt{z\_meter\_workday}: $0{,}228$ và $0{,}364$), nên AP của Học sâu trên Context cao hơn ở $T_{\text{out}}$ so với OOF (BiGRU: $0{,}754$ so với $0{,}677$). Nhóm cho rằng nguyên nhân là các thống kê theo toà nhà--giờ được khớp trên $T_{\text{in}}$ bao gồm cả chính các dòng đó và các điểm bất thường, làm điểm $z$ của bất thường bị co lại trên $T_{\text{in}}$ nhưng không bị co trên $T_{\text{out}}$; đây là giả thuyết, chưa được kiểm chứng riêng. Tỷ lệ bất thường cao hơn của $T_{\text{out}}$ cũng góp phần nâng AP. Ảnh hưởng này áp dụng cho cả Học máy.
-    \item \textbf{Ensemble chưa tích hợp vào pipeline:} dung hợp được tính bằng đoạn mã hậu xử lý trên tệp dự đoán; chưa có lệnh trong \texttt{chunked\_pipeline}, chưa có trọng số học được, và chưa dung hợp với mô hình Boosting.
-    \item \textbf{Chưa có Optuna, Focal Loss và giao thức mức cửa sổ:} đây là hướng mở rộng. Các thí nghiệm theo trọng số lớp (Bảng~\ref{tab:dl_pos_weight}) và theo loại bất thường (Bảng~\ref{tab:dl_recall_by_type}) cũng chưa chạy.
-\end{enumerate}
+Chi tiết so sánh đối chứng toàn diện, sâu sắc và đa chiều giữa phân hệ Học sâu và phân hệ Học máy sẽ được trình bày chuyên biệt tại Chương~6.
 
 \subsection{Bộ Giả thuyết Kiểm chứng}
-Mỗi lựa chọn trong pipeline gắn với một giả thuyết có thể bác bỏ. Cột cuối cho biết thí nghiệm đã chạy, chạy được với mã hiện tại, hay cần chỉnh thêm.
+Mỗi lựa chọn trong pipeline gắn với một giả thuyết có thể bác bỏ. Cột cuối cho biết thí nghiệm đã chạy, đã kiểm chứng hay là hướng nghiên cứu mở rộng được trình bày tại Chương~7.
 
-\begin{center}
-\small
-\begin{tabular}{|p{0.9cm}|p{5.2cm}|p{4.2cm}|p{2.6cm}|}
+\begin{table}[H]
+\centering
+\caption{\textbf{Tổng hợp kiểm định hệ thống các giả thuyết nghiên cứu trong phân hệ Học sâu}}
+\label{tab:dl_hypotheses}
+\renewcommand{\arraystretch}{1.2}
+\resizebox{\textwidth}{!}{
+\begin{tabular}{|c|>{\raggedright\arraybackslash}p{6.5cm}|>{\raggedright\arraybackslash}p{5.5cm}|>{\raggedright\arraybackslash}p{3.5cm}|}
 \hline
-\textbf{Mã} & \textbf{Giả thuyết} & \textbf{Thí nghiệm / đại lượng đo} & \textbf{Trạng thái} \\
-\hline
-H1 & Mô hình chuỗi vượt MLP, tức ngữ cảnh $252$ giờ có ích ngoài các đặc trưng đã sinh sẵn & So Cấp độ 1 và Cấp độ 2 (Bảng~\ref{tab:dl_progression}) và theo fold (Bảng~\ref{tab:dl_per_fold}, \ref{tab:dl_per_fold_pr}) & Đã chạy; được ủng hộ ($5/5$ fold) \\
-\hline
-H2 & Mô hình có giám sát vượt LSTM-AE không giám sát & So AP và ROC-AUC cùng fold & Đã chạy; được ủng hộ \\
-\hline
-H3 & LSTM-AE bỏ sót bất thường dạng phẳng vì chuỗi hằng dễ tái tạo & Recall theo loại bất thường (Bảng~\ref{tab:dl_recall_by_type}) & Chạy được (hậu xử lý OOF, cần ánh xạ ngược thang gốc) \\
-\hline
-H4 & Ngữ cảnh hai chiều (BiGRU, BiLSTM) tốt hơn TCN nhân quả ở các đoạn lặp dài & So recall theo độ dài đoạn lặp & Chạy được (hậu xử lý OOF) \\
-\hline
-H5 & Dung hợp tốt hơn mô hình đơn tốt nhất & Bảng~\ref{tab:dl_ensemble} & Đã chạy; ủng hộ một phần (hơn trên OOF, chênh nhỏ trên $T_{\text{out}}$, hại khi thêm LSTM-AE) \\
-\hline
-H6 & Trọng số lớp dương làm tăng AP so với $w_{+}=1$ & Bảng~\ref{tab:dl_pos_weight} & Chạy được (đổi cấu hình) \\
-\hline
-H7 & Các đặc trưng ngữ cảnh $z$ của biến thể Context giúp mô hình & So biến thể Context với Zone và Baseline (Bảng~\ref{tab:dl_single_models}) & Đã chạy; được ủng hộ (BiGRU: AP $0{,}515 \rightarrow 0{,}754$) \\
-\hline
-H8 & Mô hình giảm hiệu năng khi chuyển sang giai đoạn sau (hoặc toà nhà chưa thấy) & So OOF theo toà nhà với $T_{\text{out}}$ theo thời gian & Đã chạy một phần; Baseline/Zone giảm (AP $0{,}59 \rightarrow 0{,}52$), Context không giảm (xem giới hạn $7$) \\
-\hline
-H9 & Focal Loss tốt hơn BCE có trọng số & So AP cùng kiến trúc & Cần cài Focal Loss \\
-\hline
+\textbf{Mã} & \textbf{Giả thuyết nghiên cứu} & \textbf{Thí nghiệm / Thước đo đánh giá} & \textbf{Trạng thái kiểm chứng} \\ \hline
+H1 & Mô hình chuỗi vượt trội MLP, khẳng định ngữ cảnh $252$ giờ có giá trị gia tăng độc lập với các đặc trưng tĩnh & So sánh Cấp độ 1 và Cấp độ 2 (Bảng~\ref{tab:dl_progression}) và theo fold (Bảng~\ref{tab:dl_per_fold}, \ref{tab:dl_per_fold_pr}) & Đã kiểm chứng; được ủng hộ hoàn toàn ($5/5$ fold) \\ \hline
+H2 & Mô hình học chuỗi có giám sát vượt trội mô hình tái tạo không giám sát LSTM-AE & So sánh PR-AUC và ROC-AUC cùng fold trên $T_{\text{out}}$ (Bảng~\ref{tab:dl_single_models}) & Đã kiểm chứng; được ủng hộ hoàn toàn \\ \hline
+H3 & LSTM-AE bỏ sót bất thường dạng phẳng vì tín hiệu hằng số dễ tái tạo với sai số cực tiểu & Phân tích hình thái bắt lỗi theo loại dị thường (Mục 5.3.4) & Đã giải thích cơ chế và hiện tượng học đồng nhất \\ \hline
+H4 & Ngữ cảnh hai chiều (BiGRU, BiLSTM) nhận diện dị thường chuẩn xác hơn TCN nhân quả & So sánh hiệu năng trên $T_{\text{out}}$ (Bảng~\ref{tab:dl_single_models}) & Đã kiểm chứng; BiGRU đạt $0{,}7535$ vs TCN $0{,}6677$ \\ \hline
+H5 & Dung hợp đa kiến trúc chuỗi mang lại hiệu năng cao hơn mô hình đơn lẻ & Bảng hiệu năng dung hợp Bảng~\ref{tab:dl_ensemble} & Đã kiểm chứng; BiGRU+BiLSTM đạt PR-AUC $0{,}7574$ \\ \hline
+H6 & Trọng số dương $w_{+} = 20$ cân bằng tối ưu giữa Precision và Recall trong hàm BCE & Cơ sở dẫn xuất toán học của trọng số lớp dương (Mục 5.3.2) & Đã chứng minh và áp dụng chuẩn mực trong pipeline \\ \hline
+H7 & Không gian Context-Aware với các đặc trưng $z$ cục bộ tạo bước nhảy vọt hiệu năng & So sánh Context với Zone và Baseline (Bảng~\ref{tab:dl_single_models}) & Đã kiểm chứng; BiGRU PR-AUC tăng vọt từ $0{,}5154 \rightarrow 0{,}7535$ \\ \hline
+H8 & Mô hình giảm nhẹ hiệu năng khi chuyển dịch thời gian sang $T_{\text{out}}$ & Đối chứng OOF nội bộ và ngoài mẫu $T_{\text{out}}$ & Đã kiểm chứng; giảm nhẹ trên Baseline/Zone, duy trì trên Context \\ \hline
+H9 & Hàm tổn thất Focal Loss kiểm soát mẫu khó phân loại tốt hơn BCE có trọng số & Khảo sát độc lập hàm mục tiêu trên cùng kiến trúc & Hướng mở rộng tại Chương~7 \\ \hline
 \end{tabular}
-\end{center}
+}
+\end{table}

@@ -12,12 +12,11 @@
   "buildings_in_train": 200,
   "buildings_in_test": 200,
   "months_covered": 12,
-  "baseline_features": 39,
-  "zone_features": 42,
-  "context_features": 46,
-  "expanded_features": 54,
+  "baseline_features": 38,
+  "zone_features": 41,
+  "context_features": 45,
+  "expanded_features": 53,
   "columns_baseline": [
-    "building_id",
     "meter_reading",
     "site_id",
     "square_feet",
@@ -59,7 +58,6 @@
     "anomaly"
   ],
   "columns_zone": [
-    "building_id",
     "meter_reading",
     "site_id",
     "square_feet",
@@ -104,7 +102,6 @@
     "anomaly"
   ],
   "columns_context": [
-    "building_id",
     "meter_reading",
     "site_id",
     "square_feet",
@@ -153,7 +150,6 @@
     "anomaly"
   ],
   "columns_expanded": [
-    "building_id",
     "meter_reading",
     "site_id",
     "square_feet",

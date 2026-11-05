@@ -1,120 +1,83 @@
 \subsection{Các phương pháp Học máy hiện có để giải quyết bài toán}
-%Ghi rõ và ưu nhược điểm
-Do dữ liệu sử dụng trong nghiên cứu đã có gán nhãn cho biến \texttt{anomaly} ($0$ biểu thị trạng thái bình thường, $1$ biểu thị trạng thái bất thường), bài toán được xây dựng dưới dạng phân loại nhị phân có giám sát. Các phương pháp học máy tiếp cận được trình bày trong mục này là các phương pháp tiêu biểu và được sử dụng trong lời giải quán quân cuộc thi LEAD của Fu et al.~\cite{lead_winner}.
-\subsubsection{XGBoost (eXtreme Gradient Boosting)}\hspace{1cm}
 
-XGBoost~\cite{xgboost} tối ưu hóa hàm mục tiêu bằng phương pháp khai triển Taylor bậc hai, cho phép hội tụ nhanh hơn. Cấu trúc cây được phát triển theo từng tầng. Mô hình cuối cùng là tổng hợp tuần tự của $K$ cây quyết định:
+Do dữ liệu sử dụng trong nghiên cứu đã có sẵn nhãn cho biến \texttt{anomaly} ($0$ biểu thị trạng thái bình thường, $1$ biểu thị trạng thái bất thường), bài toán được thiết lập dưới dạng phân loại nhị phân có giám sát. Các phương pháp học máy tiếp cận được trình bày trong mục này là các thuật toán tăng cường độ dốc trên cây quyết định tiêu biểu, từng được khai thác hiệu quả trong lời giải quán quân cuộc thi LEAD của nhóm tác giả Fu và cộng sự~\cite{lead_winner}.
+
+\subsubsection{Mô hình XGBoost}
+
+Mô hình XGBoost~\cite{xgboost} tối ưu hóa hàm mục tiêu bằng phương pháp khai triển Taylor bậc hai, cho phép quá trình học hội tụ nhanh chóng. Cấu trúc cây được phát triển tuần tự theo từng tầng, trong đó mô hình dự báo cuối cùng là tổng hợp của $K$ cây quyết định:
 \begin{equation*}
     \hat{y}_i = \sum_{k=1}^{K} f_k(\mathbf{x}_i), \quad f_k \in \mathcal{F}
 \end{equation*}
-trong đó $\mathcal{F}$ là không gian của các cây hồi quy CART. Tại mỗi bước lặp $t$, hàm mục tiêu được tối ưu bằng khai triển Taylor bậc hai:
+trong đó $\mathcal{F}$ là không gian của các cây hồi quy phân loại. Tại mỗi bước lặp $t$, hàm mục tiêu được xấp xỉ hóa qua khai triển Taylor bậc hai:
 \begin{equation*}
     \mathcal{L}^{(t)} \simeq \sum_{i=1}^{n} \left[ g_i f_t(\mathbf{x}_i) + \frac{1}{2} h_i f_t^2(\mathbf{x}_i) \right] + \Omega(f_t)
 \end{equation*}
-với $g_i = \partial_{\hat{y}^{(t-1)}} \ell(y_i, \hat{y}^{(t-1)})$ là gradient bậc nhất, $h_i = \partial^2_{\hat{y}^{(t-1)}} \ell(y_i, \hat{y}^{(t-1)})$ là gradient bậc hai của hàm mất mát và $\Omega(f_t)$ là hàm phạt cấu trúc cây:
+với $g_i = \partial_{\hat{y}^{(t-1)}} \ell(y_i, \hat{y}^{(t-1)})$ là độ dốc bậc nhất, $h_i = \partial^2_{\hat{y}^{(t-1)}} \ell(y_i, \hat{y}^{(t-1)})$ là độ dốc bậc hai của hàm mất mát, và $\Omega(f_t)$ là hàm phạt độ phức tạp cấu trúc cây:
 \begin{equation*}
     \Omega(f) = \gamma T + \frac{1}{2} \lambda \sum_{j=1}^{T} w_j^2 + \alpha \sum_{j=1}^{T} |w_j|
 \end{equation*}
-trong đó $T$ là số lá, $w_j$ là trọng số tại lá $j$, $\gamma$ phạt số lượng lá, $\lambda$ là hệ số điều chuẩn $L_2$ và $\alpha$ là hệ số điều chuẩn $L_1$.\\
+trong đó $T$ là số lượng lá, $w_j$ là trọng số tại nút lá thứ $j$, $\gamma$ đại diện cho hệ số phạt số lượng lá, $\lambda$ là hệ số điều chuẩn $L_2$ và $\alpha$ là hệ số điều chuẩn $L_1$.
 
-\textbf{Ưu điểm:}
-\begin{itemize}
-    \item \textbf{Hạn chế Overfitting:} Tích hợp các thành phần phạt $L_1$ ($\alpha$) và $L_2$ ($\lambda$) trực tiếp vào hàm mục tiêu $\Omega(f)$, giúp hạn chế hiệu quả hiện tượng overfitting khi mô hình tiếp xúc với dữ liệu nhiễu từ các cảm biến đo lường.
-    \item \textbf{Xử lý mất cân bằng lớp:} Hỗ trợ điều chỉnh trọng số thông qua siêu tham số \texttt{scale\_pos\_weight}, gán penalty cao hơn cho trường hợp phân loại sai lớp thiểu số.
-    \item \textbf{Xử lý giá trị khuyết:} Thuật toán tự học hướng mặc định tại mỗi nút chia cho các giá trị bị khuyết, phù hợp với dữ liệu cảm biến thực tế thường có nhiều giá trị bị thiếu.
-\end{itemize}
+Về mặt ưu điểm, XGBoost tích hợp trực tiếp các thành phần điều chuẩn $L_1$ và $L_2$ vào hàm mục tiêu, giúp hạn chế hiệu quả hiện tượng quá khớp khi mô hình tiếp xúc với dữ liệu phụ tải có nhiều nhiễu cảm biến. Thuật toán hỗ trợ xử lý mất cân bằng lớp thông qua siêu tham số điều chỉnh trọng số mẫu, gán mức phạt cao hơn đối với các lỗi phân loại sai lớp bất thường. Đồng thời, mô hình có khả năng tự học hướng đi mặc định tại mỗi nút rẽ nhánh đối với các giá trị bị khuyết, đáp ứng tốt đặc thù dữ liệu đo đạc thực tế.
 
-\textbf{Nhược điểm:}
-\begin{itemize}
-    \item \textbf{Độ phức tạp thời gian:} Thuật toán phân nhánh tham lam chính xác đòi hỏi duyệt qua toàn bộ dữ liệu liên tục. Mặc dù đã có các cải tiến như Histogram-based, XGBoost vẫn yêu cầu thời gian tính toán khi xử lý tập dữ liệu có quy mô lớn.
-    \item \textbf{Phát triển cây Level-wise:} Chiến lược phát triển theo tầng buộc tất cả các nút ở cùng một độ sâu phải được mở rộng, dẫn đến việc phân chia tại nhiều nút không cần thiết.
-\end{itemize}
+Ngược lại, nhược điểm chính của XGBoost nằm ở độ phức tạp tính toán lớn. Do thuật toán phân nhánh tham lam chính xác đòi hỏi phải duyệt qua toàn bộ dữ liệu liên tục, thời gian huấn luyện mô hình kéo dài khi đối mặt với tập dữ liệu quy mô hàng triệu bản ghi. Bên cạnh đó, chiến lược phát triển cây theo từng tầng buộc mọi nút ở cùng độ sâu đều phải mở rộng, dễ dẫn đến việc phân chia không cần thiết tại các nhánh ít thông tin.
 
-\subsubsection{LightGBM (Light Gradient Boosting Machine)}\hspace{1cm}
+\subsubsection{Mô hình LightGBM}
 
-LightGBM~\cite{lightgbm} được thiết kế chuyên biệt để tối ưu hóa hiệu suất trên dữ liệu quy mô lớn thông qua hai kỹ thuật cốt lõi: GOSS (Gradient-based One-Side Sampling) và EFB (Exclusive Feature Bundling). Cây được phát triển theo cơ chế ưu tiên lá.
+Mô hình LightGBM~\cite{lightgbm} được tối ưu hóa chuyên biệt về tốc độ tính toán và hiệu suất sử dụng bộ nhớ trên dữ liệu quy mô lớn thông qua hai kỹ thuật nền tảng: lấy mẫu một phía theo độ dốc GOSS và gộp đặc trưng loại trừ lẫn nhau EFB. Cây quyết định trong LightGBM được phát triển theo chiến lược ưu tiên nút lá có độ lợi thông tin lớn nhất.
 
-Kỹ thuật GOSS ước lượng độ lợi thông tin bằng cách giữ lại toàn bộ các mẫu có gradient lớn và lấy mẫu ngẫu nhiên từ các mẫu có gradient nhỏ, sau đó nhân trọng số bù:
+Kỹ thuật GOSS ước lượng độ lợi thông tin bằng cách giữ lại toàn bộ các mẫu có độ dốc lớn và lấy mẫu ngẫu nhiên một tỷ lệ nhỏ từ các mẫu có độ dốc nhỏ, sau đó nhân hệ số bù trọng số nhằm bảo toàn phân phối dữ liệu:
 \begin{equation*}
     \widetilde{V}_j(d) = \frac{1}{n} \left( \frac{\left(\sum_{x_i \in A_l} g_i + \frac{1-a}{b} \sum_{x_i \in B_l} g_i\right)^2}{n_l^j(d)} + \frac{\left(\sum_{x_i \in A_r} g_i + \frac{1-a}{b} \sum_{x_i \in B_r} g_i\right)^2}{n_r^j(d)} \right)
 \end{equation*}
-trong đó $A$ là tập các mẫu có gradient lớn, $B$ là tập mẫu ngẫu nhiên từ các mẫu có gradient nhỏ, $l$ và $r$ ký hiệu nhánh trái và phải tại ngưỡng $d$ của đặc trưng $j$.\\
+trong đó $A$ là tập các mẫu có độ dốc lớn, $B$ là tập mẫu ngẫu nhiên từ nhóm có độ dốc nhỏ, $l$ và $r$ tương ứng với nhánh trái và nhánh phải tại ngưỡng chia $d$ của đặc trưng $j$. Song song với đó, kỹ thuật EFB gộp các đặc trưng thưa có tính loại trừ lẫn nhau thành các bó đặc trưng kết hợp, giảm mạnh số chiều dữ liệu từ $p$ xuống còn $p' \ll p$.
 
-Kỹ thuật EFB gộp các đặc trưng thưa có tính loại trừ lẫn nhau thành các gói, giảm số lượng đặc trưng từ $p$ xuống số lượng gói $p' \ll p$.\\
+Ưu điểm nổi bật của LightGBM là tốc độ huấn luyện vượt trội và khả năng tiết kiệm tài nguyên bộ nhớ. Nhờ việc rời rạc hóa các giá trị liên tục thành các thùng biểu đồ histogram rời rạc, chi phí tìm kiếm điểm chia nhánh giảm đi đáng kể. Mô hình hỗ trợ phân chia trực tiếp trên các biến định danh nhiều nhóm mà không cần mã hóa One-Hot, giúp kiểm soát chiều không gian dữ liệu hiệu quả. Cơ chế GOSS duy trì độ chính xác cao nhờ ưu tiên giữ lại các mẫu khó học nhất.
 
-\textbf{Ưu điểm:}
-\begin{itemize}
-    \item \textbf{Hiệu suất tính toán ưu việt:} Kỹ thuật Histogram giúp giảm độ phức tạp thời gian tìm kiếm điểm chia nhánh, mang lại tốc độ huấn luyện nhanh.
-    \item \textbf{Xử lý biến định danh trực tiếp:} Khai thác hiệu quả các đặc trưng phân loại xuất hiện nhiều giá trị khác nhau như \texttt{site\_id}, \texttt{primary\_use},... bằng cách phân chia tối ưu trên các danh mục mà không cần mã hóa One-Hot, giúp kiểm soát chiều dữ liệu.
-    \item \textbf{Tiết kiệm bộ nhớ:} Kỹ thuật EFB giảm đáng kể số chiều hiệu dụng, trong khi biểu diễn Histogram chỉ lưu trữ các bin rời rạc thay vì toàn bộ giá trị liên tục, giúp tiết kiệm RAM khi xử lý dữ liệu hàng chục triệu dòng.
-    \item \textbf{GOSS giữ độ chính xác khi lấy mẫu:} Thay vì lấy mẫu đồng đều, GOSS ưu tiên các mẫu có gradient lớn (đóng góp nhiều nhất vào việc học), nên giảm dữ liệu mà vẫn duy trì chất lượng mô hình.
-\end{itemize}
+Tuy nhiên, LightGBM tiềm ẩn rủi ro quá khớp cục bộ do chiến lược mở rộng cây theo nút lá có xu hướng tạo ra các cây sâu bất đối xứng. Nếu không giới hạn nghiêm ngặt độ sâu tối đa và số lượng mẫu tối thiểu trong mỗi lá, mô hình có thể học thuộc lòng các mẫu nhiễu cục bộ trong dữ liệu.
 
-\textbf{Nhược điểm:}
-\begin{itemize}
-    \item \textbf{Rủi ro quá khớp cục bộ:} Sự phát triển theo chiều sâu lá có thể dẫn đến việc mô hình học các mẫu nhiễu cục bộ. Cần giới hạn nghiêm ngặt các tham số \texttt{max\_depth} và \texttt{min\_data\_in\_leaf}.
-    \item \textbf{Nhạy cảm với dữ liệu không đa dạng:} Chiến lược phát triển cây theo chiều sâu lá tạo ra các cây sâu không cân bằng, dễ overfitting trên các tập dữ liệu nhỏ. Tuy nhiên, hạn chế này ít ảnh hưởng trong bài toán hiện tại do quy mô dữ liệu rất lớn.
-\end{itemize}
+\subsubsection{Mô hình CatBoost}
 
-\subsubsection{CatBoost (Categorical Boosting)}\hspace{1cm}
-
-Thuật toán CatBoost~\cite{catboost} xây dựng các cây quyết định đối xứng và sử dụng cơ chế Ordered Target Encoding. Đặc điểm cốt lõi của CatBoost là sử dụng hoán vị ngẫu nhiên $\sigma$ để tính giá trị mã hóa cho biến định danh, tránh rò rỉ thông tin mục tiêu:
+Mô hình CatBoost~\cite{catboost} xây dựng các cây quyết định đối xứng và ứng dụng cơ chế mã hóa mục tiêu có thứ tự. Thuật toán sử dụng một hoán vị ngẫu nhiên $\sigma$ của tập dữ liệu để tính toán giá trị mã hóa cho các biến định danh dựa trên các quan trắc xuất hiện trước đó, qua đó triệt tiêu triệt để hiện tượng rò rỉ nhãn mục tiêu:
 \begin{equation*}
     \hat{x}_{\sigma_p}^i = \frac{\sum_{j=1}^{p-1} [x_{\sigma_j}^i = x_{\sigma_p}^i] \cdot y_{\sigma_j} + a \cdot P}{\sum_{j=1}^{p-1} [x_{\sigma_j}^i = x_{\sigma_p}^i] + a}
 \end{equation*}
-trong đó $\sigma_p$ là chỉ số của mẫu thứ $p$ trong hoán vị, $x^i$ là giá trị đặc trưng định danh thứ $i$, $y$ là nhãn mục tiêu, $P$ là giá trị trung bình toàn cục của nhãn và $a > 0$ là tham số Laplace smoothing.
+trong đó $\sigma_p$ là chỉ số của mẫu thứ $p$ trong hoán vị, $x^i$ là giá trị của đặc trưng định danh thứ $i$, $y$ là nhãn mục tiêu, $P$ là giá trị kỳ vọng toàn cục của nhãn và $a > 0$ là hệ số làm trơn Laplace.
 
-Cây đối xứng sử dụng cùng một điều kiện chia tại tất cả các nút ở cùng một độ sâu, tạo ra cấu trúc cây cân bằng hoàn hảo với $2^d$ lá (với $d$ là chiều sâu). Việc dự đoán trở thành phép tra bảng $O(d)$.\\
+Cây quyết định đối xứng trong CatBoost áp dụng cùng một điều kiện phân chia trên toàn bộ các nút ở cùng một độ sâu, tạo ra cấu trúc cây hoàn toàn cân bằng với $2^d$ nút lá (với $d$ là độ sâu cây). Khi suy luận, cấu trúc này cho phép chuyển đổi cây thành bảng tra cứu nhị phân với độ phức tạp cực thấp $O(d)$.
 
-\textbf{Ưu điểm:}
-\begin{itemize}
-    \item \textbf{Ngăn chặn rò rỉ dữ liệu:} Ordered Target Encoding tính toán giá trị trung bình mục tiêu dựa trên các mẫu quan sát trong quá khứ nhân tạo theo hoán vị $\sigma$, giúp mã hóa các biến định danh một cách an toàn và mạnh mẽ mà không gây rò rỉ thông tin nhãn.
-    \item \textbf{Tốc độ suy luận nhanh:} Cấu trúc cây đối xứng cho phép mô hình được biểu diễn dưới dạng các bảng tra cứu với độ phức tạp suy luận $O(d)$, tăng tốc độ dự đoán lên nhiều lần so với các cây không đối xứng.
-    \item \textbf{Giảm Bias:} Sử dụng nhiều hoán vị khác nhau trong quá trình huấn luyện, giảm Bias do rò rỉ thông tin trong Gradient Boosting truyền thống, đặc biệt hiệu quả trên dữ liệu có nhiều biến phân loại như \texttt{building\_id}, \texttt{primary\_use}.
-    \item \textbf{Hạn chế Overfitting:} Cấu trúc cây đối xứng có ít tham số hơn cây tự do (chỉ $d$ điều kiện chia thay vì $2^d - 1$ nút nội), đóng vai trò như một dạng điều chuẩn ngầm.
-\end{itemize}
+Về ưu điểm, cơ chế mã hóa mục tiêu có thứ tự giúp CatBoost xử lý an toàn các biến định danh có lực lượng phân loại lớn mà không gây rò rỉ thông tin nhãn. Cấu trúc cây đối xứng đóng vai trò như một cơ chế điều chuẩn ngầm giúp hạn chế quá khớp, đồng thời tăng tốc độ suy luận dự đoán lên gấp nhiều lần so với các cây bất đối xứng.
 
-\textbf{Nhược điểm:}
-\begin{itemize}
-    \item \textbf{Thời gian huấn luyện lớn:} Quy trình mã hóa Ordered Target Encoding và xây dựng cây đối xứng khiến CatBoost mất nhiều thời gian huấn luyện hơn so với LightGBM, đặc biệt khi bộ dữ liệu chứa lượng lớn các biến liên tục.
-    \item \textbf{Khả năng biểu diễn hạn chế:} Ràng buộc cùng một điều kiện chia tại mỗi tầng có thể hạn chế khả năng biểu diễn các mẫu phức tạp, đòi hỏi cây phải sâu hơn để đạt cùng mức chính xác so với cây tự do.
-\end{itemize}
+Nhược điểm của CatBoost là thời gian huấn luyện kéo dài do chi phí tính toán nhiều hoán vị ngẫu nhiên và mã hóa mục tiêu liên tục, đặc biệt trên các bộ dữ liệu có nhiều biến thực liên tục. Ngoài ra, việc áp đặt cùng một ngưỡng chia cho toàn bộ các nút trong một tầng có thể làm giảm tính linh hoạt của mô hình khi mô tả các mẫu hình phi tuyến tính phức tạp.
 
-\subsubsection{HistGradientBoosting (Histogram-based Gradient Boosting)}\hspace{1cm}
+\subsubsection{Mô hình HistGradientBoosting}
 
-HistGradientBoosting~\cite{hist_gb} là phiên bản tăng cường độ dốc hiện đại trong Scikit-learn, lấy cảm hứng từ kỹ thuật của LightGBM nhằm tối ưu tốc độ tính toán và bộ nhớ khi làm việc với tập dữ liệu quy mô lớn ($N > 10^6$ mẫu).
+Mô hình HistGradientBoosting~\cite{hist_gb} là phiên bản tăng cường độ dốc hiện đại được tích hợp trong thư viện Scikit-learn, áp dụng cơ chế phân thùng giá trị liên tục nhằm tối ưu hóa chi phí tính toán trên tập dữ liệu lớn ($N > 10^6$ mẫu).
 
-Cốt lõi của thuật toán là kỹ thuật Binning các giá trị liên tục được ánh xạ vào $K = 256$ thùng số nguyên 8-bit, với thùng thứ $255$ dành riêng để xử lý tự nhiên dữ liệu khuyết. Nhờ việc cộng dồn gradient vào histogram và áp dụng phép trừ histogram, chi phí tìm điểm cắt tối ưu tại mỗi nút chỉ còn $O(K)$, hoàn toàn không phụ thuộc kích thước tập dữ liệu $N$.
+Cốt lõi của thuật toán là kỹ thuật phân thùng số nguyên 8-bit, trong đó toàn bộ dải giá trị liên tục của đặc trưng $j$ được ánh xạ vào $B = 256$ thùng rời rạc ($b \in \{0, 1, \dots, 255\}$):
+\begin{equation*}
+    b_i = \text{bin}(x_{i,j}) = \sum_{k=1}^{B-1} \mathbb{I}(x_{i,j} > q_k)
+\end{equation*}
+trong đó $\{q_1, q_2, \dots, q_{B-1}\}$ là các điểm phân vị thực nghiệm được ước lượng trước trên tập huấn luyện, và thùng thứ $255$ được quy ước dành riêng để đại diện cho dữ liệu bị khuyết.
 
-\textbf{Ưu điểm:}
-\begin{itemize}
-    \item \textbf{Tốc độ cao và tối ưu RAM:} Sử dụng định dạng \texttt{uint8} kết hợp đa luồng giúp tăng tốc huấn luyện vượt trội so với các thuật toán phân nhánh chính xác.
-    \item \textbf{Xử lý trực tiếp giá trị thiếu và Dừng sớm:} Không cần tiền xử lý điền khuyết, tích hợp sẵn cơ chế Early Stopping để phòng chống quá khớp.
-\end{itemize}
+Tại mỗi nút của cây quyết định, thay vì duyệt qua toàn bộ $n$ mẫu quan sát, thuật toán tích lũy độ dốc bậc nhất $g_i$ và độ dốc bậc hai $h_i$ vào biểu đồ histogram theo từng thùng:
+\begin{equation*}
+    G_k = \sum_{i \in I, \, b_i = k} g_i, \qquad H_k = \sum_{i \in I, \, b_i = k} h_i
+\end{equation*}
+với $I$ là tập chỉ số các mẫu tại nút hiện tại, $g_i = \partial_{\hat{y}^{(t-1)}} \ell(y_i, \hat{y}^{(t-1)})$ và $h_i = \partial^2_{\hat{y}^{(t-1)}} \ell(y_i, \hat{y}^{(t-1)})$. Trong bài toán phân loại nhị phân với hàm mất mát Logistic, độ dốc có dạng $g_i = p_i - y_i$ và $h_i = p_i(1 - p_i)$ với $p_i = \sigma(\hat{y}_i^{(t-1)})$.
 
-\textbf{Nhược điểm:}
-\begin{itemize}
-    \item \textbf{Mất độ phân giải cục bộ:} Việc rời rạc hóa đặc trưng có thể làm mờ các biến động giá trị cực nhỏ.
-    \item \textbf{Tùy biến mất cân bằng lớp:} Không có tham số trực tiếp như \texttt{scale\_pos\_weight} mà cần tinh chỉnh thông qua trọng số mẫu \texttt{sample\_weight}.
-\end{itemize}
+Độ lợi phân chia $\Delta \mathcal{L}(s)$ khi tách nút tại ngưỡng thùng $s \in \{0, 1, \dots, B-2\}$ được tính toán trực tiếp từ các tổng tích lũy của biểu đồ histogram:
+\begin{equation*}
+    \Delta \mathcal{L}(s) = \frac{1}{2} \left[ \frac{\left(\sum_{k \le s} G_k\right)^2}{\sum_{k \le s} H_k + \lambda} + \frac{\left(\sum_{k > s} G_k\right)^2}{\sum_{k > s} H_k + \lambda} - \frac{\left(\sum_{k} G_k\right)^2}{\sum_{k} H_k + \lambda} \right] - \gamma
+\end{equation*}
+trong đó $\lambda$ là hệ số điều chuẩn $L_2$ (\texttt{l2\_regularization}) nhằm kiểm soát độ lớn trọng số nút lá, và $\gamma$ là ngưỡng cải thiện tối thiểu (\texttt{min\_impurity\_decrease}).
 
-\subsubsection{Tổng hợp So sánh Bộ tứ Thuật toán Gradient Boosting Chủ lực}
+Đặc biệt, nhằm tăng tốc quá trình xây dựng cây, thuật toán áp dụng cơ chế trừ biểu đồ histogram. Biểu đồ của nút con bên phải được suy diễn trực tiếp từ nút cha và nút con bên trái mà không cần quét lại dữ liệu:
+\begin{equation*}
+    G_{k, \text{phải}} = G_{k, \text{cha}} - G_{k, \text{trái}}, \qquad H_{k, \text{phải}} = H_{k, \text{cha}} - H_{k, \text{trái}}
+\end{equation*}
+Nhờ đó, độ phức tạp tìm kiếm điểm chia nhánh tối ưu tại mỗi nút chỉ còn phụ thuộc tuyến tính vào số lượng thùng $O(B)$, hoàn toàn độc lập với quy mô kích thước mẫu $N$.
 
-Bảng~\ref{tab:ml_boosting_comparison} tổng hợp các đặc tính kỹ thuật cốt lõi của bốn mô hình Gradient Boosting chủ lực được nghiên cứu:
+Ưu điểm chính của mô hình là tốc độ xử lý nhanh, chiếm dụng ít bộ nhớ RAM nhờ tối ưu hóa định dạng số nguyên 8-bit kết hợp xử lý đa luồng, hỗ trợ cơ chế dừng sớm để phòng chống quá khớp và tự động xử lý giá trị khuyết mà không cần bước điền khuyết thủ công.
 
-\begin{table}[H]
-\centering
-\caption{\textbf{So sánh Tổng hợp Bộ tứ Thuật toán Gradient Boosting trong Bài toán Phát hiện Bất thường}}
-\label{tab:ml_boosting_comparison}
-\renewcommand{\arraystretch}{1.25}
-\resizebox{\textwidth}{!}{
-\begin{tabular}{|l|c|c|c|c|c|}
-\hline
-\textbf{Thuật toán} & \textbf{Chiến lược Phát triển Cây} & \textbf{Xử lý Biến Danh mục} & \textbf{Xử lý Dữ liệu Khuyết} & \textbf{Cơ chế Tối ưu Tốc độ} & \textbf{Thế mạnh Nổi bật} \\ \hline
-\textbf{XGBoost} & Theo tầng (\textit{Depth-wise}) & One-Hot / Target Encoding & Tự học hướng đi mặc định & Khai triển Taylor bậc hai & Kháng quá khớp cực tốt ($L_1, L_2$) \\ \hline
-\textbf{LightGBM} & Theo lá (\textit{Leaf-wise}) & Phân chia tối ưu danh mục & Bỏ qua hoặc gán nhánh riêng & Histogram + GOSS + EFB & Tốc độ huấn luyện siêu tốc \\ \hline
-\textbf{CatBoost} & Cây đối xứng (\textit{Oblivious}) & Ordered Target Encoding & Gán giá trị biên nhỏ/lớn nhất & Tra bảng $O(d)$ + Hoán vị & Xử lý biến phân loại chống rò rỉ \\ \hline
-\textbf{HistGradientBoosting} & Theo lá / Histogram & Hỗ trợ phân nhóm tự nhiên & Gán thùng chuyên biệt (Bin 255) & Rời rạc hóa \texttt{uint8} + Trừ Histogram & Chuẩn tắc Scikit-learn, nhẹ bộ nhớ \\ \hline
-\end{tabular}
-}
-\end{table}
+Dù vậy, việc rời rạc hóa các giá trị liên tục thành 256 thùng có thể làm mất đi độ phân giải chi tiết của các biến động phụ tải vi mô. Ngoài ra, mô hình chưa hỗ trợ tham số trực tiếp cho tỷ lệ mất cân bằng nhãn mà đòi hỏi người dùng phải cấu hình thủ công thông qua vector trọng số mẫu.

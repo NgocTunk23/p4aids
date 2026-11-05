@@ -16,11 +16,11 @@ toàn bộ pipeline theo nguyên lý Zero Data Leakage tuyệt đối:
    - Tập Test (T_out) CHỈ ĐƯỢC PHÉP ÁP DỤNG PHÉP BIẾN ĐỔI CHIẾU (TRANSFORM / MAP) từ thống kê của Train.
    - Tuyệt đối không tính toán thống kê gộp chung toàn bộ dữ liệu trước khi chia tập.
 
-3. XUẤT CẢ HAI BỘ TRAIN VÀ TEST CHO ĐẦY ĐỦ CÁC BIẾN THỂ:
-   - Bộ 1: Baseline (40 cột = 39 đặc trưng cơ sở + 1 nhãn anomaly)
-   - Bộ 2: Zone-Enhanced (43 cột = 39 Baseline + 3 đặc trưng vĩ mô phân vùng + 1 nhãn anomaly)
-   - Bộ 3: Context-Aware (47 cột = 42 Zone + 4 đặc trưng ngữ cảnh + 1 nhãn anomaly)
-   - Bộ 4: Expanded Champion (55 cột = 46 Context + 8 đặc trưng chuỗi thời gian & STL Residual + 1 nhãn anomaly)
+3. XUẤT CẢ HAI BỘ TRAIN VÀ TEST CHO ĐẦY ĐỦ CÁC BIẾN THỂ (ĐÃ LOẠI BỎ BUILDING_ID):
+   - Bộ 1: Baseline (39 cột = 38 đặc trưng cơ sở + 1 nhãn anomaly)
+   - Bộ 2: Zone-Enhanced (42 cột = 38 Baseline + 3 đặc trưng vĩ mô phân vùng + 1 nhãn anomaly)
+   - Bộ 3: Context-Aware (46 cột = 41 Zone + 4 đặc trưng ngữ cảnh + 1 nhãn anomaly)
+   - Bộ 4: Expanded Champion (54 cột = 45 Context + 8 đặc trưng chuỗi thời gian & STL Residual + 1 nhãn anomaly)
 
 Dễ dàng sử dụng để kiểm toán số liệu, cập nhật biểu đồ và bảng đối chứng trong báo cáo luận văn (Chương 3, Chương 4, Chương 6).
 """
@@ -351,15 +351,20 @@ def run_zero_leakage_preprocessing(
     X_train_zone[cols_to_scale] = X_train[cols_to_scale]
     X_test_zone[cols_to_scale] = X_test[cols_to_scale]
 
-    # --- KHOI TAO BO DU LIEU 1: BASELINE (40 COT = 39 FEATURES + 1 TARGET) ---
+    # --- KHOI TAO BO DU LIEU 1: BASELINE (39 COT = 38 FEATURES + 1 TARGET) ---
     train_base = X_train.copy()
     test_base = X_test.copy()
+    # Loai bo building_id de triet tieu rui ro ghi nho ID
+    train_base.drop(columns=["building_id"], inplace=True, errors="ignore")
+    test_base.drop(columns=["building_id"], inplace=True, errors="ignore")
     train_base[TARGET] = y_train.values
     test_base[TARGET] = y_test.values
 
-    # --- KHOI TAO BO DU LIEU 2: ZONE-ENHANCED (43 COT = 42 FEATURES + 1 TARGET) ---
+    # --- KHOI TAO BO DU LIEU 2: ZONE-ENHANCED (42 COT = 41 FEATURES + 1 TARGET) ---
     train_zone = X_train_zone.copy()
     test_zone = X_test_zone.copy()
+    train_zone.drop(columns=["building_id"], inplace=True, errors="ignore")
+    test_zone.drop(columns=["building_id"], inplace=True, errors="ignore")
     train_zone[TARGET] = y_train.values
     test_zone[TARGET] = y_test.values
 
@@ -452,15 +457,19 @@ def run_zero_leakage_preprocessing(
     X_train_ctx = apply_context_features(X_train_ctx, train_hour, train_is_offday)
     X_test_ctx = apply_context_features(X_test_ctx, test_hour, test_is_offday)
 
+    # Loai bo building_id khoi Context va cac tang ke tiep (Zero ID Memorization)
+    X_train_ctx.drop(columns=["building_id"], inplace=True, errors="ignore")
+    X_test_ctx.drop(columns=["building_id"], inplace=True, errors="ignore")
+
     train_context = X_train_ctx.copy()
     test_context = X_test_ctx.copy()
     train_context[TARGET] = y_train.values
     test_context[TARGET] = y_test.values
 
     # -------------------------------------------------------------------------
-    # [BUOC 10/10] TICH HOP BO 4: DYNAMIC-TEMPORAL-EXPANDED (55 COT CHAMPION SOTA)
+    # [BUOC 10/10] TICH HOP BO 4: DYNAMIC-TEMPORAL-EXPANDED (54 COT CHAMPION SOTA)
     # -------------------------------------------------------------------------
-    print("\n[BUOC 10/10] Tich hop Bo thu 4: Dynamic-Temporal-Expanded (55 cot Champion SOTA)...")
+    print("\n[BUOC 10/10] Tich hop Bo thu 4: Dynamic-Temporal-Expanded (54 cot Champion SOTA)...")
     train_expanded = train_context.drop(columns=[TARGET]).copy()
     test_expanded = test_context.drop(columns=[TARGET]).copy()
 
@@ -476,14 +485,14 @@ def run_zero_leakage_preprocessing(
     # XUAT FILE VA KIEM TOAN DANG CHUAN (4 BIEN THE: BASELINE, ZONE, CONTEXT, EXPANDED)
     # -------------------------------------------------------------------------
     files_to_save = {
-        "train_chunked_baseline.parquet": (train_base, 40),
-        "test_chunked_baseline.parquet": (test_base, 40),
-        "train_chunked_zone.parquet": (train_zone, 43),
-        "test_chunked_zone.parquet": (test_zone, 43),
-        "train_chunked_context.parquet": (train_context, 47),
-        "test_chunked_context.parquet": (test_context, 47),
-        "train_chunked_expanded.parquet": (train_expanded, 55),
-        "test_chunked_expanded.parquet": (test_expanded, 55),
+        "train_chunked_baseline.parquet": (train_base, 39),
+        "test_chunked_baseline.parquet": (test_base, 39),
+        "train_chunked_zone.parquet": (train_zone, 42),
+        "test_chunked_zone.parquet": (test_zone, 42),
+        "train_chunked_context.parquet": (train_context, 46),
+        "test_chunked_context.parquet": (test_context, 46),
+        "train_chunked_expanded.parquet": (train_expanded, 54),
+        "test_chunked_expanded.parquet": (test_expanded, 54),
     }
 
     target_dirs = []
@@ -523,10 +532,10 @@ def run_zero_leakage_preprocessing(
         "buildings_in_train": b_tr,
         "buildings_in_test": b_te,
         "months_covered": 12,
-        "baseline_features": 39,
-        "zone_features": 42,
-        "context_features": 46,
-        "expanded_features": 54,
+        "baseline_features": 38,
+        "zone_features": 41,
+        "context_features": 45,
+        "expanded_features": 53,
         "columns_baseline": list(train_base.columns),
         "columns_zone": list(train_zone.columns),
         "columns_context": list(train_context.columns),
@@ -594,7 +603,7 @@ def save_preprocessing_step_log(target_dirs: List[Path]) -> None:
             "columns_added": 0
         },
         {
-            "step": "Chuẩn hóa Z-score & Tích hợp Zone Features (Baseline 40, Zone 43)",
+            "step": "Chuẩn hóa Z-score & Tích hợp Zone Features (Baseline 39, Zone 42)",
             "train_rows_before": 1147089, "train_rows_after": 1147089,
             "train_rows_added": 0, "train_rows_removed": 0, "train_rows_affected": 1147089, "train_values_changed": 21895258,
             "test_rows_before": 372993, "test_rows_after": 372993,
@@ -602,7 +611,7 @@ def save_preprocessing_step_log(target_dirs: List[Path]) -> None:
             "columns_added": 3
         },
         {
-            "step": "Tích hợp Ngữ cảnh Vi mô Context-Aware (47 cột SOTA)",
+            "step": "Tích hợp Ngữ cảnh Vi mô Context-Aware (46 cột SOTA)",
             "train_rows_before": 1147089, "train_rows_after": 1147089,
             "train_rows_added": 0, "train_rows_removed": 0, "train_rows_affected": 1147089, "train_values_changed": 4588356,
             "test_rows_before": 372993, "test_rows_after": 372993,
@@ -610,7 +619,7 @@ def save_preprocessing_step_log(target_dirs: List[Path]) -> None:
             "columns_added": 4
         },
         {
-            "step": "Tích hợp Động học Chuỗi thời gian & STL Residual (Expanded 55 cột Champion)",
+            "step": "Tích hợp Động học Chuỗi thời gian & STL Residual (Expanded 54 cột Champion)",
             "train_rows_before": 1147089, "train_rows_after": 1147089,
             "train_rows_added": 0, "train_rows_removed": 0, "train_rows_affected": 1147089, "train_values_changed": 9176712,
             "test_rows_before": 372993, "test_rows_after": 372993,
@@ -948,6 +957,13 @@ def generate_eda_plots() -> None:
     print("-> Dang doc du lieu expanded parquet de ve 4 bieu do chuyen sau...", end=" ", flush=True)
     df_tr = pd.read_parquet(tr_path)
     df_te = pd.read_parquet(te_path)
+
+    # Neu tap Parquet da loai bo building_id de chong ghi nho ID, nap bo sung building_id tu du lieu tho phuc vu ve Case Study
+    if "building_id" not in df_tr.columns and DATA_RAW.exists():
+        raw_b_time = pd.read_csv(DATA_RAW, usecols=["timestamp", "building_id"], low_memory=False)
+        raw_ts = pd.to_datetime(raw_b_time["timestamp"])
+        train_mask = (raw_ts.dt.day >= 1) & (raw_ts.dt.day <= 20)
+        df_tr["building_id"] = raw_b_time.loc[train_mask, "building_id"].values
     print("Xong!")
 
     # -------------------------------------------------------------------------
@@ -1115,15 +1131,22 @@ def generate_eda_plots() -> None:
     # HINH 7: eda_expanded_case_study.png
     # -------------------------------------------------------------------------
     print("  -> [8/8] Xuat eda_expanded_case_study.png ...", end=" ", flush=True)
-    b_candidates = df_tr.groupby("building_id")["anomaly"].sum().sort_values(ascending=False).index[:15]
-    selected_b = b_candidates[0]
-    for b in b_candidates:
-        sub = df_tr[df_tr["building_id"] == b]
-        if (sub["flatline_duration"] > 5).any() and (sub["anomaly"] == 1).sum() > 20:
-            selected_b = b
-            break
+    if "building_id" in df_tr.columns:
+        b_candidates = df_tr.groupby("building_id")["anomaly"].sum().sort_values(ascending=False).index[:15]
+        selected_b = b_candidates[0]
+        for b in b_candidates:
+            sub = df_tr[df_tr["building_id"] == b]
+            if (sub["flatline_duration"] > 5).any() and (sub["anomaly"] == 1).sum() > 20:
+                selected_b = b
+                break
+        df_b = df_tr[df_tr["building_id"] == selected_b].iloc[:168].copy().reset_index(drop=True)
+        case_title = f"CASE STUDY CHUỖI THỜI GIAN TOÀ NHÀ {selected_b}: CƠ CHẾ PHÁT HIỆN DỊ THƯỜNG CỦA 8 ĐẶC TRƯNG MỚI"
+    else:
+        anom_idx = df_tr[df_tr["anomaly"] == 1].index
+        start_idx = max(0, anom_idx[0] - 24) if len(anom_idx) > 0 else 0
+        df_b = df_tr.iloc[start_idx:start_idx + 168].copy().reset_index(drop=True)
+        case_title = "CASE STUDY CHUỖI THỜI GIAN ĐIỂN HÌNH: CƠ CHẾ PHÁT HIỆN DỊ THƯỜNG CỦA 8 ĐẶC TRƯNG MỚI"
 
-    df_b = df_tr[df_tr["building_id"] == selected_b].iloc[:168].copy().reset_index(drop=True)
     x_axis = np.arange(len(df_b))
 
     fig, axes = plt.subplots(3, 1, figsize=(15, 9), dpi=300, sharex=True)
@@ -1134,7 +1157,7 @@ def generate_eda_plots() -> None:
     if anom_mask.any():
         ax.scatter(x_axis[anom_mask], df_b.loc[anom_mask, "meter_reading"], color="red", s=35, zorder=5, label="Điểm Dị Thường Thực Tế (y=1)")
     ax.set_ylabel("Công suất (kW)", fontsize=11, fontweight="bold")
-    ax.set_title(f"CASE STUDY CHUỖI THỜI GIAN TOÀ NHÀ {selected_b}: CƠ CHẾ PHÁT HIỆN DỊ THƯỜNG CỦA 8 ĐẶC TRƯNG MỚI", fontsize=13, fontweight="bold", pad=10)
+    ax.set_title(case_title, fontsize=13, fontweight="bold", pad=10)
     ax.legend(loc="upper right", frameon=True)
     ax.grid(True)
 
