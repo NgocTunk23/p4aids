@@ -57,7 +57,7 @@ class TrainConfig:
     seed: int = 42
     n_group_folds: int = 5
     batch_size: int = 64
-    max_epochs: int = 30
+    max_epochs: int = 10
     learning_rate: float = 1e-3
     weight_decay: float = 1e-4
     gradient_clip_norm: float = 1.0
