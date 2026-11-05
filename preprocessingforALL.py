@@ -633,10 +633,72 @@ def save_preprocessing_step_log(target_dirs: List[Path]) -> None:
         print(f"  -> Da luu log kiem toan tai: {log_p}")
 
 
-def generate_eda_plots() -> None:
-    """Sinh va cap nhat cac bieu do EDA chuan xuat ban khoa hoc (300 DPI) vao report_p4aids/IMAGE/."""
+def generate_context_eda_plot(df_train: pd.DataFrame, output_path: Path) -> Path:
+    """Plot sampled train distributions for the four Context-Aware features."""
     import matplotlib.pyplot as plt
+
+    features = [
+        ("z_meter_local", "Lệch phụ tải theo công trình và giờ"),
+        ("z_meter_workday", "Lệch phụ tải theo loại ngày và giờ"),
+        ("z_meter_robust", "Lệch so với trung vị/IQR công trình"),
+        ("temp_load_inter", "Tương tác lệch phụ tải và nhiệt độ"),
+    ]
+    required = {"anomaly", *(column for column, _ in features)}
+    missing = sorted(required.difference(df_train.columns))
+    if missing:
+        raise ValueError(f"Train data is missing Context EDA columns: {missing}")
+
+    columns = [column for column, _ in features]
+    context_data = df_train[["anomaly", *columns]].dropna()
+    context_samples = {
+        label: group.sample(n=min(30000, len(group)), random_state=42)
+        for label, group in context_data.groupby("anomaly")
+    }
+
+    colors = {0: "#1f77b4", 1: "#d62728"}
+    labels = {0: "Bình thường (y=0)", 1: "Dị thường (y=1)"}
+    fig, axes = plt.subplots(2, 2, figsize=(12, 8), dpi=300)
+    for ax, (column, title) in zip(axes.flat, features):
+        lower, upper = df_train[column].quantile([0.01, 0.99]).to_numpy()
+        if lower == upper:
+            lower, upper = lower - 0.5, upper + 0.5
+        bins = np.linspace(lower, upper, 55)
+        for label in (0, 1):
+            if label not in context_samples:
+                continue
+            ax.hist(
+                context_samples[label][column],
+                bins=bins,
+                density=True,
+                histtype="step",
+                linewidth=1.8,
+                color=colors[label],
+                label=labels[label],
+            )
+        ax.set_title(title, fontsize=10, fontweight="bold")
+        ax.set_xlabel(column)
+        ax.set_ylabel("Mật độ")
+        ax.grid(alpha=0.25)
+        ax.legend(frameon=False, fontsize=8)
+
+    fig.suptitle("Phân bố các đặc trưng ngữ cảnh theo nhãn trên tập train", fontsize=13, fontweight="bold")
+    fig.text(0.5, 0.015, "Lấy mẫu cùng kích thước mỗi lớp; trục ngang hiển thị khoảng phân vị 1–99.", ha="center", fontsize=9)
+    fig.tight_layout(rect=(0, 0.04, 1, 0.95))
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    fig.savefig(output_path, dpi=300, bbox_inches="tight")
+    plt.close(fig)
+    return output_path
+
+
+def generate_eda_plots() -> None:
+    """
+    Sinh va cap nhat toan bo he thong bieu do EDA khoa hoc (300 DPI) vao report_p4aids/IMAGE/.
+    Bao gom cac bieu do tong quan, Context-Aware va Expanded.
+    """
+    import matplotlib.pyplot as plt
+    import matplotlib.ticker as ticker
     import seaborn as sns
+    from scipy import stats
 
     IMAGE_DIR = ROOT_DIR / "report_p4aids" / "IMAGE"
     IMAGE_DIR.mkdir(parents=True, exist_ok=True)
@@ -647,20 +709,11 @@ def generate_eda_plots() -> None:
         tr_path = OUT_ML_DIR / "train_chunked_expanded.parquet"
         te_path = OUT_ML_DIR / "test_chunked_expanded.parquet"
 
-    print("\n" + "=" * 95)
-    print("DANG SINH HE THONG BIEU DO EDA KHOA HOC (300 DPI) TICH HOP TRONG PIPELINE")
-    print("=" * 95)
+    print("\n" + "=" * 100)
+    print("KHOI CHAY HE THONG SINH BIEU DO EDA TOAN DIEN (300 DPI) CHO BAO CAO LUAN VAN")
+    print("=" * 100)
 
-    if not tr_path.exists() or not te_path.exists():
-        print("[CANH BAO] Chua co du lieu expanded parquet de ve EDA. Vui long chay tien xu ly truoc!")
-        return
-
-    print("-> Dang doc du lieu expanded de ve bieu do...", end=" ", flush=True)
-    df_tr = pd.read_parquet(tr_path)
-    df_te = pd.read_parquet(te_path)
-    print("Xong!")
-
-    plt.rcParams["font.sans-serif"] = "DejaVu Sans"
+    plt.rcParams["font.family"] = "DejaVu Sans"
     plt.rcParams["axes.edgecolor"] = "#333333"
     plt.rcParams["axes.linewidth"] = 0.8
     plt.rcParams["grid.color"] = "#E0E0E0"
@@ -671,9 +724,296 @@ def generate_eda_plots() -> None:
     COLOR_ANOMALY = "#d62728"
     COLOR_TRAIN = "#2ca02c"
     COLOR_TEST = "#ff7f0e"
+    COLOR_TEAL = "#167D8D"
+    COLOR_CORAL = "#E07A3F"
 
-    # 1. Bieu do 1: Phan tach phan phoi Normal vs Anomaly
-    print("  -> [1/3] Xuat eda_expanded_temporal_dynamics.png ...", end=" ", flush=True)
+    # =========================================================================
+    # PHAN 1: CAC BIEU DO EDA GOC TU TAP THO TRAIN_FEATURES.CSV
+    # =========================================================================
+    if DATA_RAW.exists():
+        print("-> [1/8] Dang doc mau du lieu goc train_features.csv...", end=" ", flush=True)
+        cols_raw = ["site_id", "meter_reading", "air_temperature", "dew_temperature", "wind_speed", "square_feet", "anomaly"]
+        df_raw_eda = pd.read_csv(DATA_RAW, usecols=cols_raw, low_memory=False)
+        df_sample = df_raw_eda.sample(n=min(300000, len(df_raw_eda)), random_state=42)
+        print("Xong!")
+
+        # ---------------------------------------------------------------------
+        # HINH 1: eda_histogram_distribution.png (6 o phan phoi tan suat)
+        # ---------------------------------------------------------------------
+        print("  -> Xuat eda_histogram_distribution.png ...", end=" ", flush=True)
+        fig, axes = plt.subplots(2, 3, figsize=(18, 11), dpi=300)
+        fig.patch.set_facecolor("#FAFAFA")
+        for ax in axes.flat:
+            ax.set_facecolor("#FFFFFF")
+            ax.grid(True, zorder=0)
+
+        # (a) Raw meter_reading
+        raw_m = df_raw_eda["meter_reading"].dropna()
+        p99 = float(raw_m.quantile(0.99))
+        med_m = float(raw_m.median())
+        mean_m = float(raw_m.mean())
+        s_cap = df_sample["meter_reading"].dropna().clip(upper=p99)
+
+        axes[0, 0].hist(s_cap, bins=50, color=COLOR_TEAL, alpha=0.8, edgecolor="white", density=True, zorder=3)
+        sns.kdeplot(s_cap, ax=axes[0, 0], color="#0B4D57", linewidth=2.0, zorder=4)
+        axes[0, 0].axvline(med_m, color="#E74C3C", linestyle="-", linewidth=2, label=f"Trung vị: {med_m:.1f} kWh")
+        axes[0, 0].axvline(mean_m, color="#F39C12", linestyle="--", linewidth=2, label=f"Trung bình: {mean_m:.1f} kWh")
+        axes[0, 0].set_title("(a) Phân phối Phụ tải Gốc meter_reading (Raw)", fontweight="bold")
+        axes[0, 0].set_xlabel("Phụ tải điện (kWh)")
+        axes[0, 0].set_ylabel("Mật độ xác suất (Density)")
+        axes[0, 0].legend(loc="upper right", framealpha=0.95)
+
+        # (b) log1p(meter_reading)
+        log_m = np.log1p(df_sample["meter_reading"].dropna().clip(lower=0))
+        axes[0, 1].hist(log_m, bins=50, color=COLOR_CORAL, alpha=0.8, edgecolor="white", density=True, zorder=3)
+        sns.kdeplot(log_m, ax=axes[0, 1], color="#BA4A00", linewidth=2.0, zorder=4)
+        axes[0, 1].axvline(log_m.median(), color="#27AE60", linestyle="-", linewidth=2, label=f"Trung vị: {log_m.median():.2f}")
+        axes[0, 1].axvline(log_m.mean(), color="#8E44AD", linestyle="--", linewidth=2, label=f"Trung bình: {log_m.mean():.2f}")
+        axes[0, 1].set_title("(b) Tác động Phục hồi Tính Chuẩn tắc qua log(1+x)", fontweight="bold")
+        axes[0, 1].set_xlabel("log(1 + meter_reading)")
+        axes[0, 1].set_ylabel("Mật độ xác suất (Density)")
+        axes[0, 1].legend(loc="upper right", framealpha=0.95)
+
+        # (c) Normal vs Anomaly
+        log_norm = np.log1p(df_sample.loc[df_sample["anomaly"] == 0, "meter_reading"].dropna().clip(lower=0))
+        log_anom = np.log1p(df_sample.loc[df_sample["anomaly"] == 1, "meter_reading"].dropna().clip(lower=0))
+        sns.kdeplot(log_norm, ax=axes[0, 2], color=COLOR_NORMAL, label="Bình thường (y=0)", fill=True, alpha=0.35, linewidth=2)
+        sns.kdeplot(log_anom, ax=axes[0, 2], color=COLOR_ANOMALY, label="Dị thường (y=1)", fill=True, alpha=0.35, linewidth=2)
+        axes[0, 2].set_title("(c) Phân tách Phụ tải theo Nhãn (Normal vs Anomaly)", fontweight="bold")
+        axes[0, 2].set_xlabel("log(1 + meter_reading)")
+        axes[0, 2].set_ylabel("Mật độ xác suất (Density)")
+        axes[0, 2].legend(loc="upper right", framealpha=0.95)
+
+        # (d) air_temperature (Bimodal)
+        temp_s = df_sample["air_temperature"].dropna()
+        axes[1, 0].hist(temp_s, bins=45, color="#6C5CE7", alpha=0.75, edgecolor="white", density=True, zorder=3)
+        sns.kdeplot(temp_s, ax=axes[1, 0], color="#341F97", linewidth=2.0, zorder=4)
+        axes[1, 0].set_title("(d) Phân phối Lưỡng đỉnh của Nhiệt độ Không khí", fontweight="bold")
+        axes[1, 0].set_xlabel("Nhiệt độ không khí (°C)")
+        axes[1, 0].set_ylabel("Mật độ xác suất (Density)")
+
+        # (e) square_feet
+        sqft_log = np.log10(df_sample["square_feet"].dropna().clip(lower=100))
+        axes[1, 1].hist(sqft_log, bins=40, color="#10AC84", alpha=0.75, edgecolor="white", density=True, zorder=3)
+        sns.kdeplot(sqft_log, ax=axes[1, 1], color="#1DD1A1", linewidth=2.0, zorder=4)
+        axes[1, 1].set_title("(e) Phân tầng Quy mô Diện tích Sàn (square_feet)", fontweight="bold")
+        axes[1, 1].set_xlabel("log10(Diện tích sàn - ft²)")
+        axes[1, 1].set_ylabel("Mật độ xác suất (Density)")
+
+        # (f) Dew temp vs Air temp
+        sub_w = df_sample[["air_temperature", "dew_temperature"]].dropna()
+        axes[1, 2].hexbin(sub_w["air_temperature"], sub_w["dew_temperature"], gridsize=35, cmap="YlGnBu", mincnt=1)
+        axes[1, 2].plot([-10, 40], [-10, 40], color="red", linestyle="--", linewidth=1.5, label="Đường bão hòa T = T_dew")
+        axes[1, 2].set_title("(f) Tương quan Nhiệt độ Không khí & Đọng sương", fontweight="bold")
+        axes[1, 2].set_xlabel("Nhiệt độ không khí (°C)")
+        axes[1, 2].set_ylabel("Nhiệt độ đọng sương (°C)")
+        axes[1, 2].legend(loc="upper left", framealpha=0.95)
+
+        plt.suptitle("LƯỢC ĐỒ PHÂN PHỐI TẦN SUẤT ĐẶC TRƯNG KHÁM PHÁ DỮ LIỆU BAN ĐẦU (EDA HISTOGRAM DIAGRAMS)", fontsize=13, fontweight="bold", y=0.99)
+        plt.tight_layout()
+        out_hist = IMAGE_DIR / "eda_histogram_distribution.png"
+        plt.savefig(out_hist, dpi=300, bbox_inches="tight")
+        plt.close()
+        print(f"Xong! ({out_hist.name})")
+
+        # ---------------------------------------------------------------------
+        # HINH 2: eda_zone_comparison.png (So sanh Site 0, 2, 4, 9)
+        # ---------------------------------------------------------------------
+        print("  -> [2/8] Xuat eda_zone_comparison.png ...", end=" ", flush=True)
+        target_sites = [0, 2, 4, 9]
+        df_sites = df_sample[df_sample["site_id"].isin(target_sites)].copy()
+
+        fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(15, 6), dpi=300)
+        fig.patch.set_facecolor("#FAFAFA")
+        ax1.set_facecolor("#FFFFFF")
+        ax2.set_facecolor("#FFFFFF")
+        ax1.grid(True, axis="y")
+        ax2.grid(True)
+
+        site_palette = {0: "#1f77b4", 2: "#2ca02c", 4: "#d62728", 9: "#9467bd"}
+        site_labels = {0: "Site 0 (Ấm áp)", 2: "Site 2 (Ôn hòa)", 4: "Site 4 (Lạnh)", 9: "Site 9 (Tải lớn)"}
+        df_sites["site_label"] = df_sites["site_id"].map(site_labels)
+
+        # Subplot (a): Boxplot phu tai meter_reading
+        df_sites["meter_capped"] = df_sites["meter_reading"].clip(0, 500)
+        sns.boxplot(
+            data=df_sites,
+            x="site_label",
+            y="meter_capped",
+            hue="site_label",
+            legend=False,
+            palette=list(site_palette.values()),
+            ax=ax1,
+            fliersize=1.2,
+        )
+        ax1.set_title("(a) Phân bố Mức tiêu thụ điện theo Khu vực (Site 0, 2, 4, 9)", fontweight="bold", pad=10)
+        ax1.set_xlabel("Khu vực địa lý (Site ID)")
+        ax1.set_ylabel("Công suất tiêu thụ (kWh - Capped 500)")
+
+        # Subplot (b): KDE nhiet do air_temperature
+        for s_id in target_sites:
+            s_temp = df_sites.loc[df_sites["site_id"] == s_id, "air_temperature"].dropna()
+            sns.kdeplot(s_temp, ax=ax2, label=site_labels[s_id], color=site_palette[s_id], linewidth=2.0)
+        ax2.set_title("(b) Phân phối Nhiệt độ Môi trường theo Khu vực", fontweight="bold", pad=10)
+        ax2.set_xlabel("Nhiệt độ không khí (°C)")
+        ax2.set_ylabel("Mật độ phân phối (Density)")
+        ax2.legend(loc="upper right", framealpha=0.95)
+
+        plt.suptitle("PHÂN BỐ MỨC TIÊU THỤ ĐIỆN VÀ NHIỆT ĐỘ GIỮA CÁC KHU VỰC TIÊU BIỂU", fontsize=13, fontweight="bold", y=1.02)
+        plt.tight_layout()
+        out_zone = IMAGE_DIR / "eda_zone_comparison.png"
+        plt.savefig(out_zone, dpi=300, bbox_inches="tight")
+        plt.close()
+        print(f"Xong! ({out_zone.name})")
+
+        del df_raw_eda, df_sample, df_sites
+
+    # -------------------------------------------------------------------------
+    # HINH 3: preprocessing_history_diagram.png (Lich su tien xu ly 3 nấc)
+    # -------------------------------------------------------------------------
+    print("  -> [3/8] Xuat preprocessing_history_diagram.png ...", end=" ", flush=True)
+    stages = [
+        "1. Nạp CSV Thô",
+        "2. Chunking 96h",
+        "3. Khử 23 cột ID",
+        "4. Cờ Missing",
+        "5. Lọc IQR",
+        "6. Z-Score/Zone",
+        "7. Context-Aware",
+        "8. Expanded Champion",
+    ]
+    x_idx = np.arange(len(stages))
+    fig, axes = plt.subplots(3, 1, figsize=(16, 12), dpi=300, sharex=False)
+    fig.patch.set_facecolor("#FAFAFA")
+    for ax in axes:
+        ax.set_facecolor("#FFFFFF")
+        ax.grid(True, zorder=0)
+
+    # (a) Dữ liệu khuyết thiếu
+    missing_rates = [6.15, 6.15, 6.15, 6.15, 0.00, 0.00, 0.00, 0.00]
+    axes[0].plot(x_idx, missing_rates, marker="o", color=COLOR_ANOMALY, linewidth=2.5, markersize=8, zorder=4)
+    axes[0].fill_between(x_idx, missing_rates, color=COLOR_ANOMALY, alpha=0.15)
+    axes[0].set_title("(a) Diễn biến Triệt tiêu Dữ liệu Khuyết thiếu (Missing Rate % ở biến meter_reading)", pad=8, fontweight="bold")
+    axes[0].set_ylabel("Tỷ lệ thiếu (%)")
+    axes[0].set_xticks(x_idx)
+    axes[0].set_xticklabels(stages)
+    axes[0].set_ylim(-0.5, 8.0)
+
+    # (b) Chiều không gian đặc trưng qua 4 nhánh
+    base_cols = [57, 57, 34, 35, 35, 40, 40, 40]
+    zone_cols = [57, 57, 34, 35, 35, 43, 43, 43]
+    ctx_cols  = [57, 57, 34, 35, 35, 43, 47, 47]
+    exp_cols  = [57, 57, 34, 35, 35, 43, 47, 55]
+
+    axes[1].plot(x_idx, base_cols, marker="s", color=COLOR_TEAL, linewidth=2, label="Baseline (40 cột)", linestyle=":")
+    axes[1].plot(x_idx, zone_cols, marker="^", color=COLOR_CORAL, linewidth=2, label="Zone-Enhanced (43 cột)", linestyle="--")
+    axes[1].plot(x_idx, ctx_cols, marker="o", color="#6C5CE7", linewidth=2.2, label="Context-Aware (47 cột)", linestyle="-.")
+    axes[1].plot(x_idx, exp_cols, marker="D", color="#C0392B", linewidth=2.8, label="Expanded Champion SOTA (55 cột)")
+    axes[1].set_title("(b) Biến động Chiều Không gian Đặc trưng & Sự Phân nhánh 4 Cấp độ Dữ liệu", pad=8, fontweight="bold")
+    axes[1].set_ylabel("Số lượng cột")
+    axes[1].set_xticks(x_idx)
+    axes[1].set_xticklabels(stages)
+    axes[1].set_ylim(25, 62)
+    axes[1].legend(loc="upper right", framealpha=0.95)
+
+    # (c) Kiểm soát số lượng mẫu Zero Leakage
+    train_samples = np.array([1749494, 1147089, 1147089, 1147089, 1147089, 1147089, 1147089, 1147089])
+    purge_samples = np.array([0, 229412, 229412, 229412, 229412, 229412, 229412, 229412])
+    test_samples  = np.array([0, 372993, 372993, 372993, 372993, 372993, 372993, 372993])
+    width = 0.55
+    axes[2].bar(x_idx, train_samples, width, label="Tập Train Tin (Ngày 01-20: 1.147.089 mẫu - 65,6%)", color="#167D8D", alpha=0.85, zorder=3)
+    axes[2].bar(x_idx, purge_samples, width, bottom=train_samples, label="Purge Gap 96h (Ngày 21-24: 229.412 mẫu - 13,1% [Loại bỏ cách ly])", color="#BDC3C7", hatch="///", edgecolor="#C94C4C", zorder=3)
+    axes[2].bar(x_idx, test_samples, width, bottom=train_samples + purge_samples, label="Tập Test Tout (Ngày 25-Cuối: 372.993 mẫu - 21,3%)", color="#E07A3F", alpha=0.85, zorder=3)
+    axes[2].set_title("(c) Kiểm soát Số lượng Mẫu & Giao thức 100% Zero Data Leakage", pad=8, fontweight="bold")
+    axes[2].set_ylabel("Số lượng bản ghi")
+    axes[2].set_xticks(x_idx)
+    axes[2].set_xticklabels(stages, fontweight="bold")
+    axes[2].yaxis.set_major_formatter(ticker.FuncFormatter(lambda y, _: f"{int(y):,}"))
+    axes[2].legend(loc="lower left", framealpha=0.95)
+
+    plt.suptitle("LƯỢC ĐỒ LỊCH SỬ TIẾN TRÌNH TIỀN XỬ LÝ DỮ LIỆU ĐỒNG BỘ (ZERO DATA LEAKAGE PROTOCOL)", fontsize=13, fontweight="bold", y=0.995)
+    plt.tight_layout()
+    out_hist_diag = IMAGE_DIR / "preprocessing_history_diagram.png"
+    plt.savefig(out_hist_diag, dpi=300, bbox_inches="tight")
+    plt.close()
+    print(f"Xong! ({out_hist_diag.name})")
+
+    # =========================================================================
+    # PHAN 2: CAC BIEU DO TREN TAP EXPANDED PARQUET (TRAIN & TEST)
+    # =========================================================================
+    if not tr_path.exists() or not te_path.exists():
+        print("[CANH BAO] Chua co du lieu expanded parquet de ve cac bieu do tiep theo!")
+        return
+
+    print("-> Dang doc du lieu expanded parquet de ve 4 bieu do chuyen sau...", end=" ", flush=True)
+    df_tr = pd.read_parquet(tr_path)
+    df_te = pd.read_parquet(te_path)
+    print("Xong!")
+
+    # -------------------------------------------------------------------------
+    # HINH 4: ml_train_test_distribution.png (Kiem toan Train vs Test ML)
+    # -------------------------------------------------------------------------
+    print("  -> [4/8] Xuat ml_train_test_distribution.png ...", end=" ", flush=True)
+    fig, axes = plt.subplots(2, 2, figsize=(14, 10), dpi=300)
+    fig.patch.set_facecolor("#FAFAFA")
+    for ax in axes.flat:
+        ax.set_facecolor("#FFFFFF")
+        ax.grid(True)
+
+    # (a) meter_reading
+    m_tr_s = df_tr["meter_reading"].clip(-3, 5).sample(min(50000, len(df_tr)), random_state=42)
+    m_te_s = df_te["meter_reading"].clip(-3, 5).sample(min(50000, len(df_te)), random_state=42)
+    sns.kdeplot(m_tr_s, ax=axes[0, 0], color=COLOR_TRAIN, label="Tập Train (Tin: 1.15M)", linewidth=2.0)
+    sns.kdeplot(m_te_s, ax=axes[0, 0], color=COLOR_TEST, label="Tập Test (Tout: 373k)", linewidth=2.0, linestyle="--")
+    axes[0, 0].set_title("(a) Phân phối Chuẩn hóa meter_reading (Z-score)", fontweight="bold")
+    axes[0, 0].set_xlabel("meter_reading (Standardized)")
+    axes[0, 0].legend(loc="upper right", framealpha=0.95)
+
+    # (b) air_temperature
+    t_tr_s = df_tr["air_temperature"].sample(min(50000, len(df_tr)), random_state=42)
+    t_te_s = df_te["air_temperature"].sample(min(50000, len(df_te)), random_state=42)
+    sns.kdeplot(t_tr_s, ax=axes[0, 1], color=COLOR_TRAIN, label="Tập Train (Tin: 1.15M)", linewidth=2.0)
+    sns.kdeplot(t_te_s, ax=axes[0, 1], color=COLOR_TEST, label="Tập Test (Tout: 373k)", linewidth=2.0, linestyle="--")
+    axes[0, 1].set_title("(b) Phân phối Chuẩn hóa air_temperature (Z-score)", fontweight="bold")
+    axes[0, 1].set_xlabel("air_temperature (Standardized)")
+    axes[0, 1].legend(loc="upper right", framealpha=0.95)
+
+    # (c) square_feet
+    sq_tr_s = df_tr["square_feet"].sample(min(50000, len(df_tr)), random_state=42)
+    sq_te_s = df_te["square_feet"].sample(min(50000, len(df_te)), random_state=42)
+    sns.kdeplot(sq_tr_s, ax=axes[1, 0], color=COLOR_TRAIN, label="Tập Train (Tin: 1.15M)", linewidth=2.0)
+    sns.kdeplot(sq_te_s, ax=axes[1, 0], color=COLOR_TEST, label="Tập Test (Tout: 373k)", linewidth=2.0, linestyle="--")
+    axes[1, 0].set_title("(c) Phân phối Chuẩn hóa square_feet (Z-score)", fontweight="bold")
+    axes[1, 0].set_xlabel("square_feet (Standardized)")
+    axes[1, 0].legend(loc="upper right", framealpha=0.95)
+
+    # (d) Anomaly Rate
+    rates = [df_tr["anomaly"].mean() * 100, df_te["anomaly"].mean() * 100]
+    bars = axes[1, 1].bar(["Tập Train (Tin)", "Tập Test (Tout)"], rates, color=[COLOR_TRAIN, COLOR_TEST], width=0.45, alpha=0.85)
+    for b in bars:
+        axes[1, 1].text(b.get_x() + b.get_width()/2, b.get_height() + 0.05, f"{b.get_height():.2f}%", ha="center", va="bottom", fontweight="bold")
+    axes[1, 1].set_title("(d) Tỷ lệ Nhãn Dị thường (Anomaly Rate %)", fontweight="bold")
+    axes[1, 1].set_ylabel("Tỷ lệ % Anomaly")
+    axes[1, 1].set_ylim(0, 3.5)
+
+    plt.suptitle("KIỂM SOÁT TÍNH ĐỒNG NHẤT PHÂN PHỐI GIỮA TẬP TRAIN VÀ TẬP TEST (SEASONAL CHUNKING + PURGE GAP 96H)", fontsize=13, fontweight="bold", y=0.99)
+    plt.tight_layout()
+    out_ml_drift = IMAGE_DIR / "ml_train_test_distribution.png"
+    plt.savefig(out_ml_drift, dpi=300, bbox_inches="tight")
+    plt.close()
+    print(f"Xong! ({out_ml_drift.name})")
+
+    # -------------------------------------------------------------------------
+    # HINH 5: eda_context_features.png
+    # -------------------------------------------------------------------------
+    print("  -> [5/8] Xuat eda_context_features.png ...", end=" ", flush=True)
+    out_context = generate_context_eda_plot(df_tr, IMAGE_DIR / "eda_context_features.png")
+    print(f"Xong! ({out_context.name})")
+
+    # -------------------------------------------------------------------------
+    # HINH 5: eda_expanded_temporal_dynamics.png
+    # -------------------------------------------------------------------------
+    print("  -> [6/8] Xuat eda_expanded_temporal_dynamics.png ...", end=" ", flush=True)
     fig, axes = plt.subplots(2, 2, figsize=(14, 10), dpi=300)
 
     # (a) flatline_duration
@@ -740,8 +1080,10 @@ def generate_eda_plots() -> None:
     plt.close()
     print(f"Xong! ({out1.name})")
 
-    # 2. Bieu do 2: Kiem toan Zero Covariate Shift (Train vs Test)
-    print("  -> [2/3] Xuat eda_expanded_train_test_drift.png ...", end=" ", flush=True)
+    # -------------------------------------------------------------------------
+    # HINH 6: eda_expanded_train_test_drift.png
+    # -------------------------------------------------------------------------
+    print("  -> [7/8] Xuat eda_expanded_train_test_drift.png ...", end=" ", flush=True)
     fig, axes = plt.subplots(2, 2, figsize=(14, 10), dpi=300)
     features_to_check = [
         ("meter_lag_1h", "Công suất 1h trước (meter_lag_1h)", (0, 300)),
@@ -762,15 +1104,17 @@ def generate_eda_plots() -> None:
         ax.legend(frameon=True, facecolor="white", edgecolor="none")
         ax.grid(True)
 
-    plt.suptitle("KIỂM TOÁN ZERO COVARIATE SHIFT: ĐỒNG NHẤT PHÂN PHỐI TRAIN VS TEST QUA PURGE GAP 96H", fontsize=14, fontweight="bold", y=1.02)
+    plt.suptitle("KIỂM TOÁN ZERO COVARIATE SHIFT: ĐỒNG NHẤT PHÂN PHỐI TRAIN VS TEST QUA PURGE GAP 96H", fontsize=13, fontweight="bold", y=1.02)
     plt.tight_layout()
     out2 = IMAGE_DIR / "eda_expanded_train_test_drift.png"
     plt.savefig(out2, dpi=300, bbox_inches="tight")
     plt.close()
     print(f"Xong! ({out2.name})")
 
-    # 3. Bieu do 3: Case study chuoi thoi gian 1 toa nha
-    print("  -> [3/3] Xuat eda_expanded_case_study.png ...", end=" ", flush=True)
+    # -------------------------------------------------------------------------
+    # HINH 7: eda_expanded_case_study.png
+    # -------------------------------------------------------------------------
+    print("  -> [8/8] Xuat eda_expanded_case_study.png ...", end=" ", flush=True)
     b_candidates = df_tr.groupby("building_id")["anomaly"].sum().sort_values(ascending=False).index[:15]
     selected_b = b_candidates[0]
     for b in b_candidates:
@@ -818,7 +1162,7 @@ def generate_eda_plots() -> None:
     plt.close()
     print(f"Xong! ({out3.name})")
 
-    print(f"[HOAN TAT] Da xuat du 3 bieu do EDA khoa hoc 300 DPI tai: {IMAGE_DIR}")
+    print(f"\n[HOAN TAT] DA XUAT DU TOAN BO 8 BIEU DO KHOA HOC 300 DPI TAI: {IMAGE_DIR}\n")
 
 
 if __name__ == "__main__":

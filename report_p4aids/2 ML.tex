@@ -1,7 +1,6 @@
 \subsection{Các phương pháp Học máy hiện có để giải quyết bài toán}
 %Ghi rõ và ưu nhược điểm
-Do dữ liệu đã có gán nhãn cho biến \texttt{anomaly}( $0$ biểu thị trạng thái bình thường, $1$ biểu thị trạng thái bất thường), họ thuật toán dựa trên cây quyết định (Tree-based Models) và phương pháp học tập hợp (Ensemble Learning) thường thể hiện hiệu suất vượt trội.
-
+Do dữ liệu sử dụng trong nghiên cứu đã có gán nhãn cho biến \texttt{anomaly} ($0$ biểu thị trạng thái bình thường, $1$ biểu thị trạng thái bất thường), bài toán được xây dựng dưới dạng phân loại nhị phân có giám sát. Các phương pháp học máy tiếp cận được trình bày trong mục này là các phương pháp tiêu biểu và được sử dụng trong lời giải quán quân cuộc thi LEAD của Fu et al.~\cite{lead_winner}.
 \subsubsection{XGBoost (eXtreme Gradient Boosting)}\hspace{1cm}
 
 XGBoost~\cite{xgboost} tối ưu hóa hàm mục tiêu bằng phương pháp khai triển Taylor bậc hai, cho phép hội tụ nhanh hơn. Cấu trúc cây được phát triển theo từng tầng. Mô hình cuối cùng là tổng hợp tuần tự của $K$ cây quyết định:
@@ -83,39 +82,20 @@ Cây đối xứng sử dụng cùng một điều kiện chia tại tất cả 
 
 \subsubsection{HistGradientBoosting (Histogram-based Gradient Boosting)}\hspace{1cm}
 
-HistGradientBoosting~\cite{hist_gb} là thuật toán tăng cường độ dốc hiện đại được xây dựng trong thư viện Scikit-learn, lấy cảm hứng trực tiếp từ kỹ thuật Histogram-based của LightGBM và được nhóm Quán quân cuộc thi LEAD~\cite{lead_winner} lựa chọn làm một trong bốn trụ cột phân loại chính. Thuật toán được thiết kế chuyên biệt để giải quyết rào cản tốc độ và bộ nhớ khi huấn luyện trên các tập dữ liệu chuỗi thời gian quy mô lớn ($N > 10^6$ mẫu).
+HistGradientBoosting~\cite{hist_gb} là phiên bản tăng cường độ dốc hiện đại trong Scikit-learn, lấy cảm hứng từ kỹ thuật của LightGBM nhằm tối ưu tốc độ tính toán và bộ nhớ khi làm việc với tập dữ liệu quy mô lớn ($N > 10^6$ mẫu).
 
-Khác biệt cốt lõi của HistGradientBoosting nằm ở khâu lượng tử hóa đặc trưng (Feature Quantization / Binning): Thay vì duyệt qua toàn bộ các giá trị thực liên tục và sắp xếp lại dữ liệu tại mỗi bước phân nhánh với độ phức tạp $O(N \log N)$, thuật toán ánh xạ trước các đặc trưng liên tục vào tối đa $K = 256$ thùng số nguyên 8-bit (\texttt{uint8}):
-\begin{equation*}
-    q(x_i) \in \{0, 1, \dots, K-1\}
-\end{equation*}
-Đặc biệt, thùng thứ $255$ được dành riêng để biểu diễn tự nhiên các giá trị bị khuyết (NaN), cho phép mô hình tự động phân nhánh tối ưu cho dữ liệu thiếu mà không cần phải thực hiện bước điền khuyết (Imputation) nhân tạo trước đó.
-
-Tại mỗi nút của cây quyết định thứ $t$, thuật toán tích lũy trực tiếp Gradient bậc nhất $g_i$ và Gradient bậc hai Hessian $h_i$ vào các bin histogram:
-\begin{equation*}
-    G_k = \sum_{i: q(x_i) = k} g_i, \quad H_k = \sum_{i: q(x_i) = k} h_i, \quad k \in \{0, 1, \dots, K-1\}
-\end{equation*}
-Nhờ tính chất cộng dồn của Histogram, việc tìm kiếm điểm chia nhánh tối ưu $s^*$ chỉ tốn chi phí $O(K)$ độc lập với kích thước dữ liệu $N$. Hơn nữa, thuật toán áp dụng cơ chế trừ Histogram (\textit{Histogram Subtraction Trick}): Histogram của nút con bên phải được suy ra trực tiếp bằng phép trừ:
-\begin{equation*}
-    G_{\text{Right}} = G_{\text{Parent}} - G_{\text{Left}}, \quad H_{\text{Right}} = H_{\text{Parent}} - H_{\text{Left}}
-\end{equation*}
-giúp giảm một nửa khối lượng tính toán trên toàn bộ cây. Độ lợi phân chia được tối đa hóa theo hàm mất mát chính quy:
-\begin{equation*}
-    \Delta \mathcal{L} = \frac{1}{2} \left[ \frac{G_L^2}{H_L + \lambda} + \frac{G_R^2}{H_R + \lambda} - \frac{G^2}{H + \lambda} \right] - \gamma
-\end{equation*}
-trong đó $\lambda$ là hệ số điều chuẩn $L_2$ và $\gamma$ là ngưỡng phạt tạo nhánh mới.\\
+Cốt lõi của thuật toán là kỹ thuật Binning các giá trị liên tục được ánh xạ vào $K = 256$ thùng số nguyên 8-bit, với thùng thứ $255$ dành riêng để xử lý tự nhiên dữ liệu khuyết. Nhờ việc cộng dồn gradient vào histogram và áp dụng phép trừ histogram, chi phí tìm điểm cắt tối ưu tại mỗi nút chỉ còn $O(K)$, hoàn toàn không phụ thuộc kích thước tập dữ liệu $N$.
 
 \textbf{Ưu điểm:}
 \begin{itemize}
-    \item \textbf{Tốc độ huấn luyện và tối ưu bộ nhớ vượt trội:} Việc chuyển đổi toàn bộ mảng dữ liệu sang định dạng số nguyên \texttt{uint8} kết hợp song song hóa đa luồng OpenMP/Cython giúp HistGradientBoosting tiêu tốn ít bộ nhớ RAM và đạt tốc độ huấn luyện nhanh gấp hàng chục lần so với các thuật toán phân nhánh chính xác (Exact-split).
-    \item \textbf{Tự động xử lý giá trị khuyết và biến phân loại:} Hỗ trợ trực tiếp giá trị thiếu (NaN) và biến định danh (\texttt{categorical\_features}) bằng cơ chế phân nhóm tối ưu dựa trên thứ tự gradient, hạn chế tối đa rủi ro rò rỉ dữ liệu khi tiền xử lý.
-    \item \textbf{Tích hợp cơ chế Dừng sớm (Early Stopping) nội bộ:} Tự động trích xuất một phần dữ liệu nội bộ làm tập kiểm định để theo dõi điểm số đánh giá (ROC-AUC / Loss), tự động dừng huấn luyện khi mô hình bắt đầu có dấu hiệu bão hòa hoặc quá khớp.
+    \item \textbf{Tốc độ cao và tối ưu RAM:} Sử dụng định dạng \texttt{uint8} kết hợp đa luồng giúp tăng tốc huấn luyện vượt trội so với các thuật toán phân nhánh chính xác.
+    \item \textbf{Xử lý trực tiếp giá trị thiếu và Dừng sớm:} Không cần tiền xử lý điền khuyết, tích hợp sẵn cơ chế Early Stopping để phòng chống quá khớp.
 \end{itemize}
 
 \textbf{Nhược điểm:}
 \begin{itemize}
-    \item \textbf{Mất mát độ phân giải vi mô cục bộ:} Do dữ liệu liên tục bị ép vào $256$ thùng rời rạc, thuật toán có thể làm phẳng các biến động giá trị cực kỳ nhỏ (tuy nhiên với quy mô dữ liệu $1{,}75$ triệu dòng của LEAD, hạn chế này không gây ảnh hưởng tiêu cực).
-    \item \textbf{Khả năng tùy biến mất cân bằng lớp chuyên sâu:} So với \texttt{scale\_pos\_weight} linh hoạt của XGBoost hoặc \texttt{class\_weights} của CatBoost, cơ chế phạt mất cân bằng nhị phân trong Scikit-learn đòi hỏi phải điều chỉnh gián tiếp thông qua trọng số mẫu (\texttt{sample\_weight}).
+    \item \textbf{Mất độ phân giải cục bộ:} Việc rời rạc hóa đặc trưng có thể làm mờ các biến động giá trị cực nhỏ.
+    \item \textbf{Tùy biến mất cân bằng lớp:} Không có tham số trực tiếp như \texttt{scale\_pos\_weight} mà cần tinh chỉnh thông qua trọng số mẫu \texttt{sample\_weight}.
 \end{itemize}
 
 \subsubsection{Tổng hợp So sánh Bộ tứ Thuật toán Gradient Boosting Chủ lực}
@@ -138,4 +118,3 @@ Bảng~\ref{tab:ml_boosting_comparison} tổng hợp các đặc tính kỹ thu�
 \end{tabular}
 }
 \end{table}
-
