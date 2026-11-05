@@ -1,0 +1,10 @@
+id,ten_thi_nghiem,ky_thuat_loai_bo,so_features,mo_hinh,hau_xu_ly,pr_auc,roc_auc,f1,precision,recall,delta_prauc,delta_f1,delta_prec,delta_rec,thoi_gian_s
+BENCHMARK,[MOC CHUAN] Full Pipeline Hoan Chinh,(Khong - Co day du tat ca),54,Quad Ensemble (SLSQP),Co (Hysteresis+Gap),0.8476,0.9536,0.8335,0.9596,0.7366,+0.0000,+0.0000,+0.0000,+0.0000,87.8
+LOO-1,Bo Hau xu ly Chuoi thoi gian,Temporal Post-Processing,54,Quad Ensemble (SLSQP),KHONG (Nguong tinh tau*),0.8476,0.9536,0.8445,0.9526,0.7585,+0.0000,+0.0110,-0.0070,+0.0219,86.6
+LOO-2,Bo Toi uu SLSQP (Dung Equal 1/4),SLSQP Weight Optimization,54,Quad Ensemble (Equal 0.25),Co (Hysteresis+Gap),0.8476,0.9536,0.8335,0.9596,0.7366,+0.0000,+0.0000,+0.0000,+0.0000,87.8
+LOO-1+2,Bo ca Hau xu ly VA SLSQP,Drop Both: Post-Processing & SLSQP,54,Quad Ensemble (Equal 0.25),KHONG (Nguong tinh tau*),0.8476,0.9536,0.8445,0.9527,0.7584,+0.0000,+0.0110,-0.0069,+0.0218,86.6
+LOO-3,Bo Ensemble (Chi dung Single XGBoost),Quad Boosting Diversity,54,Single XGBoost (GPU),Co (Hysteresis+Gap),0.8452,0.9535,0.8168,0.967,0.7069,-0.0024,-0.0167,+0.0074,-0.0297,87.6
+LOO-4,Bo Dac trung STL Residual (53 cot),STL Trend-Season Decomposition,53,Quad Ensemble (SLSQP),Co (Hysteresis+Gap),0.8452,0.9533,0.8334,0.9648,0.7334,-0.0024,-0.0001,+0.0052,-0.0032,76.0
+LOO-5,Bo Dac trung Flatline Duration (53 cot),Sensor Freeze / Flatline Counter,53,Quad Ensemble (SLSQP),Co (Hysteresis+Gap),0.8127,0.951,0.7913,0.9491,0.6785,-0.0349,-0.0422,-0.0105,-0.0581,79.5
+LOO-6,Bo Nhom Vi mo Tre 1h/2h (48 cot),Micro Temporal Dynamics (Lag/Diff/Ratio),48,Quad Ensemble (SLSQP),Co (Hysteresis+Gap),0.7725,0.925,0.7933,0.9616,0.6751,-0.0751,-0.0402,+0.0020,-0.0615,71.5
+BASELINE,[BASELINE] Context Goc 46 Cot,Toan bo cac ky thuat cai tien,46,Single XGBoost (GPU),KHONG,0.6962,0.8958,0.7273,0.9378,0.594,-0.1514,-0.1062,-0.0218,-0.1426,6.4

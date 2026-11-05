@@ -1,4 +1,4 @@
-\section{Triển khai thuật toán Học Sâu - Deep Learning}
+\section{Triển khai Học Sâu}
 
 \subsection{Thiết kế Pipeline Học Sâu Tổng thể}
 Phần Học sâu được hiện thực trong thư mục \texttt{model\_DL/} (các tệp \texttt{config.py}, \texttt{models.py}, \texttt{prepare\_chunked\_data.py}, \texttt{chunked\_data.py}, \texttt{chunked\_pipeline.py}). Pipeline gồm bốn giai đoạn, cùng khung với phần Học máy (tiền xử lý $\rightarrow$ huấn luyện từng mô hình $\rightarrow$ tối ưu $\rightarrow$ dung hợp) để hai phần có thể đặt cạnh nhau. Khác với phiên bản đầu của pipeline (dựng lại lưới giờ từ dữ liệu thô), phiên bản cuối \textbf{dùng chung ba bộ dữ liệu đã chia theo mùa vụ của phần Học máy} (Baseline, Zone, Context; Chương~3) và chỉ gắn thêm cột \texttt{timestamp}, nên mọi mô hình Học sâu và Học máy được chấm trên cùng $372.993$ dòng ngoài mẫu $T_{\text{out}}$. Mỗi giai đoạn ghi rõ nội dung \textbf{đã triển khai} trong mã nguồn và nội dung \textbf{chưa triển khai} (hướng mở rộng), để báo cáo không mô tả quá những gì đã chạy.

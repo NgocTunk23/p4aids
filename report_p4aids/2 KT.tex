@@ -1,0 +1,334 @@
+\subsection{Các kỹ thuật bổ trợ hiện có để giải quyết bài toán}
+%Ghi rõ và ưu nhược điểm
+
+Trong bài toán phát hiện bất thường phụ tải điện, hiệu quả mô hình không chỉ phụ thuộc vào thuật toán mà còn chịu ảnh hưởng bởi cách biểu diễn dữ liệu. Hành vi tiêu thụ có thể khác nhau theo từng khu vực và loại công trình; bên cạnh đó, nhãn bất thường thường ít hơn nhiều so với nhãn bình thường, còn các biến động phụ tải lại gắn liền với diễn biến theo thời gian. Vì vậy, mục này giới thiệu một số kỹ thuật bổ trợ đã được nghiên cứu, gồm xây dựng đặc trưng theo bối cảnh, phân cụm phụ tải, điều chỉnh hàm mất mát và mô hình hóa chuỗi thời gian. Với mỗi kỹ thuật, phần này trình bày nguyên lý, điểm mạnh và những hạn chế cần cân nhắc khi áp dụng.
+
+\subsubsection{Kỹ thuật tương tác giữa địa điểm và công năng}\hspace{1cm}
+
+Trong dữ liệu công trình, phụ tải có thể khác nhau theo vị trí địa lý, điều kiện thời tiết và công năng sử dụng của tòa nhà \cite{bdg2, ashrae_gep3}. Trong bộ dữ liệu ASHRAE GEPIII, \texttt{site\_id} nhận diện địa điểm thu thập dữ liệu và có dữ liệu thời tiết tương ứng; đây không phải một phân loại vùng khí hậu ASHRAE. Vì vậy, khi xây dựng mô hình, có thể xem xét kết hợp thông tin địa điểm với \texttt{primary\_use} để biểu diễn bối cảnh của từng nhóm công trình.
+
+Một cách tạo đặc trưng tương tác là mã hóa mỗi cặp địa điểm $S \in \mathcal{S}$ và công năng $U \in \mathcal{U}$ thành một danh mục:
+\begin{equation*}
+    \texttt{zone\_interaction} = \phi(S, U) \in \{0, 1, \dots, |\mathcal{S} \times \mathcal{U}| - 1\}
+\end{equation*}
+Ngoài ra, có thể bổ sung diện tích sàn trung bình của các tòa nhà trong cùng địa điểm hoặc cùng nhóm công năng:
+\begin{equation*}
+    \bar{A}_{S} = \mathbb{E}_{\mathbf{x} \in \mathcal{D}_S}[\texttt{square\_feet}], \qquad \bar{A}_{U} = \mathbb{E}_{\mathbf{x} \in \mathcal{D}_U}[\texttt{square\_feet}]
+\end{equation*}
+Các thống kê diện tích cần được tính trên tập huấn luyện rồi mới áp dụng cho tập kiểm định và tập kiểm tra. Fu và cộng sự \cite{lead_winner} nhấn mạnh vai trò của đặc trưng biểu diễn mức thay đổi phụ tải; Buaprakhong và cộng sự \cite{lead_framework} khảo sát các đặc trưng thời gian, môi trường và biến đổi giá trị. Các kết quả này là cơ sở tham khảo chung, không chứng minh rằng riêng phép mã hóa cặp địa điểm--công năng luôn cải thiện khả năng tổng quát hóa.\\
+
+\textbf{Ưu điểm:}
+\begin{itemize}
+    \item \textbf{Biểu diễn sự khác biệt theo bối cảnh:} Có thể giúp mô hình phân biệt phụ tải của các nhóm công trình có vị trí hoặc công năng khác nhau.
+    \item \textbf{Hỗ trợ mô hình hóa tương tác:} Đặc trưng kết hợp có thể giúp một số mô hình biểu diễn quan hệ giữa địa điểm và công năng trực tiếp hơn; hiệu quả phụ thuộc vào cách mã hóa và thuật toán.
+    \item \textbf{Khả năng áp dụng cho công trình mới:} Đặc trưng dựa trên siêu dữ liệu có thể hữu ích khi dự đoán cho công trình chưa xuất hiện trong tập huấn luyện, nhưng không tự bảo đảm khả năng tổng quát hóa, nhất là khi địa điểm hoặc công năng mới chưa có trong dữ liệu.
+\end{itemize}
+
+\textbf{Nhược điểm:}
+\begin{itemize}
+    \item \textbf{Làm tăng độ thưa của biến danh mục:} Phép nhân tổ hợp $\mathcal{S} \times \mathcal{U}$ tạo ra nhiều cặp giá trị có rất ít mẫu quan sát trong thực tế (ví dụ loại công năng hiếm tại một địa bàn nhỏ), dễ gây nhiễu cho mô hình nếu phân vùng dữ liệu không đồng đều.
+    \item \textbf{Chỉ nắm bắt thông tin tĩnh:} Kỹ thuật này cung cấp bối cảnh địa lý và công năng ở mức vĩ mô nhưng không theo dõi được các dao động phụ tải vi mô ngắn hạn theo từng giờ của riêng công trình đó.
+\end{itemize}
+
+\subsubsection{Chuẩn hóa phụ tải theo ngữ cảnh}\hspace{1cm}
+
+Orvati Nia và cộng sự \cite{orvati2026} chuẩn hóa phụ tải theo từng công trình trong thiết lập phát hiện bất thường của họ. Trong đề tài này, phụ tải được biểu diễn tương đối so với mức tiêu thụ quen thuộc của từng công trình để tạo bốn biến ngữ cảnh:
+\begin{enumerate}
+    \item \texttt{z\_meter\_local}: độ lệch của phụ tải so với trung bình và độ lệch chuẩn của cùng công trình tại cùng giờ:
+    \begin{equation*}
+        z_{\text{local}}(t) =
+        \frac{x_t - \mu_{b,h}}{\sigma_{b,h}},
+    \end{equation*}
+    trong đó $b$ là công trình, $h$ là giờ trong ngày, còn $\mu_{b,h}$ và $\sigma_{b,h}$ được tính từ tập huấn luyện.
+    \item \texttt{z\_meter\_workday}: độ lệch phụ tải so với trung bình và độ lệch chuẩn của cùng công trình, cùng giờ và cùng nhóm ngày làm việc/ngày nghỉ:
+    \begin{equation*}
+        z_{\text{workday}}(t) =
+        \frac{x_t - \mu_{b,d,h}}{\sigma_{b,d,h}},
+    \end{equation*}
+    trong đó $d$ phân biệt ngày làm việc với ngày nghỉ. Nếu nhóm tương ứng không có thống kê, quy trình dùng thống kê cùng giờ của công trình.
+    \item \texttt{z\_meter\_robust}: độ lệch phụ tải so với trung vị của công trình, chia cho khoảng tứ phân vị của công trình:
+    \begin{equation*}
+        z_{\text{robust}}(t) =
+        \frac{x_t - \operatorname{median}_{b}}{\operatorname{IQR}_{b}}.
+    \end{equation*}
+    \item \texttt{temp\_load\_inter}: tích giữa biến phụ tải đã chuẩn hóa theo nhóm ngày và nhiệt độ không khí:
+    \begin{equation*}
+        \texttt{temp\_load\_inter}(t) =
+        z_{\text{workday}}(t) \times \texttt{air\_temperature}(t).
+    \end{equation*}
+\end{enumerate}
+Các thống kê được tính từ dữ liệu huấn luyện rồi dùng để chuẩn hóa phụ tải; độ lệch chuẩn quá nhỏ được thay bằng giá trị dự phòng, khoảng tứ phân vị được chặn dưới ở mức $0{,}1$, và ba biến chuẩn hóa được giới hạn trong đoạn $[-5,10]$.
+
+\textbf{Ưu điểm:}
+\begin{itemize}
+    \item \textbf{So sánh phụ tải theo thói quen riêng:} Biểu diễn tương đối giúp nhận ra mức tiêu thụ khác thường của một công trình ngay cả khi giá trị tuyệt đối vẫn nằm trong khoảng phổ biến của toàn bộ dữ liệu.
+    \item \textbf{Bổ sung bối cảnh thời gian và thời tiết:} Chuẩn hóa theo giờ, loại ngày và kết hợp với nhiệt độ cung cấp thêm ngữ cảnh để phân biệt các mức phụ tải có ý nghĩa khác nhau.
+\end{itemize}
+
+\textbf{Nhược điểm:}
+\begin{itemize}
+    \item \textbf{Phụ thuộc chất lượng thống kê lịch sử:} Lịch sử quá ngắn hoặc chứa nhiều bất thường có thể làm sai lệch trung bình, độ lệch chuẩn, trung vị và khoảng tứ phân vị dùng để chuẩn hóa.
+    \item \textbf{Khó áp dụng cho công trình mới:} Khi chưa có đủ dữ liệu huấn luyện của công trình, các thống kê riêng theo công trình chưa đáng tin cậy hoặc chưa thể tính.
+\end{itemize}
+
+\subsubsection{Đặc trưng biến thiên phụ tải trong bộ dữ liệu Expanded}\hspace{1cm}
+
+Trong lời giải quán quân LEAD, Fu và cộng sự \cite{lead_winner} bổ sung đặc trưng biến thiên phụ tải dưới hai dạng: sai phân $X(t)-X(t-s)$ và tỉ số $(X(t)+1)/(X(t-s)+1)$, khảo sát các độ trễ từ $1$ đến $168$ bước thời gian. Nghiên cứu ghi nhận cả hai dạng đều hữu ích cho dự đoán. Theo hướng xử lý này, nhóm sử dụng sai phân và tỉ số tại độ trễ một và hai giờ, đồng thời bổ sung các biến trễ, bộ đếm đoạn phụ tải gần như không đổi và độ lệch so với chu kỳ ngày:
+\begin{enumerate}
+    \item \texttt{meter\_lag\_1h} và \texttt{meter\_lag\_2h}: phụ tải ghi nhận trước đó một và hai giờ. Đây là các giá trị đầu vào để biểu diễn ngữ cảnh trễ:
+    \begin{equation*}
+        \texttt{meter\_lag\_k}_t = m_{t-k}, \qquad k \in \{1,2\}.
+    \end{equation*}
+    \item \texttt{meter\_diff\_1h} và \texttt{meter\_diff\_2h}: mức chênh lệch phụ tải hiện tại so với một và hai giờ trước:
+    \begin{equation*}
+        \texttt{meter\_diff\_k}_t = m_t - m_{t-k}, \qquad k \in \{1,2\}.
+    \end{equation*}
+    \item \texttt{meter\_ratio\_1h} và \texttt{meter\_ratio\_2h}: tỷ số giữa phụ tải hiện tại và phụ tải trễ, cộng thêm $1$ ở tử và mẫu theo cách triển khai:
+    \begin{equation*}
+        \texttt{meter\_ratio\_k}_t =
+        \frac{m_t + 1}{m_{t-k} + 1}, \qquad k \in \{1,2\}.
+    \end{equation*}
+    \item \texttt{flatline\_duration}: số giờ liên tiếp phụ tải gần như không đổi; một bước được xem là không đổi khi $|m_t-m_{t-1}| \leq 10^{-4}$. Bộ đếm được khởi động lại khi điều kiện này không còn thỏa mãn hoặc khi gặp giá trị thiếu.
+    \item \texttt{stl\_residual}: chênh lệch giữa phụ tải hiện tại và trung vị của phụ tải tại cùng giờ trong bảy ngày trước đó:
+    \begin{equation*}
+        \texttt{stl\_residual}_t =
+        m_t - \operatorname{median}\{m_{t-24d} \mid d=1,\ldots,7\}.
+    \end{equation*}
+\end{enumerate}
+Fu và cộng sự cũng chỉ ra rằng sai phân bằng không có thể biểu thị bất thường dạng phụ tải phẳng; nhóm dùng ý tưởng này để tạo \texttt{flatline\_duration} \cite{lead_winner}. Riêng \texttt{stl\_residual} là phần nhóm tự xây dựng: lấy phụ tải hiện tại trừ trung vị phụ tải tại cùng giờ trong bảy ngày trước đó. Tên biến được giữ theo mã nguồn, nhưng phép tính này không phải phân rã STL cổ điển. Các biến trễ được tính theo từng công trình và chỉ sử dụng phụ tải tại thời điểm hiện tại hoặc trước đó.
+
+\textbf{Ưu điểm:}
+\begin{itemize}
+    \item \textbf{Mô tả biến động ngắn hạn:} Các độ trễ, sai phân và tỉ số biểu diễn mức và chiều thay đổi phụ tải, hữu ích khi cần nhận diện bước nhảy hoặc sụt giảm đột ngột.
+    \item \textbf{Nhận biết đoạn phụ tải phẳng và sai lệch theo ngày:} \texttt{flatline\_duration} thể hiện thời gian kéo dài của các giá trị gần như không đổi; \texttt{stl\_residual} thể hiện độ lệch so với phụ tải tại cùng giờ trong các ngày trước.
+\end{itemize}
+
+\textbf{Nhược điểm:}
+\begin{itemize}
+    \item \textbf{Phụ thuộc tính liên tục của chuỗi:} Giá trị trễ không có sẵn ở đầu chuỗi hoặc sau khoảng thiếu; cách xử lý các giá trị này có thể ảnh hưởng đến tín hiệu của mô hình.
+    \item \textbf{Nhạy với ngưỡng và mẫu số:} Ngưỡng cố định $10^{-4}$ của bộ đếm đoạn phẳng có thể không phù hợp với mọi thang đo, còn tỉ số có thể nhạy khi mẫu số gần bằng $0$.
+    \item \textbf{Cần đủ lịch sử cho đối chiếu chu kỳ:} Phần dư theo ngày kém tin cậy khi chưa có đủ các quan sát của cùng giờ trong bảy ngày trước.
+\end{itemize}
+
+\subsubsection{Kỹ thuật phân cụm hành vi phụ tải}\hspace{1cm}
+
+Kỹ thuật phân cụm nhóm các tòa nhà theo đặc trưng tiêu thụ thay vì chỉ dựa vào nhãn công năng. Một cách biểu diễn có thể dùng là véc-tơ $\mathbf{v}_i \in \mathbb{R}^{D}$, chẳng hạn véc-tơ $168$ chiều gồm phụ tải trung bình theo từng giờ trong tuần; đây là ví dụ về biểu diễn, không phải khẳng định rằng mọi nghiên cứu đều dùng véc-tơ này. K-Means \cite{kmeans} là một thuật toán thường dùng, với hàm mục tiêu:
+\begin{equation*}
+    \mathcal{J} = \sum_{k=1}^{K} \sum_{\mathbf{v}_i \in \mathcal{C}_k} \left\| \mathbf{v}_i - \boldsymbol{\mu}_k \right\|_2^2
+\end{equation*}
+với $\boldsymbol{\mu}_k$ là véc-tơ trọng tâm của cụm $\mathcal{C}_k$. Cansever và Konyar \cite{cansever2026} phân cụm các tòa nhà bằng K-Means dựa trên đặc trưng thống kê cấp công trình, sau đó đánh giá các mô hình phát hiện bất thường riêng theo cụm. Trong triển khai khác, mã cụm cũng có thể được dùng như một đặc trưng bổ trợ.\\
+
+\textbf{Ưu điểm:}
+\begin{itemize}
+    \item \textbf{Tách các nhóm hành vi khác nhau:} Có thể giúp mô hình hóa riêng các nhóm có hình thái phụ tải khác nhau, nếu các đặc trưng và số cụm được lựa chọn phù hợp.
+    \item \textbf{Bổ sung cho nhãn công năng:} Phân cụm dựa trên dữ liệu tiêu thụ có thể phản ánh khác biệt vận hành giữa các công trình cùng loại công năng, nhưng kết quả phụ thuộc vào chất lượng dữ liệu và biểu diễn đầu vào.
+\end{itemize}
+
+\textbf{Nhược điểm:}
+\begin{itemize}
+    \item \textbf{Nhạy cảm với việc chọn số cụm $K$:} Chất lượng phân cụm phụ thuộc lớn vào việc định cỡ tham số $K$ và độ đo khoảng cách; khoảng cách Euclidean thông thường nhạy cảm với hiện tượng lệch pha thời gian.
+\end{itemize}
+
+\subsubsection{Hàm mất mát entropy chéo nhị phân có trọng số}\hspace{1cm}
+
+Nhằm xử lý sự mất cân bằng giữa số lượng quan trắc bình thường và bất thường, hàm mất mát entropy chéo nhị phân có trọng số gán hệ số phạt $w_+$ cao hơn cho các trường hợp phân loại sai lớp bất thường:
+\begin{equation*}
+    \mathcal{L}_{\text{WBCE}} = -\frac{1}{N}\sum_{i=1}^{N}\left[ w_{+}\, y_i \log \hat{p}_i + (1 - y_i)\log\left(1 - \hat{p}_i\right)\right]
+\end{equation*}
+với $\hat{p}_i$ là xác suất dự đoán và $y_i \in \{0, 1\}$. Với từng quan sát, đạo hàm theo logit $z_i$ lần lượt là $\hat{p}_i$ khi $y_i=0$ và $-w_+(1-\hat{p}_i)$ khi $y_i=1$; nếu xét hàm mất mát trung bình trên $N$ quan sát thì các đạo hàm này có thêm hệ số $1/N$.\\
+
+\textbf{Ưu điểm:}
+\begin{itemize}
+    \item \textbf{Đơn giản và dễ tích hợp:} Chỉ cần một siêu tham số duy nhất $w_+$; các thư viện Học máy thường cung cấp tham số tương ứng như \texttt{scale\_pos\_weight} trong XGBoost \cite{xgboost}, LightGBM \cite{lightgbm}, CatBoost \cite{catboost}, hoặc \texttt{pos\_weight} trong các thư viện Học sâu.
+    \item \textbf{Cải thiện khả năng phát hiện lớp bất thường:} Có thể hạn chế việc mô hình dự đoán gần như toàn bộ mẫu thuộc lớp đa số bình thường.
+\end{itemize}
+
+\textbf{Nhược điểm:}
+\begin{itemize}
+    \item \textbf{Làm lệch xác suất dự đoán:} Đặt $w_+$ quá lớn có thể đẩy điểm số dự đoán về phía lớp bất thường, làm giảm độ tin cậy của xác suất và khiến cần điều chỉnh ngưỡng phân loại.
+    \item \textbf{Tăng cảnh báo nhầm:} Trọng số phạt lớp bất thường quá cao có thể khiến mô hình gán nhầm nhiều biến động phụ tải bình thường thành bất thường, làm giảm độ chính xác của các dự đoán bất thường.
+\end{itemize}
+
+\subsubsection{Hàm mất mát tập trung}\hspace{1cm}
+
+Lin và cộng sự \cite{focal_loss} đề xuất hàm mất mát tập trung cho bài toán phát hiện vật thể nhằm giảm ảnh hưởng của các mẫu dễ trong dữ liệu mất cân bằng. Hàm này bổ sung một thừa số suy giảm động $(1 - p_t)^\gamma$ vào hàm mất mát entropy chéo:
+\begin{equation*}
+    \mathrm{FL}(p_t) = -\alpha_t \left(1 - p_t\right)^{\gamma} \log\left(p_t\right)
+\end{equation*}
+trong đó $p_t$ là xác suất mô hình gán cho lớp đúng, $\alpha_t$ là hệ số cân bằng lớp và $\gamma \geq 0$ điều khiển mức độ tập trung vào các mẫu khó. Có thể thử áp dụng hàm mất mát này cho dữ liệu dị thường mất cân bằng, nhưng hiệu quả cần được kiểm chứng trên tập kiểm định của bài toán cụ thể.\\
+
+\textbf{Ưu điểm:}
+\begin{itemize}
+    \item \textbf{Giảm ảnh hưởng của mẫu dễ:} Khi một mẫu bình thường được phân loại đúng với độ tin cậy cao ($p_t \rightarrow 1$), thành phần $(1 - p_t)^\gamma$ giảm dần về $0$, hạn chế ảnh hưởng áp đảo của số lượng lớn mẫu bình thường trong quá trình học.
+    \item \textbf{Tập trung vào các trường hợp biên khó:} Mô hình tự động hướng năng lực tối ưu vào các mẫu có độ mơ hồ cao hoặc nằm sát ranh giới quyết định giữa bình thường và bất thường.
+\end{itemize}
+
+
+\textbf{Nhược điểm:}
+\begin{itemize}
+    \item \textbf{Thêm siêu tham số cần tinh chỉnh:} Cần lựa chọn các tham số $(\alpha, \gamma)$, làm tăng không gian tìm kiếm siêu tham số.
+    \item \textbf{Khó diễn giải xác suất đầu ra:} Điểm số dự đoán có thể khó được diễn giải trực tiếp như xác suất thực nếu chưa qua bước hiệu chuẩn.
+\end{itemize}
+
+\subsubsection{Mạng tích chập thời gian kết hợp bộ tự mã hóa TCN}\hspace{1cm}
+
+TCN-AE là một cách kết hợp bộ mã hóa-giải mã với mạng tích chập thời gian TCN. TCN sử dụng các phép tích chập nhân quả và giãn cách để mở rộng vùng tiếp nhận theo thời gian \cite{tcn}; nút thắt cổ chai là một lựa chọn thiết kế của autoencoder, không phải thành phần bắt buộc của mọi TCN. Điểm dị thường có thể được xác định bằng sai số tái tạo, như cách tiếp cận CNN autoencoder được khảo sát cùng các mô hình GAN trong công trình của Handigol và Arjunan \cite{handigol2025}; công trình này không trực tiếp đánh giá kiến trúc TCN-AE.\\
+
+\textbf{Ưu điểm:}
+\begin{itemize}
+    \item \textbf{Huấn luyện song song vượt trội:} Không bị ràng buộc tính toán tuần tự theo từng bước thời gian như LSTM/GRU, tận dụng tối đa kiến trúc xử lý song song của GPU.
+    \item \textbf{Vùng tiếp nhận mở rộng linh hoạt:} Một lịch giãn cách thường dùng là $d = 2^l$; lựa chọn này mở rộng vùng tiếp nhận mà không cần tăng tương ứng kích thước bộ lọc, nhưng không tự bảo đảm kiểm soát đạo hàm.
+    \item \textbf{Trích xuất mẫu cục bộ:} Các bộ lọc tích chập có thể học đặc trưng cục bộ như bước nhảy tải hoặc đoạn giá trị không đổi; hiệu quả phụ thuộc vào kiến trúc và dữ liệu huấn luyện.
+\end{itemize}
+
+\textbf{Nhược điểm:}
+\begin{itemize}
+    \item \textbf{Nguy cơ tái tạo cả dữ liệu bất thường:} Nếu nút thắt cổ chai không đủ hẹp hoặc mô hình quá mạnh, bộ tự mã hóa có thể học cách tái tạo cả những đoạn dữ liệu bất thường.
+    \item \textbf{Yêu cầu bộ nhớ GPU cao khi chuỗi dài:} Các phép toán tích chập nhiều kênh trên kích thước batch lớn đòi hỏi dung lượng VRAM đáng kể.
+\end{itemize}
+
+\subsubsection{Cơ chế tự chú ý trong mô hình chuỗi}\hspace{1cm}
+
+Cơ chế tự chú ý trong Transformer \cite{transformer} tính toán mức độ liên hệ giữa các vị trí trong chuỗi thông qua các phép chiếu truy vấn, khóa và giá trị. Biểu thức dưới đây mô tả phép chú ý tích vô hướng có co giãn cho một đầu chú ý; cơ chế chú ý đa đầu kết hợp nhiều đầu như vậy. Đây là cơ chế tổng quát có thể được xem xét cho dữ liệu chuỗi, không phải mô tả kiến trúc GAN-LSTM của Orvati Nia và cộng sự hay cơ chế chú ý trên đồ thị của Zhang và cộng sự:
+\begin{equation*}
+    \text{Attention}(\mathbf{Q}, \mathbf{K}, \mathbf{V}) = \text{softmax}\left( \frac{\mathbf{Q}\mathbf{K}^\top}{\sqrt{d_k}} \right) \mathbf{V}
+\end{equation*}
+
+
+\textbf{Ưu điểm:}
+\begin{itemize}
+    \item \textbf{Mô hình hóa quan hệ giữa các thời điểm:} Cơ chế chú ý cho phép tính tương tác trực tiếp giữa các vị trí trong cửa sổ, kể cả khi chúng cách xa nhau; hiệu quả thực tế còn phụ thuộc vào biểu diễn và cách huấn luyện mô hình.
+    \item \textbf{Cung cấp thông tin về trọng số chú ý:} Ma trận chú ý thể hiện các trọng số được tính trong mô hình, nhưng không nên mặc nhiên xem các trọng số này là lời giải thích đầy đủ hoặc có tính nhân quả cho dự đoán.
+\end{itemize}
+
+\textbf{Nhược điểm:}
+\begin{itemize}
+    \item \textbf{Độ phức tạp tính toán bậc hai:} Chi phí tính toán và bộ nhớ tăng theo hàm bậc hai $O(w^2)$ theo chiều dài cửa sổ trượt $w$, gây trở ngại khi cần mở rộng cửa sổ ngữ cảnh rất dài.
+    \item \textbf{Dễ quá khớp trên dữ liệu ít đa dạng:} Mạng chú ý đòi hỏi lượng dữ liệu chuỗi phong phú để học ma trận tương quan ổn định, dễ bị quá khớp nếu số lượng công trình huấn luyện hạn chế.
+\end{itemize}
+
+\subsubsection{Hàm mất mát căn chỉnh thời gian mềm khả vi Soft-DTW}\hspace{1cm}
+
+Soft-DTW \cite{soft_dtw} là phiên bản làm trơn, có thể lấy đạo hàm của phép căn chỉnh thời gian động. Trong bài toán phát hiện bất thường chuỗi năng lượng, Prabhu và cộng sự \cite{prabhu2024} sử dụng Soft-DTW làm hàm mất mát tái tạo cho DCGAN 1D và báo cáo kết quả tốt hơn khoảng cách Euclid trong thiết lập thí nghiệm của họ; kết quả đó không đồng nghĩa Soft-DTW luôn thay thế sai số bình phương trung bình hiệu quả hơn trên mọi dữ liệu:
+\begin{equation*}
+    \text{Soft-DTW}_\gamma(\mathbf{x}, \hat{\mathbf{x}}) = \operatorname{soft-min}_\gamma \left( \left\{ \langle \mathbf{A}_\pi, \boldsymbol{\Delta}(\mathbf{x}, \hat{\mathbf{x}}) \rangle \right\}_{\pi \in \mathcal{A}} \right)
+\end{equation*}
+với $\boldsymbol{\Delta}$ là ma trận khoảng cách giữa các điểm, $\mathcal{A}$ là tập đường căn chỉnh và $\operatorname{soft-min}_\gamma(a) = -\gamma \log \sum \exp(-a_i/\gamma)$ là phép lấy cực tiểu mềm có thể tính đạo hàm.\\
+
+
+\textbf{Ưu điểm:}
+\begin{itemize}
+    \item \textbf{Dung nạp một số sai lệch căn chỉnh thời gian:} Phép căn chỉnh đàn hồi có thể giảm mức phạt đối với các chuỗi có hình dạng tương tự nhưng lệch pha; cần giới hạn căn chỉnh phù hợp để không bỏ qua độ trễ mang ý nghĩa bất thường.
+    \item \textbf{Có thể tính đạo hàm:} Phiên bản làm trơn cho phép tính đạo hàm và dùng làm hàm mất mát trong quá trình tối ưu mô hình.
+\end{itemize}
+
+\textbf{Nhược điểm:}
+\begin{itemize}
+    \item \textbf{Chi phí tính toán lớn:} Thuật toán quy hoạch động có độ phức tạp thời gian và không gian là $O(w^2)$, khiến tốc độ huấn luyện trên tập dữ liệu hàng triệu bước thời gian chậm hơn nhiều lần so với sai số bình phương trung bình thông thường.
+    \item \textbf{Nguy cơ bỏ sót bất thường độ trễ:} Nếu bài toán thực tế yêu cầu phát hiện sự cố chậm giờ bật tải, cơ chế co dãn của Soft-DTW có thể vô tình xem sự chậm trễ này là hành vi bình thường.
+\end{itemize}
+
+\subsubsection{Mô hình chuỗi có điều kiện theo siêu dữ liệu}\hspace{1cm}
+
+Một hướng mô hình hóa có điều kiện là kết hợp siêu dữ liệu tĩnh của công trình (chẳng hạn địa điểm, công năng hoặc nhãn cụm) với biểu diễn chuỗi. Với biến danh mục $Z$, có thể ánh xạ thành véc-tơ nhúng $\mathbf{e} = \mathbf{E}[Z] \in \mathbb{R}^d$ rồi điều biến biểu diễn ẩn bằng FiLM \cite{film}:
+\begin{equation*}
+    \mathbf{h}_t' = \boldsymbol{\gamma}(\mathbf{e}) \odot \mathbf{h}_t + \boldsymbol{\beta}(\mathbf{e})
+\end{equation*}
+trong đó $\mathbf{h}_t$ là trạng thái biểu diễn chuỗi và $\boldsymbol{\gamma}, \boldsymbol{\beta}$ là các mạng chiếu tuyến tính điều biến độ lợi và độ lệch.\\
+
+\pagebreak
+
+\textbf{Ưu điểm:}
+\begin{itemize}
+    \item \textbf{Biểu diễn có điều kiện theo siêu dữ liệu:} Có thể giúp mạng điều chỉnh biểu diễn chuỗi theo thông tin công trình; cơ chế này không tự động xác định ngưỡng phân loại.
+    \item \textbf{Học biểu diễn nhúng:} Véc-tơ nhúng được học trong quá trình huấn luyện, nhưng không bảo đảm rằng khoảng cách giữa các véc-tơ phản ánh đúng mức độ tương đồng ngữ nghĩa của các địa điểm.
+\end{itemize}
+
+\textbf{Nhược điểm:}
+\begin{itemize}
+    \item \textbf{Tăng số lượng tham số mô hình:} Thêm các bảng tra cứu nhúng và mạng điều biến FiLM làm tăng số lượng tham số; cần dùng các biện pháp điều chuẩn như bỏ ngẫu nhiên kết nối hoặc suy giảm trọng số để hạn chế ghi nhớ dữ liệu huấn luyện.
+    \item \textbf{Phụ thuộc vào siêu dữ liệu:} Cần có các trường ngữ cảnh được dùng khi huấn luyện tại thời điểm suy luận; thiếu hoặc gặp giá trị danh mục mới có thể làm giảm chất lượng dự đoán.
+\end{itemize}
+
+\subsubsection{Mô hình sinh đối kháng kết hợp mạng LSTM}\hspace{1cm}
+
+Orvati Nia và cộng sự \cite{orvati2026} đánh giá một mô hình GAN-LSTM trên các cửa sổ phụ tải LEAD dài 60 giờ, huấn luyện bằng các cửa sổ bình thường và so sánh với các phương pháp đối chứng. Ở mức khái quát, cấu trúc GAN gồm:
+\begin{itemize}
+    \item \textbf{Mạng tạo sinh $G$:} Sử dụng các tầng tế bào nhớ LSTM để ánh xạ từ không gian véc-tơ tiềm ẩn $\mathbf{z} \sim p_z$ thành một cửa sổ phụ tải điện nhân tạo $\hat{\mathbf{x}} = G(\mathbf{z}) \in \mathbb{R}^W$.
+    \item \textbf{Mạng phân biệt $D$:} Nhận một cửa sổ chuỗi phụ tải thực tế $\mathbf{x}$ hoặc chuỗi do mạng tạo sinh tạo ra $\hat{\mathbf{x}}$, rồi dùng các tầng LSTM kết hợp tầng tuyến tính để ước lượng xác suất chuỗi thuộc phân phối dữ liệu chuẩn $D(\mathbf{x}) \in [0, 1]$.
+\end{itemize}
+Với dạng GAN chuẩn, mục tiêu cực tiểu--cực đại có thể viết như sau:
+\begin{equation*}
+    \min_G \max_D V(D, G) = \mathbb{E}_{\mathbf{x} \sim p_{\text{data}}}[\log D(\mathbf{x})] + \mathbb{E}_{\mathbf{z} \sim p_z}[\log(1 - D(G(\mathbf{z})))]
+\end{equation*}
+Trong thiết lập của Orvati Nia và cộng sự, mô hình chỉ được huấn luyện trên các cửa sổ bình thường. Khi suy luận, điểm bất thường ở mức cửa sổ kết hợp sai số tái tạo với sai khác giữa các đặc trưng ẩn của mạng phân biệt:
+\begin{equation*}
+    \mathcal{S}(\mathbf{x}) = \lambda\,\mathcal{L}_{\mathrm{rec}}\!\left(\mathbf{x}, G(\mathbf{z}^*)\right) + (1-\lambda)\,\mathcal{L}_{\mathrm{feat}}\!\left(f_D(\mathbf{x}), f_D(G(\mathbf{z}^*))\right)
+\end{equation*}
+trong đó $\mathbf{z}^*$ là véc-tơ tiềm ẩn được tìm bằng tối ưu hóa tại thời điểm suy luận, $f_D$ là biểu diễn trung gian của mạng phân biệt, còn $\mathcal{L}_{\mathrm{rec}}$ và $\mathcal{L}_{\mathrm{feat}}$ lần lượt là các thành phần sai số tái tạo và sai khác đặc trưng. Nghiên cứu này đánh giá ở mức cửa sổ; không nên diễn giải điểm số đó thành nhãn bất thường cho từng giờ nếu chưa có bước ánh xạ riêng.\\
+
+\textbf{Ưu điểm:}
+\begin{itemize}
+    \item \textbf{Học biểu diễn phụ tải bình thường không cần nhãn:} Tận dụng tối đa lượng lớn dữ liệu vận hành chuẩn, không phụ thuộc vào nhãn bất thường vốn rất khan hiếm trong thực tế.
+    \item \textbf{Nắm bắt quan hệ động học đa bước:} Cơ chế cổng nhớ của LSTM duy trì tính liên tục và hình thái tuần hoàn của chuỗi phụ tải trong suốt chiều dài cửa sổ.
+    \item \textbf{Đánh giá theo ngữ cảnh nhiều giờ:} Điểm số cửa sổ sử dụng thông tin của nhiều thời điểm, nhưng việc gộp nhãn theo cửa sổ có thể làm giảm khả năng xác định chính xác thời điểm bắt đầu của bất thường.
+\end{itemize}
+
+\textbf{Nhược điểm:}
+\begin{itemize}
+    \item \textbf{Khó khăn trong cân bằng đối kháng:} Dễ gặp hiện tượng suy giảm đa dạng đầu ra hoặc mất cân bằng đạo hàm cập nhật giữa mạng tạo sinh và mạng phân biệt trong quá trình tối ưu.
+    \item \textbf{Độ trễ và suy giảm phân giải thời gian:} Đánh giá bất thường theo cửa sổ chỉ phát hiện được khoảng thời gian xảy ra biến cố, khó định vị chính xác thời điểm giờ bắt đầu nếu không kết hợp thêm cơ chế phân giải ngược.
+    \item \textbf{Chi phí suy luận trượt cửa sổ cao:} Việc trượt cửa sổ liên tục qua chuỗi dữ liệu dài ngày đòi hỏi chi phí tính toán đáng kể.
+\end{itemize}
+
+\subsubsection{Mạng sinh đối kháng tích chập sâu một chiều}\hspace{1cm}
+
+Handigol và Arjunan \cite{handigol2025} khảo sát DCGAN một chiều cho phát hiện bất thường trên chuỗi năng lượng, đồng thời so sánh với mạng tích chập tự mã hóa và mạng tự mã hóa biến phân tích chập. Ở mức khái quát, DCGAN dùng các mạng tích chập một chiều để xử lý cửa sổ chuỗi:
+\begin{itemize}
+    \item \textbf{Mạng tạo sinh:} Tạo chuỗi phụ tải từ biểu diễn tiềm ẩn.
+    \item \textbf{Mạng phân biệt:} Phân biệt chuỗi thực với chuỗi được tạo ra trong quá trình huấn luyện đối kháng.
+\end{itemize}
+Trong thiết lập được báo cáo, điểm bất thường dựa trên sai số tái tạo:
+\begin{equation*}
+    \mathcal{S}(\mathbf{x}) = \mathcal{L}_{\mathrm{rec}}(\mathbf{x}, \hat{\mathbf{x}})
+\end{equation*}
+trong đó $\hat{\mathbf{x}}$ là chuỗi tái tạo. Không nên đồng nhất điểm số này với cơ chế so khớp đặc trưng của mạng phân biệt nếu không chỉ rõ đó là một biến thể khác.\\
+
+\textbf{Ưu điểm:}
+\begin{itemize}
+    \item \textbf{Khả năng song song hóa cao:} Các phép toán tích chập 1D không có phụ thuộc tuần hoàn theo thời gian, tận dụng tối đa năng lực xử lý song song của GPU, tăng tốc độ huấn luyện so với mô hình hồi quy.
+    \item \textbf{Nhạy với hình thái sóng phụ tải:} Các bộ lọc tích chập cục bộ có thể nhận diện các dạng bất thường như gai tải đột ngột, méo đỉnh phụ tải hoặc đoạn giá trị không đổi.
+    \item \textbf{Trích xuất đặc trưng nhiều quy mô:} Các tầng tích chập có vùng tiếp nhận tăng dần giúp nắm bắt đồng thời dao động vi mô lẫn chu kỳ ngày/tuần.
+\end{itemize}
+
+\textbf{Nhược điểm:}
+\begin{itemize}
+    \item \textbf{Hiện tượng tạo mẫu tuần hoàn giả:} Nếu kiến trúc dùng tích chập chuyển vị, việc lựa chọn kích thước bộ lọc và bước nhảy không phù hợp có thể tạo ra cấu trúc giả trong chuỗi sinh.
+    \item \textbf{Hạn chế trong duy trì phụ thuộc xa:} Trường tiếp nhận phụ thuộc trực tiếp vào số tầng tích chập; việc mở rộng vùng quan sát đòi hỏi tăng mạnh độ sâu mạng, làm tăng kích thước tham số.
+\end{itemize}
+
+\subsubsection{Kỹ thuật tái tạo song song nhiều điểm}\hspace{1cm}
+
+Trong AnoGAN \cite{anogan} và cách tiếp cận của Prabhu và cộng sự \cite{prabhu2024}, giai đoạn suy luận tìm véc-tơ tiềm ẩn sao cho đầu ra của mạng tạo sinh tái tạo gần với chuỗi quan sát:
+\begin{equation*}
+    \mathbf{z}^* = \arg\min_{\mathbf{z}} \mathcal{L}_{\mathrm{rec}}\!\left(\mathbf{x}, G(\mathbf{z})\right)
+\end{equation*}
+
+Việc tối ưu lặp này có thể tốn thời gian nếu xử lý từng cửa sổ riêng lẻ.
+
+Prabhu và cộng sự \cite{prabhu2024} tăng tốc bằng cách thực hiện song song việc tái tạo nhiều điểm hoặc cửa sổ trong quá trình tối ưu. Phương pháp này vẫn cập nhật véc-tơ tiềm ẩn bằng đạo hàm; bài báo không thay thế bước đó bằng một mạng ánh xạ $E$ và không loại bỏ hoàn toàn các vòng lặp tối ưu hóa tại thời điểm suy luận. Điểm bất thường kết hợp sai số tái tạo với thông tin từ phân phối tiên nghiệm của không gian tiềm ẩn.\\
+
+
+\textbf{Ưu điểm:}
+\begin{itemize}
+    \item \textbf{Tăng thông lượng xử lý:} Tối ưu nhiều điểm hoặc cửa sổ theo lô có thể tận dụng tính toán song song trên GPU và giảm chi phí xử lý tuần tự.
+    \item \textbf{Giữ bước tối ưu hóa tiềm ẩn:} Phương pháp vẫn thực hiện tối ưu hóa tại thời điểm suy luận; mức tăng tốc phụ thuộc kích thước lô, phần cứng và số bước tối ưu.
+\end{itemize}
+
+\textbf{Nhược điểm:}
+\begin{itemize}
+    \item \textbf{Vẫn tốn chi phí tối ưu hóa:} Tối ưu nhiều cửa sổ đồng thời vẫn cần lặp cập nhật đạo hàm và có thể tiêu tốn nhiều bộ nhớ GPU.
+    \item \textbf{Phụ thuộc vào chất lượng tái tạo:} Điểm số vẫn bị ảnh hưởng bởi khả năng biểu diễn của mạng tạo sinh và cách thiết lập hàm mất mát.
+\end{itemize}
+
+Các hướng tiếp cận trên cho thấy có thể bổ sung thông tin cho mô hình từ bối cảnh công trình, hình thái phụ tải, mức mất cân bằng giữa các lớp và diễn biến theo thời gian. Việc lựa chọn kỹ thuật cần cân nhắc mục tiêu phát hiện, đặc điểm dữ liệu và giới hạn của từng cách làm.

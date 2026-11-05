@@ -1,0 +1,21 @@
+{
+  "model": "HIST",
+  "dataset": "expanded",
+  "n_features": 54,
+  "best_pr_auc": 0.838,
+  "roc_auc": 0.953,
+  "best_f1": 0.8358,
+  "precision": 0.9574,
+  "recall": 0.7415,
+  "best_threshold": 0.3645,
+  "total_trials": 30,
+  "total_time_sec": 462.62,
+  "best_params": {
+    "max_iter": 350,
+    "max_leaf_nodes": 37,
+    "max_depth": 6,
+    "learning_rate": 0.05497331548072159,
+    "min_samples_leaf": 56,
+    "l2_regularization": 1.9010579515911192
+  }
+}
